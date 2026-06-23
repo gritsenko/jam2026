@@ -4,6 +4,9 @@ tools/.gemini_key
 .env
 *.key
 
+# --- node ---
+node_modules/
+
 # --- generated / intermediate sprites ---
 # Raw 1K-2K generations before post-processing. Final sprites in
 # assets/sprites/ ARE committed; raw ones are disposable.
