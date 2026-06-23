@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, hex } from '../theme';
 import type { CardDef } from '../config/types';
 import { drawPanel, fitSprite, makeText } from './helpers';
@@ -6,18 +6,35 @@ import { drawPanel, fitSprite, makeText } from './helpers';
 export interface BattleCardOptions {
   width?: number;
   height?: number;
+  /** Energy-token texture for the cost chip (assets key 'icon_energy'). */
+  energyIcon?: Texture;
+  /** Gold-coin texture for the cost chip (assets key 'icon_gold'). */
+  goldIcon?: Texture;
 }
 
 /**
- * A hand card: element-colored frame, art, name, cost and a flavor line.
- * Origin is the center (so it can be lifted/dragged about its middle).
- * Presentational only — interaction (drag/drop) is wired by the scene.
+ * A hand card: element-colored frame, art, name, a flavor line and a compact
+ * cost row along the bottom — energy load on the left, gold price on the right.
+ * Origin is the center (so it can be lifted / dragged about its middle).
+ * Presentational only — interaction (drag/drop) is wired by the scene; the scene
+ * calls {@link setAffordable} to lock cards the player can't pay for.
  */
 export class BattleCard extends Container {
   readonly def: CardDef;
   readonly grade: number;
   readonly cardW: number;
   readonly cardH: number;
+
+  /** Whether the player can currently afford this card (gates dragging). */
+  affordable = true;
+
+  // Gold chip pieces, recolored when affordability changes.
+  private goldChipBg = new Graphics();
+  private goldChipRect: [number, number, number, number] = [0, 0, 0, 0];
+  private goldValue!: Text;
+
+  // Dim + red "locked" veil shown when the card is unaffordable.
+  private lockOverlay = new Container();
 
   constructor(def: CardDef, grade: number, art: Texture, opts: BattleCardOptions = {}) {
     super();
@@ -70,22 +87,99 @@ export class BattleCard extends Container {
     if (blurb.width > W - 26) blurb.scale.set((W - 26) / blurb.width);
     this.addChild(blurb);
 
-    // (No Synergy-Points cost — SP is not a user-facing entity. The card's
-    // energy-load chip below communicates its cost to the network instead.)
+    // Cost row: two compact chips — energy load + gold price.
+    this.buildCostRow(opts.energyIcon, opts.goldIcon);
+    this.buildLockOverlay();
+  }
 
-    // Load chip (top-left): energy load, +n consumes, -n generates.
-    const loadPos = def.baseLoad >= 0;
-    const loadColor = loadPos ? COLORS.energyWarn : COLORS.energyOk;
-    const lc = new Graphics();
-    lc.circle(-W / 2 + 26, -H / 2 + 26, 22).fill({ color: COLORS.metalMid });
-    lc.circle(-W / 2 + 26, -H / 2 + 26, 22).stroke({ width: 2.5, color: loadColor });
-    this.addChild(lc);
-    const loadText = makeText(`${def.baseLoad > 0 ? '+' : ''}${def.baseLoad}`, 'small', {
-      fontSize: 22,
-      fill: hex(loadColor),
-    });
-    loadText.anchor.set(0.5);
-    loadText.position.set(-W / 2 + 26, -H / 2 + 26);
-    this.addChild(loadText);
+  /**
+   * Compact cost row at the bottom of the card: a small energy chip (the load
+   * this card adds to the network; `-n` green for generators) and a gold chip
+   * (its play price). Both are origin-centered so they travel with the card.
+   */
+  private buildCostRow(energyIcon?: Texture, goldIcon?: Texture): void {
+    const W = this.cardW;
+    const H = this.cardH;
+
+    const gap = 10;
+    const chipH = 40;
+    const chipW = (W - 24 - gap) / 2;
+    const cy = H / 2 - chipH / 2 - 14; // sits just inside the bottom edge
+    const leftCx = -gap / 2 - chipW / 2;
+    const rightCx = gap / 2 + chipW / 2;
+
+    // --- Energy chip (load) ---
+    const load = this.def.baseLoad;
+    const energyColor = load > 0 ? COLORS.energyWarn : load < 0 ? COLORS.energyOk : COLORS.textDim;
+    const energyBg = new Graphics();
+    this.paintChip(energyBg, leftCx, cy, chipW, chipH, energyColor);
+    this.addChild(energyBg);
+    const energyValue = makeText(`${load > 0 ? '+' : ''}${load}`, 'value', { fontSize: 26, fill: hex(energyColor) });
+    this.layoutChipContent(leftCx, cy, chipW, chipH, energyIcon, energyValue);
+
+    // --- Gold chip (price) ---
+    this.goldChipRect = [rightCx - chipW / 2, cy - chipH / 2, chipW, chipH];
+    this.addChild(this.goldChipBg);
+    this.goldValue = makeText(String(this.def.costGold), 'value', { fontSize: 26, fill: hex(COLORS.gold) });
+    this.paintChip(this.goldChipBg, rightCx, cy, chipW, chipH, COLORS.gold);
+    this.layoutChipContent(rightCx, cy, chipW, chipH, goldIcon, this.goldValue);
+  }
+
+  /** Draw a single rounded cost-chip background with a colored edge. */
+  private paintChip(g: Graphics, cx: number, cy: number, w: number, h: number, color: number): void {
+    g.clear();
+    g.roundRect(cx - w / 2, cy - h / 2, w, h, 12).fill({ color: COLORS.black, alpha: 0.5 });
+    g.roundRect(cx - w / 2, cy - h / 2, w, h, 12).stroke({ width: 2.5, color, alpha: 0.9 });
+  }
+
+  /** Center an [icon][value] cluster inside a chip and attach both to the card. */
+  private layoutChipContent(cx: number, cy: number, w: number, _h: number, icon: Texture | undefined, value: Text): void {
+    value.anchor.set(0, 0.5);
+    const iconSize = 26;
+    const gap = 6;
+    const hasIcon = icon !== undefined;
+    const clusterW = (hasIcon ? iconSize + gap : 0) + value.width;
+    let x = cx - Math.min(clusterW, w - 12) / 2;
+    if (hasIcon) {
+      const sp = new Sprite(icon);
+      fitSprite(sp, iconSize, iconSize);
+      sp.position.set(x + iconSize / 2, cy);
+      this.addChild(sp);
+      x += iconSize + gap;
+    }
+    value.position.set(x, cy);
+    this.addChild(value);
+  }
+
+  /** Dark + red veil drawn over the whole card while it is unaffordable. */
+  private buildLockOverlay(): void {
+    const W = this.cardW;
+    const H = this.cardH;
+    const veil = new Graphics();
+    veil.roundRect(-W / 2, -H / 2, W, H, 20).fill({ color: COLORS.black, alpha: 0.5 });
+    veil.roundRect(-W / 2, -H / 2, W, H, 20).stroke({ width: 5, color: COLORS.energyDanger, alpha: 0.85 });
+    this.lockOverlay.addChild(veil);
+    const label = makeText('NEED GOLD', 'label', { fontSize: 26, fill: hex(COLORS.energyDanger) });
+    label.anchor.set(0.5);
+    if (label.width > W - 30) label.scale.set((W - 30) / label.width);
+    this.lockOverlay.addChild(label);
+    this.lockOverlay.visible = false;
+    this.addChild(this.lockOverlay);
+  }
+
+  /**
+   * Mark whether the player can pay for this card. Unaffordable cards show a red
+   * "locked" veil and recolor the gold chip; the scene refuses to start a drag
+   * on them (they can still be tapped for the info plaque).
+   */
+  setAffordable(affordable: boolean): void {
+    if (this.affordable === affordable) return;
+    this.affordable = affordable;
+    this.lockOverlay.visible = !affordable;
+    this.cursor = affordable ? 'grab' : 'not-allowed';
+    const color = affordable ? COLORS.gold : COLORS.energyDanger;
+    this.goldValue.style.fill = hex(color);
+    const [x, y, w, h] = this.goldChipRect;
+    this.paintChip(this.goldChipBg, x + w / 2, y + h / 2, w, h, color);
   }
 }

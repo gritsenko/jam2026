@@ -1,6 +1,7 @@
 import { Application, Container } from 'pixi.js';
 import { COLORS } from '../theme';
 import { AssetLoader } from './AssetLoader';
+import { loadFonts } from './fonts';
 import { ResponsiveLayout } from './ResponsiveLayout';
 import { SceneManager } from './SceneManager';
 import { setTweenTicker } from './tween';
@@ -39,6 +40,10 @@ export class Game {
     mount.appendChild(this.app.canvas);
     setTweenTicker(this.app.ticker);
 
+    // Register bundled web fonts before any Text is created (placeholders below
+    // and every scene render rely on the families declared in FONTS).
+    await loadFonts();
+
     this.assets = new AssetLoader(this.app.renderer);
     await this.assets.init();
 
@@ -66,7 +71,15 @@ export class Game {
     window.addEventListener('orientationchange', this.resizeHandler);
     window.visualViewport?.addEventListener('resize', this.resizeHandler);
 
-    this.app.ticker.add((t) => this.scenes.update(t.deltaMS / 1000));
+    // Guard the frame loop: an uncaught error in a scene's update would stop
+    // PixiJS scheduling further frames (the app freezes black until reload).
+    this.app.ticker.add((t) => {
+      try {
+        this.scenes.update(t.deltaMS / 1000);
+      } catch (err) {
+        console.error('[Game] scene update threw', err);
+      }
+    });
 
     this.handleResize();
     this.scenes.start(start);

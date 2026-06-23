@@ -68,9 +68,9 @@ export const COLORS = {
 
 export const FONTS = {
   /** Chunky display face for titles, wave counter, big numbers. */
-  display: '"Trebuchet MS", "Segoe UI", Roboto, system-ui, sans-serif',
+  display: '"Lilita One", "Trebuchet MS", "Segoe UI", system-ui, sans-serif',
   /** Readable body face for card text and labels. */
-  body: '"Segoe UI", Roboto, system-ui, sans-serif',
+  body: '"Lilita One", "Segoe UI", Roboto, system-ui, sans-serif',
 } as const;
 
 /** Layout reference. Everything is authored in this portrait coordinate space. */

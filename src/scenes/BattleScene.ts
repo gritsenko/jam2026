@@ -1,39 +1,53 @@
 import { Container, type FederatedPointerEvent, Graphics, type PointData, Sprite } from 'pixi.js';
-import { COLORS, hex } from '../theme';
+import { COLORS, ELEMENTS, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
 import { createBattleState } from '../config/battleState';
+import { HAND_RESPAWN_SEC, HAND_SIZE, OVERDRIVE_SEC, rollHandCard } from '../config/battleRules';
+import { CORE_MAX, ENEMY_PATH, WAVE_CLEAR_BONUS } from '../config/combatRules';
 import { getCard } from '../config/cards';
-import { ENEMIES } from '../config/enemies';
-import type { BattleStateMock } from '../config/types';
+import { WAVES } from '../config/waves';
+import type { BattleStateMock, CardDef } from '../config/types';
+import { ArenaPath } from '../game/path';
+import {
+  BattleSim,
+  fireRateFromEnergy,
+  towerStats,
+  type SimEnemy,
+  type TowerSpec,
+} from '../game/BattleSim';
+import { BattleBanner } from '../ui/BattleBanner';
 import { BattleCard } from '../ui/BattleCard';
 import { Button } from '../ui/Button';
+import { CoreBadge } from '../ui/CoreBadge';
 import { EnemySprite } from '../ui/EnemySprite';
 import { EnergyGauge } from '../ui/EnergyGauge';
+import { HandSlotView } from '../ui/HandSlotView';
 import { HeroAvatar } from '../ui/HeroAvatar';
 import { PlatformGrid } from '../ui/PlatformGrid';
+import { ProjectileView } from '../ui/Projectile';
 import { ReactorZone } from '../ui/ReactorZone';
 import { ResourceChip } from '../ui/ResourceChip';
 import { SceneBackground } from '../ui/SceneBackground';
 import type { SlotView } from '../ui/SlotView';
+import { TowerInfoPanel } from '../ui/TowerInfoPanel';
 import { WaveBadge } from '../ui/WaveBadge';
-import { makeText } from '../ui/helpers';
+import { glowCircle, makeText } from '../ui/helpers';
 
-interface HandEntry {
-  card: BattleCard;
+/**
+ * One fixed hand position. Holds a card, or sits empty and recharges (`charge`
+ * visual, counting `cooldown` down) until it spawns a fresh card.
+ */
+interface HandSlot {
   home: PointData;
+  card: BattleCard | null;
+  charge: HandSlotView;
+  /** Seconds until respawn while empty; 0 when filled. */
+  cooldown: number;
   /** In-flight return-to-hand animation, if any (so a re-grab can cancel it). */
   returnTween?: TweenHandle;
 }
-
-/** Enemy positions on the square arena's road ring, as fractions of the image. */
-const ENEMY_SPOTS = [
-  { fx: 0.18, fy: 0.18 },
-  { fx: 0.82, fy: 0.18 },
-  { fx: 0.18, fy: 0.82 },
-  { fx: 0.82, fy: 0.82 },
-];
 
 /**
  * Arena-image width fraction between the opposite *outer road edges*. The
@@ -43,6 +57,8 @@ const ENEMY_SPOTS = [
 const ROAD_SPAN = 0.76;
 /** Platform plate width as a fraction of the arena image width. */
 const PLATFORM_FRAC = 0.5;
+/** Pointer travel (screen px) before a card press becomes a drag rather than a tap. */
+const DRAG_THRESHOLD_SQ = 12 * 12;
 
 /**
  * The main battle screen. All HUD elements from the brief (§5.3) on mock data.
@@ -62,6 +78,7 @@ export class BattleScene extends Scene {
   private fieldMask = new Graphics(); // clips the zoomed field to the play area
   private fieldFrame = new Graphics(); // viewport vignette + edge drawn over the field
   private enemyLayer = new Container();
+  private fxLayer = new Container(); // projectiles + impact/muzzle bursts, above enemies
   private hudLayer = new Container();
   private handLayer = new Container();
   private dragLayer = new Container();
@@ -74,6 +91,7 @@ export class BattleScene extends Scene {
   private reactorTween?: TweenHandle;
   private gauge!: EnergyGauge;
   private waveBadge!: WaveBadge;
+  private coreBadge!: CoreBadge;
   private goldChip!: ResourceChip;
   private crystalChip!: ResourceChip;
   private avatar!: HeroAvatar;
@@ -81,13 +99,45 @@ export class BattleScene extends Scene {
   private backBtn!: Button;
   private resonanceLabel = makeText('PAR RESONANCE', 'label', { fontSize: 26, fill: hex(COLORS.energyOk) });
   private hint = makeText('Drag a card onto a slot or the Reactor', 'micro', { fontSize: 20 });
+  private waveToast = makeText('', 'title', { fontSize: 40, fill: hex(COLORS.gold) });
 
-  private hand: HandEntry[] = [];
-  private enemies: EnemySprite[] = [];
+  private hand: HandSlot[] = [];
+
+  // --- Combat simulation + its sprite mirrors ------------------------------
+  private sim!: BattleSim;
+  private path!: ArenaPath;
+  private enemyViews = new Map<number, EnemySprite>();
+  /** Last HP seen per enemy id, to trigger a hit-flash when it drops. */
+  private enemyHpSeen = new Map<number, number>();
+  private projViews = new Map<number, ProjectileView>();
+  private enemySize = 1;
+  private banner?: BattleBanner;
+  /** Range footprint shown under the dragged card before it is placed. */
+  private rangePreview = new Graphics();
+  /** Attack-range circle drawn while a placed tower is inspected (tap-to-inspect). */
+  private inspectRange = new Graphics();
+  /** Slot index currently inspected, or null. */
+  private inspectedIndex: number | null = null;
+  /** Top plaque describing the inspected tower. */
+  private infoPanel!: TowerInfoPanel;
+  /** Info-panel geometry, recomputed each layout so re-show lands correctly. */
+  private infoPanelWidth = 760;
+  private infoPanelPos: PointData = { x: 0, y: 0 };
+
+  /** Remaining Overdrive time (s) granted by burning a card; 0 = inactive. */
+  private overdriveTimer = 0;
+  /** Monotonic counter for unique spawned-card instance ids. */
+  private instanceSeq = 0;
 
   // Drag state.
   private dragging: BattleCard | null = null;
   private dragOffset: PointData = { x: 0, y: 0 };
+  /** Card pressed but not yet dragged — promoted to a drag once the pointer moves
+   *  past a threshold, or treated as a tap (show info plaque) if released first. */
+  private pressCard: BattleCard | null = null;
+  private pressStart: PointData = { x: 0, y: 0 };
+  /** Hand card whose description plaque is currently shown (tap-to-inspect). */
+  private inspectedCard: BattleCard | null = null;
   /** Slot currently showing a build preview (ghost) under the dragged card. */
   private previewSlot: SlotView | null = null;
   /** Whether the dragged card is faded out (because a slot preview is showing). */
@@ -137,18 +187,35 @@ export class BattleScene extends Scene {
     );
     this.field.addChild(this.resonanceLabel);
 
-    const enemySize = this.arenaW * 0.13;
-    ENEMIES.forEach((def, i) => {
-      const e = new EnemySprite(assets.get(def.iconKey), enemySize, i * 1.3);
-      const spot = ENEMY_SPOTS[i % ENEMY_SPOTS.length]!;
-      e.position.set(spot.fx * this.arenaW, spot.fy * this.arenaH);
-      this.enemies.push(e);
-      this.enemyLayer.addChild(e);
-    });
-    this.field.addChild(this.enemyLayer);
+    this.enemySize = this.arenaW * 0.12;
+    this.rangePreview.visible = false;
+    this.inspectRange.visible = false;
+    this.field.addChild(this.rangePreview, this.inspectRange, this.enemyLayer, this.fxLayer);
 
     this.buildHud();
     this.buildHand();
+
+    // --- Combat: the ring path + headless simulation that drives waves, tower
+    //     fire and the core's integrity. The scene only mirrors it to sprites. --
+    this.path = new ArenaPath(ENEMY_PATH, this.arenaW, this.arenaH);
+    this.sim = new BattleSim({
+      path: this.path,
+      waves: WAVES,
+      arenaWidth: this.arenaW,
+      coreMax: CORE_MAX,
+      callbacks: {
+        onEnemyKilled: (e) => this.onEnemyKilled(e),
+        onEnemyLeaked: (e) => this.onEnemyLeaked(e),
+        onTowerFired: (slotIndex) => this.onTowerFired(slotIndex),
+        onProjectileHit: (x, y, element) => this.burst(x, y, ELEMENTS[element].glow, this.arenaW * 0.03),
+        onWaveStart: (n) => this.waveBadge.setWave(n, this.sim.totalWaves),
+        onWaveCleared: () => this.addReward(WAVE_CLEAR_BONUS),
+        onVictory: () => this.showBanner('victory'),
+        onDefeat: () => this.showBanner('defeat'),
+      },
+    });
+    this.syncTowers();
+    this.sim.start();
 
     this.addChild(
       this.marginBg,
@@ -170,7 +237,8 @@ export class BattleScene extends Scene {
     const { assets } = this.services;
     const s = this.state;
 
-    this.waveBadge = new WaveBadge(s.wave, s.maxWave);
+    this.waveBadge = new WaveBadge(1, WAVES.length);
+    this.coreBadge = new CoreBadge(CORE_MAX, CORE_MAX);
     this.goldChip = new ResourceChip(assets.get('icon_gold'), s.gold, COLORS.gold);
     this.crystalChip = new ResourceChip(assets.get('icon_crystal'), s.crystals, COLORS.crystal);
     this.avatar = new HeroAvatar(
@@ -196,36 +264,115 @@ export class BattleScene extends Scene {
       width: 150,
       height: 64,
       preset: 'label',
+      labelColor: hex(COLORS.textBright),
       onClick: () => this.services.navigate('worldmap'),
     });
 
     this.hint.anchor.set(0.5);
     this.hint.alpha = 0.7;
 
+    this.waveToast.anchor.set(0.5);
+    this.waveToast.alpha = 0;
+
+    this.infoPanel = new TowerInfoPanel();
+
     this.hudLayer.addChild(
       this.waveBadge,
+      this.coreBadge,
       this.goldChip,
       this.crystalChip,
       this.avatar,
       this.gauge,
       this.backBtn,
       this.hint,
+      this.waveToast,
+      this.infoPanel,
     );
   }
 
   private buildHand(): void {
-    for (const hc of this.state.hand) {
-      const def = getCard(hc.cardId);
-      const card = new BattleCard(def, hc.grade, this.services.assets.get(def.iconKey));
-      card.eventMode = 'static';
-      card.cursor = 'grab';
-      card.on('pointerdown', (e: FederatedPointerEvent) => this.startDrag(card, e));
-      card.on('globalpointermove', (e: FederatedPointerEvent) => this.onDragMove(e));
-      card.on('pointerup', (e: FederatedPointerEvent) => this.endDrag(e));
-      card.on('pointerupoutside', (e: FederatedPointerEvent) => this.endDrag(e));
-      this.hand.push({ card, home: { x: 0, y: 0 } });
-      this.handLayer.addChild(card);
+    // Fixed positions: seed the first ones from the mock hand, the rest start
+    // empty and recharging (so the spawn loop is visible from the first frame).
+    for (let i = 0; i < HAND_SIZE; i++) {
+      const hc = this.state.hand[i];
+      let card: BattleCard | null = null;
+      if (hc) {
+        const def = getCard(hc.cardId);
+        card = new BattleCard(def, hc.grade, this.services.assets.get(def.iconKey), {
+          energyIcon: this.services.assets.get('icon_energy'),
+          goldIcon: this.services.assets.get('icon_gold'),
+        });
+        this.wireCard(card);
+      }
+      const cw = card?.cardW ?? 212;
+      const ch = card?.cardH ?? 300;
+      const charge = new HandSlotView(cw, ch);
+      charge.visible = card === null;
+      this.handLayer.addChild(charge);
+      if (card) this.handLayer.addChild(card);
+      this.hand.push({ home: { x: 0, y: 0 }, card, charge, cooldown: card ? 0 : HAND_RESPAWN_SEC });
     }
+    this.refreshHandAffordability();
+  }
+
+  /** Wire press/drag handlers on a hand card (shared by initial deal and respawn).
+   *  A press that stays put is a tap (show the info plaque); a press that travels
+   *  far enough is promoted to a drag (place / burn). */
+  private wireCard(card: BattleCard): void {
+    card.eventMode = 'static';
+    card.cursor = 'grab';
+    card.on('pointerdown', (e: FederatedPointerEvent) => this.onCardDown(card, e));
+    card.on('globalpointermove', (e: FederatedPointerEvent) => this.onCardMove(e));
+    card.on('pointerup', (e: FederatedPointerEvent) => this.onCardUp(e));
+    card.on('pointerupoutside', (e: FederatedPointerEvent) => this.onCardUp(e));
+  }
+
+  private onCardDown(card: BattleCard, e: FederatedPointerEvent): void {
+    if (this.dragging || this.banner) return;
+    this.pressCard = card;
+    this.pressStart = { x: e.global.x, y: e.global.y };
+  }
+
+  private onCardMove(e: FederatedPointerEvent): void {
+    if (this.dragging) {
+      this.onDragMove(e);
+      return;
+    }
+    const card = this.pressCard;
+    if (!card) return;
+    // Locked (unaffordable) cards never start a drag — only a tap survives.
+    if (!card.affordable) return;
+    const dx = e.global.x - this.pressStart.x;
+    const dy = e.global.y - this.pressStart.y;
+    if (dx * dx + dy * dy < DRAG_THRESHOLD_SQ) return;
+    this.pressCard = null;
+    this.startDrag(card, e);
+    this.onDragMove(e);
+  }
+
+  private onCardUp(e: FederatedPointerEvent): void {
+    if (this.dragging) {
+      this.endDrag(e);
+      this.pressCard = null;
+      return;
+    }
+    // Released without travelling = a tap: toggle the card's description plaque.
+    const card = this.pressCard;
+    this.pressCard = null;
+    if (card) this.toggleCardInfo(card);
+  }
+
+  /** Show (or dismiss) the description plaque for a tapped hand card. */
+  private toggleCardInfo(card: BattleCard): void {
+    if (this.inspectedCard === card) {
+      this.clearInspect();
+      return;
+    }
+    this.clearInspect();
+    this.inspectedCard = card;
+    this.infoPanel.setWidth(this.infoPanelWidth);
+    this.infoPanel.show(card.def, card.grade, towerStats(card.def, card.grade));
+    this.infoPanel.position.set(this.infoPanelPos.x, this.infoPanelPos.y);
   }
 
   private wireSlotTaps(): void {
@@ -234,9 +381,62 @@ export class BattleScene extends Scene {
       slot.cursor = 'pointer';
       slot.on('pointertap', () => {
         if (this.dragging) return;
-        console.log(`[Battle] tapped slot ${slot.index} (${slot.isOccupied ? 'occupied' : 'empty'})`);
+        // Tap a placed tower to inspect it (range + neighbor effects); tap it
+        // again, or any empty slot, to dismiss.
+        if (slot.isOccupied) this.toggleInspect(slot.index);
+        else this.clearInspect();
       });
     }
+  }
+
+  // --- Tap-to-inspect a placed tower ---------------------------------------
+
+  private toggleInspect(index: number): void {
+    if (this.inspectedIndex === index) this.clearInspect();
+    else this.inspect(index);
+  }
+
+  private inspect(index: number): void {
+    const placed = this.state.slots[index];
+    if (!placed) {
+      this.clearInspect();
+      return;
+    }
+    const def = getCard(placed.cardId);
+    this.inspectedIndex = index;
+    this.grid.inspect(index); // neighbor cells, arrows, effect badges
+    this.drawInspectRange(index, def, placed.grade); // attack radius over the road
+    this.infoPanel.setWidth(this.infoPanelWidth);
+    this.infoPanel.show(def, placed.grade, towerStats(def, placed.grade));
+    this.infoPanel.position.set(this.infoPanelPos.x, this.infoPanelPos.y);
+  }
+
+  private clearInspect(): void {
+    if (this.inspectedIndex === null && this.inspectedCard === null) return;
+    if (this.inspectedIndex !== null) {
+      this.inspectedIndex = null;
+      this.grid.clearInspect();
+      this.inspectRange.clear();
+      this.inspectRange.visible = false;
+    }
+    this.inspectedCard = null;
+    this.infoPanel.hide();
+  }
+
+  /** Draw the inspected tower's attack radius (attackers only) over the road. */
+  private drawInspectRange(index: number, def: CardDef, grade: number): void {
+    this.inspectRange.clear();
+    if (def.category !== 'attacking' || !def.rangeCells) {
+      this.inspectRange.visible = false;
+      return;
+    }
+    const r = towerStats(def, grade).rangeCells * this.grid.cellWorldSize;
+    const skin = ELEMENTS[def.element];
+    const p = this.grid.slotScenePos(index);
+    this.inspectRange.position.set(p.x, p.y);
+    this.inspectRange.circle(0, 0, r).fill({ color: skin.glow, alpha: 0.1 });
+    this.inspectRange.circle(0, 0, r).stroke({ width: 4, color: skin.glow, alpha: 0.85 });
+    this.inspectRange.visible = true;
   }
 
   // --- Drag & drop ---------------------------------------------------------
@@ -262,7 +462,8 @@ export class BattleScene extends Scene {
   }
 
   private startDrag(card: BattleCard, e: FederatedPointerEvent): void {
-    if (this.dragging) return;
+    if (this.dragging || !card.affordable) return;
+    this.clearInspect(); // inspection and dragging are mutually exclusive modes
     const entry = this.hand.find((h) => h.card === card);
     entry?.returnTween?.stop();
     if (entry) entry.returnTween = undefined;
@@ -284,7 +485,7 @@ export class BattleScene extends Scene {
     this.cardGhosted = false;
 
     this.showReactor();
-    this.grid.showDropTargets();
+    this.grid.showDropTargets(true);
     this.reactor.setHighlight('valid');
     this.hint.alpha = 0.95;
   }
@@ -304,14 +505,22 @@ export class BattleScene extends Scene {
     this.reactor.setHighlight(overReactor ? 'hover' : 'valid');
     this.gauge.setCharging(overReactor);
 
-    // Over a free slot: drop a translucent build preview into it and fade the
-    // dragged card out so the preview reads cleanly.
+    // Over a free slot: drop a translucent build preview into it, show the tower's
+    // attack-range footprint + the buffs it would feed its neighbors, and fade the
+    // dragged card out so the preview reads.
     if (targetSlot !== this.previewSlot) {
       this.previewSlot?.clearGhost();
       this.previewSlot = targetSlot;
-      targetSlot?.showGhost(this.services.assets.get(card.def.iconKey), card.def.element);
+      if (targetSlot) {
+        targetSlot.showGhost(this.services.assets.get(card.def.iconKey), card.def.element);
+        this.grid.previewBuffs(targetSlot.index, card.def);
+      } else {
+        this.grid.clearInspect();
+      }
     }
-    this.grid.setHover(targetSlot);
+    if (targetSlot) this.showRangePreview(targetSlot, card.def, card.grade);
+    else this.hideRangePreview();
+    this.grid.setHover(targetSlot, true);
     this.setCardGhosted(targetSlot !== null);
   }
 
@@ -336,28 +545,160 @@ export class BattleScene extends Scene {
     this.dragging = null;
     card.cursor = 'grab';
 
-    if (this.reactor.visible && this.reactor.containsGlobal(e.global)) {
-      console.log(`[Battle] BURN ${card.def.shortName} in the Reactor (mock — +overdrive)`);
-      this.flash(this.reactor, COLORS.reactor);
-    } else {
-      const slot = this.grid.slotAtGlobal(e.global);
-      if (slot && !slot.isOccupied) {
-        console.log(`[Battle] PLACE ${card.def.shortName} into slot ${slot.index} (mock)`);
-        this.flash(slot, COLORS.dropValid);
-      } else {
-        console.log(`[Battle] ${card.def.shortName} dropped on no target — returning to hand`);
-      }
-    }
-
+    // Tear down the drag-time visuals shared by every outcome.
     this.cardFadeTween?.stop();
     this.previewSlot?.clearGhost();
     this.previewSlot = null;
     this.cardGhosted = false;
     this.gauge.setCharging(false);
     this.grid.clearHighlights();
-    this.hideReactor();
+    this.grid.clearInspect(); // drop any drag-time buff preview overlay
+    this.hideRangePreview();
     this.hint.alpha = 0.7;
+
+    // Burn: dropped on the Reactor (grants Overdrive).
+    if (this.reactor.visible && this.reactor.containsGlobal(e.global)) {
+      this.hideReactor();
+      this.burnCard(card);
+      return;
+    }
+    this.hideReactor();
+
+    // Place: dropped on a free slot (energy load is the only real cost).
+    const slot = this.grid.slotAtGlobal(e.global);
+    if (slot && !slot.isOccupied) {
+      this.placeCard(card, slot);
+      return;
+    }
     this.returnCardHome(card);
+  }
+
+  // --- Place / burn / spawn ------------------------------------------------
+
+  /** Commit a card to a slot: pay its gold, update state, render and animate it in. */
+  private placeCard(card: BattleCard, slot: SlotView): void {
+    const def = card.def;
+    // Safety net: the card should already be locked when unaffordable, but never
+    // place one the player can't pay for.
+    if (this.state.gold < def.costGold) {
+      this.returnCardHome(card);
+      return;
+    }
+    this.state.slots[slot.index] = { cardId: def.id, grade: card.grade };
+    this.state.energyLoad = Math.max(0, this.state.energyLoad + def.baseLoad);
+    this.gauge.setState({ load: this.state.energyLoad });
+    this.spendGold(def.costGold);
+    this.grid.applyState(this.state); // renders the tower + redraws resonance beams
+    this.syncTowers(); // the new tower joins the firing line
+
+    this.flash(slot, COLORS.dropValid);
+    this.freeHandCard(card);
+    this.animatePlace(card, slot);
+  }
+
+  /** Burn a card in the Reactor: trigger timed Overdrive, animate it in. */
+  private burnCard(card: BattleCard): void {
+    this.state.overdrive = true;
+    this.overdriveTimer = OVERDRIVE_SEC;
+    this.gauge.setState({ overdrive: true });
+    this.flash(this.reactor, COLORS.reactor);
+    this.freeHandCard(card);
+    this.animateBurn(card);
+  }
+
+  /** Mark the hand position that held `card` as empty and start its recharge. */
+  private freeHandCard(card: BattleCard): void {
+    const slot = this.hand.find((h) => h.card === card);
+    if (!slot) return;
+    slot.returnTween?.stop();
+    slot.returnTween = undefined;
+    slot.card = null;
+    slot.cooldown = HAND_RESPAWN_SEC;
+    slot.charge.setProgress(0);
+    slot.charge.visible = true;
+  }
+
+  /** Recharge finished: deal a fresh card into an empty hand position. */
+  private spawnIntoSlot(slot: HandSlot): void {
+    const hc = rollHandCard(this.instanceSeq++);
+    const def = getCard(hc.cardId);
+    const card = new BattleCard(def, hc.grade, this.services.assets.get(def.iconKey), {
+      energyIcon: this.services.assets.get('icon_energy'),
+      goldIcon: this.services.assets.get('icon_gold'),
+    });
+    this.wireCard(card);
+    slot.card = card;
+    slot.cooldown = 0;
+    slot.charge.visible = false;
+    card.position.copyFrom(slot.home);
+    card.setAffordable(this.state.gold >= def.costGold);
+    this.handLayer.addChild(card);
+    this.animateSpawn(card);
+  }
+
+  /** Fly the dragged card into its slot, shrink and fade, then destroy it. */
+  private animatePlace(card: BattleCard, slot: SlotView): void {
+    const start = { x: card.x, y: card.y };
+    const fromScale = card.scale.x;
+    const fromAlpha = card.alpha;
+    this.track(
+      tween({
+        duration: 0.24,
+        easing: Easings.inOutSine,
+        onUpdate: (t) => {
+          if (card.destroyed) return;
+          const tgt = this.dragLayer.toLocal(slot.getGlobalPosition());
+          card.position.set(start.x + (tgt.x - start.x) * t, start.y + (tgt.y - start.y) * t);
+          card.scale.set(fromScale + (0.42 - fromScale) * t);
+          card.alpha = fromAlpha * (1 - t);
+        },
+        onComplete: () => { if (!card.destroyed) card.destroy(); },
+      }),
+    );
+  }
+
+  /** Suck the burned card into the Reactor: shrink, spin slightly, fade out. */
+  private animateBurn(card: BattleCard): void {
+    const start = { x: card.x, y: card.y };
+    const fromScale = card.scale.x;
+    const fromAlpha = card.alpha;
+    this.track(
+      tween({
+        duration: 0.3,
+        easing: Easings.inOutSine,
+        onUpdate: (t) => {
+          if (card.destroyed) return;
+          const tgt = this.dragLayer.toLocal(this.reactor.getGlobalPosition());
+          card.position.set(start.x + (tgt.x - start.x) * t, start.y + (tgt.y - start.y) * t);
+          card.scale.set(fromScale + (0.18 - fromScale) * t);
+          card.rotation = t * 0.6;
+          card.alpha = fromAlpha * (1 - t);
+        },
+        onComplete: () => { if (!card.destroyed) card.destroy(); },
+      }),
+    );
+  }
+
+  /** Pop a freshly spawned card into the hand (scale + fade in). */
+  private animateSpawn(card: BattleCard): void {
+    card.alpha = 0;
+    card.scale.set(0.6);
+    this.track(
+      tween({
+        duration: 0.3,
+        easing: Easings.outBack,
+        onUpdate: (t) => {
+          if (card.destroyed) return;
+          card.scale.set(0.6 + 0.4 * t);
+          card.alpha = Math.min(1, t * 1.4);
+        },
+        onComplete: () => {
+          if (card.destroyed) return;
+          card.scale.set(1);
+          card.alpha = 1;
+        },
+      }),
+    );
   }
 
   private returnCardHome(card: BattleCard): void {
@@ -409,6 +750,257 @@ export class BattleScene extends Scene {
     );
   }
 
+  // --- Combat: simulation <-> sprites --------------------------------------
+
+  /** Rebuild the sim's firing towers from the placed attacking cards. */
+  private syncTowers(): void {
+    const specs: TowerSpec[] = [];
+    this.state.slots.forEach((placed, i) => {
+      if (!placed) return;
+      const def = getCard(placed.cardId);
+      if (def.category !== 'attacking' || !def.rangeCells) return;
+      const st = towerStats(def, placed.grade);
+      const p = this.grid.slotScenePos(i);
+      specs.push({
+        slotIndex: i,
+        element: def.element,
+        x: p.x,
+        y: p.y,
+        range: st.rangeCells * this.grid.cellWorldSize,
+        damage: st.damage,
+        cooldown: st.cooldown,
+      });
+    });
+    this.sim.setTowers(specs);
+  }
+
+  /** Award gold (on a kill or a wave clear) and refresh the chip + hand locks. */
+  private addReward(gold: number): void {
+    if (!gold) return;
+    this.state.gold += gold;
+    this.goldChip.setValue(this.state.gold);
+    this.refreshHandAffordability();
+  }
+
+  /** Spend gold (placing a card) and refresh the chip + hand locks. */
+  private spendGold(gold: number): void {
+    this.state.gold = Math.max(0, this.state.gold - gold);
+    this.goldChip.setValue(this.state.gold);
+    this.refreshHandAffordability();
+  }
+
+  /** Lock every hand card the player can no longer afford (and unlock the rest). */
+  private refreshHandAffordability(): void {
+    for (const slot of this.hand) {
+      if (slot.card) slot.card.setAffordable(this.state.gold >= slot.card.def.costGold);
+    }
+  }
+
+  /** Draw the attack-range footprint of the held card centered on a slot. */
+  private showRangePreview(slot: SlotView, def: CardDef, grade: number): void {
+    this.rangePreview.clear();
+    if (def.category !== 'attacking' || !def.rangeCells) {
+      this.rangePreview.visible = false;
+      return;
+    }
+    const r = towerStats(def, grade).rangeCells * this.grid.cellWorldSize;
+    const skin = ELEMENTS[def.element];
+    const p = this.grid.slotScenePos(slot.index);
+    this.rangePreview.position.set(p.x, p.y);
+    this.rangePreview.circle(0, 0, r).fill({ color: skin.glow, alpha: 0.12 });
+    this.rangePreview.circle(0, 0, r).stroke({ width: 4, color: skin.glow, alpha: 0.8 });
+    this.rangePreview.visible = true;
+  }
+
+  private hideRangePreview(): void {
+    this.rangePreview.clear();
+    this.rangePreview.visible = false;
+  }
+
+  /** Create/update an EnemySprite per live sim enemy; bob + HP bar + hit flash. */
+  private syncEnemies(dt: number): void {
+    const { assets } = this.services;
+    for (const e of this.sim.enemies) {
+      let view = this.enemyViews.get(e.id);
+      if (!view) {
+        view = new EnemySprite(assets.get(e.def.iconKey), this.enemySize, e.id * 0.7);
+        this.enemyViews.set(e.id, view);
+        this.enemyHpSeen.set(e.id, e.hp);
+        this.enemyLayer.addChild(view);
+      }
+      const prev = this.enemyHpSeen.get(e.id);
+      if (prev !== undefined && e.hp < prev) view.playHit();
+      this.enemyHpSeen.set(e.id, e.hp);
+      view.position.set(e.x, e.y);
+      view.setHpFrac(e.hp / e.maxHp);
+      view.tick(dt);
+    }
+  }
+
+  /** Create/update a bolt per live projectile; drop the view once it is gone.
+   *  Impact flashes are driven by the sim's onProjectileHit (real hits only), so
+   *  a bolt that fizzles on an already-dead target leaves no phantom burst. */
+  private syncProjectiles(): void {
+    const radius = this.arenaW * 0.014;
+    const live = new Set<number>();
+    for (const p of this.sim.projectiles) {
+      live.add(p.id);
+      let view = this.projViews.get(p.id);
+      if (!view) {
+        view = new ProjectileView(p.element, radius);
+        this.projViews.set(p.id, view);
+        this.fxLayer.addChild(view);
+      }
+      view.setPos(p.x, p.y);
+    }
+    for (const [id, view] of this.projViews) {
+      if (live.has(id)) continue;
+      view.destroy();
+      this.projViews.delete(id);
+    }
+  }
+
+  /** Mirror each attacking tower's firing cooldown into its slot's corner dial. */
+  private syncCooldowns(): void {
+    for (let i = 0; i < this.grid.slots.length; i++) {
+      const slot = this.grid.slots[i];
+      if (!slot || !slot.isOccupied) continue;
+      slot.setCooldown(this.sim.cooldownFrac(i));
+    }
+  }
+
+  /** Announce the pre-wave / intermission countdown; fade out once spawning. */
+  private updateWaveToast(dt: number): void {
+    let target = 0;
+    if (this.sim.status === 'running' && this.sim.wavePhase === 'countdown') {
+      const secs = Math.max(0, Math.ceil(this.sim.countdown));
+      this.waveToast.text = `WAVE ${this.sim.nextWaveNumber}  •  ${secs}`;
+      target = 0.95;
+    }
+    this.waveToast.alpha += (target - this.waveToast.alpha) * Math.min(1, dt * 8);
+  }
+
+  /** A short element-colored energy burst (muzzle flash / projectile impact). */
+  private burst(x: number, y: number, color: number, size: number): void {
+    const g = glowCircle(size, color, 0.85);
+    g.position.set(x, y);
+    this.fxLayer.addChild(g);
+    this.track(
+      tween({
+        duration: 0.22,
+        easing: Easings.outCubic,
+        onUpdate: (t) => {
+          if (g.destroyed) return;
+          g.scale.set(0.6 + 0.8 * t);
+          g.alpha = 1 - t;
+        },
+        onComplete: () => { if (!g.destroyed) g.destroy(); },
+      }),
+    );
+  }
+
+  private onTowerFired(slotIndex: number): void {
+    const placed = this.state.slots[slotIndex];
+    if (!placed) return;
+    const def = getCard(placed.cardId);
+    const p = this.grid.slotScenePos(slotIndex);
+    this.burst(p.x, p.y, ELEMENTS[def.element].glow, this.arenaW * 0.026);
+  }
+
+  private onEnemyKilled(e: SimEnemy): void {
+    this.addReward(e.def.bounty);
+    const view = this.detachEnemyView(e.id);
+    if (!view) return;
+    this.burst(view.x, view.y, ELEMENTS[e.def.element].glow, this.arenaW * 0.045);
+    this.animateEnemyDeath(view);
+  }
+
+  private onEnemyLeaked(e: SimEnemy): void {
+    this.coreBadge.setValue(this.sim.coreHp);
+    this.flash(this.coreBadge, COLORS.energyDanger);
+    const view = this.detachEnemyView(e.id);
+    if (view) this.animateEnemyLeak(view);
+  }
+
+  /** Remove the sprite for `id` from the live maps and hand it back for an exit anim. */
+  private detachEnemyView(id: number): EnemySprite | undefined {
+    const view = this.enemyViews.get(id);
+    this.enemyViews.delete(id);
+    this.enemyHpSeen.delete(id);
+    return view;
+  }
+
+  private animateEnemyDeath(view: EnemySprite): void {
+    this.track(
+      tween({
+        duration: 0.34,
+        easing: Easings.outCubic,
+        onUpdate: (t) => {
+          if (view.destroyed) return;
+          view.scale.set(1 + 0.5 * t);
+          view.rotation = t * 0.5;
+          view.alpha = 1 - t;
+        },
+        onComplete: () => { if (!view.destroyed) view.destroy(); },
+      }),
+    );
+  }
+
+  private animateEnemyLeak(view: EnemySprite): void {
+    this.track(
+      tween({
+        duration: 0.3,
+        easing: Easings.inOutCubic,
+        onUpdate: (t) => {
+          if (view.destroyed) return;
+          view.scale.set(1 - 0.6 * t);
+          view.alpha = 1 - t;
+        },
+        onComplete: () => { if (!view.destroyed) view.destroy(); },
+      }),
+    );
+  }
+
+  private showBanner(kind: 'victory' | 'defeat'): void {
+    if (this.banner) return;
+    const opts =
+      kind === 'victory'
+        ? {
+            title: 'VICTORY',
+            subtitle: `All ${this.sim.totalWaves} waves repelled`,
+            accent: COLORS.energyOk,
+            buttons: [
+              { label: 'WORLD MAP', primary: true, onClick: () => this.services.navigate('worldmap') },
+            ],
+          }
+        : {
+            title: 'DEFEAT',
+            subtitle: 'The core was overrun',
+            accent: COLORS.energyDanger,
+            buttons: [
+              { label: 'RETRY', primary: true, onClick: () => this.services.navigate('battle') },
+              { label: 'MAP', onClick: () => this.services.navigate('worldmap') },
+            ],
+          };
+    this.banner = new BattleBanner(opts);
+    this.banner.alpha = 0;
+    this.addChild(this.banner);
+    this.layoutBanner(this.services.getLayout());
+    this.track(
+      tween({
+        duration: 0.4,
+        onUpdate: (t) => { if (this.banner && !this.banner.destroyed) this.banner.alpha = t; },
+      }),
+    );
+  }
+
+  private layoutBanner(info: LayoutInfo): void {
+    if (!this.banner) return;
+    const { full, safe } = info;
+    this.banner.setScreen(full.x, full.y, full.width, full.height);
+    this.banner.setCenter(safe.x + safe.width / 2, safe.y + safe.height / 2);
+  }
+
   // --- Layout --------------------------------------------------------------
 
   override layout(info: LayoutInfo): void {
@@ -427,6 +1019,7 @@ export class BattleScene extends Scene {
     const topY = safe.y + pad;
     this.backBtn.position.set(safe.x + pad + 75, topY + 32);
     this.waveBadge.position.set(safe.x + pad + 160, topY);
+    this.coreBadge.position.set(safe.x + pad + 160, topY + this.waveBadge.badgeH + 8);
 
     const avatarCX = safe.x + safe.width - pad - this.avatarR;
     const avatarCY = topY + this.avatarR;
@@ -438,17 +1031,19 @@ export class BattleScene extends Scene {
     this.goldChip.position.set(rowRight - this.crystalChip.chipW - 12 - this.goldChip.chipW, chipY);
 
     // --- Bottom: hand, then gauge above it ----------------------------------
-    const cardH = this.hand[0]?.card.cardH ?? 300;
-    const cardW = this.hand[0]?.card.cardW ?? 212;
+    const sized = this.hand.find((h) => h.card)?.card;
+    const cardH = sized?.cardH ?? 300;
+    const cardW = sized?.cardW ?? 212;
     const bottomPad = 22;
     const handCY = safe.y + safe.height - bottomPad - cardH / 2;
     const handGap = 22;
     const totalW = this.hand.length * cardW + (this.hand.length - 1) * handGap;
     let hx = cx - totalW / 2 + cardW / 2;
-    for (const entry of this.hand) {
-      entry.home = { x: hx, y: handCY };
-      if (entry.card !== this.dragging && entry.card.parent === this.handLayer) {
-        entry.card.position.set(hx, handCY);
+    for (const slot of this.hand) {
+      slot.home = { x: hx, y: handCY };
+      slot.charge.position.set(hx, handCY);
+      if (slot.card && slot.card !== this.dragging && slot.card.parent === this.handLayer) {
+        slot.card.position.set(hx, handCY);
       }
       hx += cardW + handGap;
     }
@@ -462,8 +1057,16 @@ export class BattleScene extends Scene {
     // --- Playfield: zoom the arena so the road ring reaches the screen edges
     //     (the rocky frame baked into the image is cropped off), centered
     //     horizontally. Arena + platform + enemies scale as one locked unit. --
-    const fieldTop = Math.max(topY + this.waveBadge.badgeH, avatarCY + this.avatarR) + 14;
+    const leftStackBottom = topY + this.waveBadge.badgeH + 8 + this.coreBadge.badgeH;
+    const fieldTop = Math.max(leftStackBottom, avatarCY + this.avatarR) + 14;
     const fieldBottom = gaugeY - 14;
+    this.waveToast.position.set(cx, fieldTop + 60);
+
+    // Tower-inspection plaque: top-center, just inside the field viewport.
+    this.infoPanelWidth = Math.min(safe.width - pad * 2, 780);
+    this.infoPanelPos = { x: cx - this.infoPanelWidth / 2, y: fieldTop + 8 };
+    this.infoPanel.setWidth(this.infoPanelWidth);
+    this.infoPanel.position.set(this.infoPanelPos.x, this.infoPanelPos.y);
     const availW = safe.width;
     const availH = Math.max(50, fieldBottom - fieldTop);
     const contain = Math.min(availW / this.arenaW, availH / this.arenaH);
@@ -505,15 +1108,57 @@ export class BattleScene extends Scene {
     );
 
     this.hint.position.set(cx, gaugeY - 24);
+
+    // Keep the end-of-battle overlay covering the screen and centered on resize.
+    this.layoutBanner(info);
   }
 
   override update(dt: number): void {
     this.gauge.tick(dt);
-    for (const e of this.enemies) e.tick(dt);
+
+    // Drive the combat simulation, then mirror it into sprites. Overload from
+    // too much energy load slows every tower's fire rate (Overdrive lifts it).
+    if (this.sim.status === 'running') {
+      this.sim.fireRateMult = fireRateFromEnergy(
+        this.state.energyLoad,
+        this.state.energyCapacity,
+        this.state.overdrive,
+      );
+    }
+    this.sim.update(dt);
+    this.syncEnemies(dt);
+    this.syncProjectiles();
+    this.syncCooldowns();
+    this.updateWaveToast(dt);
+
+    // Overdrive countdown (granted by burning a card in the Reactor).
+    if (this.overdriveTimer > 0) {
+      this.overdriveTimer -= dt;
+      if (this.overdriveTimer <= 0) {
+        this.overdriveTimer = 0;
+        this.state.overdrive = false;
+        this.gauge.setState({ overdrive: false });
+      }
+    }
+
+    // Hand recharge: empty positions count down, then spawn a fresh card.
+    for (const slot of this.hand) {
+      if (slot.card) continue;
+      slot.cooldown -= dt;
+      slot.charge.setProgress(1 - Math.max(0, slot.cooldown) / HAND_RESPAWN_SEC);
+      if (slot.cooldown <= 0) this.spawnIntoSlot(slot);
+    }
+
+    // Drop finished tween handles so the list can't grow with combat activity
+    // (every shot/impact/death adds one); onExit still stops whatever remains.
+    if (this.tweens.length > 48) this.tweens = this.tweens.filter((t) => !t.done);
   }
 
   override onExit(): void {
     for (const t of this.tweens) t.stop();
     this.tweens.length = 0;
+    this.enemyViews.clear();
+    this.enemyHpSeen.clear();
+    this.projViews.clear();
   }
 }

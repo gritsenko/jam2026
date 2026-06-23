@@ -62,18 +62,30 @@ export class SceneManager {
       duration: FADE_SECONDS,
       easing: Easings.inOutSine,
       onUpdate: (e) => (this.fade.alpha = e),
+      onComplete: () => this.swapAndReveal(route, params),
+    });
+  }
+
+  /**
+   * Swap to the target scene behind the black cover, then always fade the cover
+   * back off and release the navigation lock. A scene that fails to mount is
+   * logged but never strands the app on a black, input-swallowing screen (which
+   * previously forced a page reload).
+   */
+  private swapAndReveal(route: RouteId, params?: SceneParams): void {
+    try {
+      this.mountScene(route, params);
+    } catch (err) {
+      console.error(`[SceneManager] failed to mount scene "${route}"`, err);
+    }
+    tween({
+      duration: FADE_SECONDS,
+      easing: Easings.inOutSine,
+      onUpdate: (e) => (this.fade.alpha = 1 - e),
       onComplete: () => {
-        this.mountScene(route, params);
-        tween({
-          duration: FADE_SECONDS,
-          easing: Easings.inOutSine,
-          onUpdate: (e) => (this.fade.alpha = 1 - e),
-          onComplete: () => {
-            this.fade.visible = false;
-            this.fade.eventMode = 'none';
-            this.busy = false;
-          },
-        });
+        this.fade.visible = false;
+        this.fade.eventMode = 'none';
+        this.busy = false;
       },
     });
   }

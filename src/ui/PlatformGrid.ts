@@ -1,8 +1,9 @@
 import { Container, Graphics, type PointData } from 'pixi.js';
-import { COLORS, ELEMENTS } from '../theme';
+import { COLORS, ELEMENTS, hex } from '../theme';
 import type { AssetLoader } from '../core/AssetLoader';
 import { CARDS } from '../config/cards';
-import type { BattleStateMock, Direction } from '../config/types';
+import type { BattleStateMock, CardDef, Direction, PlacedCard } from '../config/types';
+import { makeText } from './helpers';
 import { SlotView, type SlotHighlight } from './SlotView';
 
 const DIR_DELTA: Record<Direction, { dc: number; dr: number }> = {
@@ -21,10 +22,17 @@ export class PlatformGrid extends Container {
   readonly slots: SlotView[] = [];
   private plate = new Container();
   private beams = new Graphics();
+  /** Inspection visuals drawn *under* the towers (range tint, cell highlights). */
+  private inspectBelow = new Container();
   private slotLayer = new Container();
+  /** Inspection visuals drawn *over* the towers (arrows, badges, selection ring). */
+  private inspectAbove = new Container();
   private size: number;
   private cell = 0;
   private step = 0;
+  /** Last applied placement, so inspection can read the inspected card. */
+  private placed: (PlacedCard | null)[] = [];
+  private inspectedIndex: number | null = null;
 
   constructor(
     private assets: AssetLoader,
@@ -32,7 +40,7 @@ export class PlatformGrid extends Container {
   ) {
     super();
     this.size = size;
-    this.addChild(this.plate, this.beams, this.slotLayer);
+    this.addChild(this.plate, this.beams, this.inspectBelow, this.slotLayer, this.inspectAbove);
     this.buildPlate();
 
     const gap = size * 0.035;
@@ -53,8 +61,23 @@ export class PlatformGrid extends Container {
     this.scale.set(target / this.size);
   }
 
+  /** One grid cell's size in the parent (field) coordinate space, after scaling. */
+  get cellWorldSize(): number {
+    return this.cell * this.scale.x;
+  }
+
+  /** Center of slot `index` in this grid's *local* space. */
+  private slotLocal(index: number): PointData {
+    const c = index % 3;
+    const r = Math.floor(index / 3);
+    return { x: (c - 1) * this.step, y: (r - 1) * this.step };
+  }
+
   /** Render the placed cards from the mock state and (re)draw resonance beams. */
   applyState(state: BattleStateMock): void {
+    // Cards changed → any active inspection overlay is stale.
+    this.clearInspect();
+    this.placed = state.slots;
     state.slots.forEach((placed, i) => {
       const slot = this.slots[i];
       if (!slot) return;
@@ -69,6 +92,17 @@ export class PlatformGrid extends Container {
     this.drawBeams(state);
   }
 
+  /**
+   * Center of slot `index` in this grid's *parent* coordinate space (the field),
+   * accounting for the grid's own position and scale. Used to fire towers from
+   * the right spot into the enemy ring.
+   */
+  slotScenePos(index: number): PointData {
+    const slot = this.slots[index];
+    if (!slot) return { x: this.x, y: this.y };
+    return { x: this.x + slot.x * this.scale.x, y: this.y + slot.y * this.scale.y };
+  }
+
   /** Returns the slot whose bounds contain the given global point, else null. */
   slotAtGlobal(global: PointData): SlotView | null {
     for (const slot of this.slots) {
@@ -77,16 +111,25 @@ export class PlatformGrid extends Container {
     return null;
   }
 
-  /** Highlight every empty slot as a valid drop target. */
-  showDropTargets(): void {
-    for (const slot of this.slots) slot.setHighlight(slot.isOccupied ? 'none' : 'valid');
+  /**
+   * Highlight every empty slot as a drop target. When `affordable` is false
+   * (not enough SP for the held card) they light up red instead of green.
+   */
+  showDropTargets(affordable = true): void {
+    const empty: SlotHighlight = affordable ? 'valid' : 'invalid';
+    for (const slot of this.slots) slot.setHighlight(slot.isOccupied ? 'none' : empty);
   }
 
-  /** While hovering, mark `hovered` and keep the rest as plain valid targets. */
-  setHover(hovered: SlotView | null): void {
+  /**
+   * While hovering, mark `hovered` and keep the rest as plain valid targets.
+   * When `affordable` is false, every empty slot reads as 'invalid' (no hover).
+   */
+  setHover(hovered: SlotView | null, affordable = true): void {
     for (const slot of this.slots) {
       if (slot.isOccupied) {
         slot.setHighlight('none');
+      } else if (!affordable) {
+        slot.setHighlight('invalid');
       } else {
         slot.setHighlight(slot === hovered ? 'hover' : 'valid');
       }
@@ -95,6 +138,127 @@ export class PlatformGrid extends Container {
 
   clearHighlights(): void {
     for (const slot of this.slots) slot.setHighlight('none' as SlotHighlight);
+  }
+
+  /** Currently inspected slot index, or null. */
+  get inspected(): number | null {
+    return this.inspectedIndex;
+  }
+
+  /**
+   * Spotlight a placed tower: ring the inspected slot, highlight the neighbor
+   * cells it feeds, and stamp each with an effect badge (e.g. '+15% DMG').
+   * Buffs read green, drains read red. The always-on resonance beams are dimmed
+   * so the selected tower's links stand out. The attack-range circle is drawn by
+   * the scene (it owns the cells→pixels grade math).
+   */
+  inspect(index: number): void {
+    this.clearInspect();
+    const placed = this.placed[index];
+    if (!placed) return;
+    const def = CARDS[placed.cardId];
+    if (!def) return;
+    this.inspectedIndex = index;
+    this.beams.alpha = 0.18; // de-emphasize the global resonance web
+
+    // Selection ring on the inspected slot.
+    const s = this.cell;
+    const origin = this.slotLocal(index);
+    const ring = new Graphics();
+    ring
+      .roundRect(origin.x - s / 2 - 5, origin.y - s / 2 - 5, s + 10, s + 10, 18)
+      .stroke({ width: 5, color: COLORS.dropHover, alpha: 0.95 });
+    this.inspectAbove.addChild(ring);
+
+    this.drawBuffLinks(index, def);
+  }
+
+  /**
+   * Preview where a held card's buffs would land while it is being dragged over
+   * slot `index` — the same affected-neighbor cells, arrows and effect badges as
+   * tap-to-inspect, but without the selection ring (the dragged ghost already
+   * marks the target slot). Cleared via {@link clearInspect}.
+   */
+  previewBuffs(index: number, def: CardDef): void {
+    this.clearInspect();
+    this.beams.alpha = 0.18; // de-emphasize the global resonance web
+    this.drawBuffLinks(index, def);
+  }
+
+  /**
+   * Draw the buff arrows, affected-neighbor cell highlights and effect badges for
+   * a card (placed or previewed) sitting at `index`. Shared by tap-to-inspect and
+   * the drag-time placement preview.
+   */
+  private drawBuffLinks(index: number, def: CardDef): void {
+    const buff = def.buff;
+    if (!buff) return;
+
+    const s = this.cell;
+    const origin = this.slotLocal(index);
+    const dirs: Direction[] =
+      buff.scope === 'adjacent' ? ['Up', 'Down', 'Left', 'Right'] : def.directions;
+    const accent = buff.value >= 0 ? COLORS.dropValid : COLORS.energyDanger;
+    const c = index % 3;
+    const r = Math.floor(index / 3);
+
+    for (const dir of dirs) {
+      const d = DIR_DELTA[dir];
+      const nc = c + d.dc;
+      const nr = r + d.dr;
+      if (nc < 0 || nc > 2 || nr < 0 || nr > 2) continue;
+      const nx = (nc - 1) * this.step;
+      const ny = (nr - 1) * this.step;
+
+      // Highlight the affected neighbor cell (under the towers).
+      const cell = new Graphics();
+      cell.roundRect(nx - s / 2, ny - s / 2, s, s, 14).fill({ color: accent, alpha: 0.18 });
+      cell.roundRect(nx - s / 2, ny - s / 2, s, s, 14).stroke({ width: 3, color: accent, alpha: 0.85 });
+      this.inspectBelow.addChild(cell);
+
+      // Emphasized arrow from the tower into that neighbor, plus its effect badge.
+      this.drawInspectArrow(origin.x, origin.y, nx, ny, accent);
+      this.addBadge(nx, ny, buff.label, accent);
+    }
+  }
+
+  clearInspect(): void {
+    this.inspectedIndex = null;
+    this.inspectBelow.removeChildren().forEach((c) => c.destroy());
+    this.inspectAbove.removeChildren().forEach((c) => c.destroy());
+    this.beams.alpha = 1;
+  }
+
+  /** A bright arrow from the inspected slot toward a neighbor, stopping at its edge. */
+  private drawInspectArrow(x1: number, y1: number, x2: number, y2: number, color: number): void {
+    const g = new Graphics();
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    const back = this.cell * 0.55; // stop short of the neighbor center (room for the badge)
+    const ex = x2 - Math.cos(ang) * back;
+    const ey = y2 - Math.sin(ang) * back;
+    g.moveTo(x1, y1).lineTo(ex, ey).stroke({ width: 9, color, alpha: 0.6 });
+    g.moveTo(x1, y1).lineTo(ex, ey).stroke({ width: 3, color: COLORS.white, alpha: 0.6 });
+    const ah = 18;
+    g.poly([
+      ex + Math.cos(ang) * ah, ey + Math.sin(ang) * ah,
+      ex + Math.cos(ang + 2.5) * ah, ey + Math.sin(ang + 2.5) * ah,
+      ex + Math.cos(ang - 2.5) * ah, ey + Math.sin(ang - 2.5) * ah,
+    ]).fill({ color, alpha: 0.9 });
+    this.inspectAbove.addChild(g);
+  }
+
+  /** A small labelled pill (e.g. '+15% DMG') centered on a neighbor cell. */
+  private addBadge(x: number, y: number, label: string, color: number): void {
+    const txt = makeText(label, 'small', { fontSize: 30, fill: hex(color) });
+    txt.anchor.set(0.5);
+    const w = txt.width + 26;
+    const h = txt.height + 14;
+    const g = new Graphics();
+    g.roundRect(x - w / 2, y - h / 2, w, h, 12).fill({ color: COLORS.metalDark, alpha: 0.96 });
+    g.roundRect(x - w / 2, y - h / 2, w, h, 12).stroke({ width: 3, color, alpha: 0.95 });
+    this.inspectAbove.addChild(g);
+    txt.position.set(x, y);
+    this.inspectAbove.addChild(txt);
   }
 
   private artFor(cardId: string): ReturnType<AssetLoader['get']> {

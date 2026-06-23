@@ -11,6 +11,8 @@ export interface ButtonOptions {
   preset?: TextPreset;
   /** Brass-gold call-to-action vs. quieter steel. */
   primary?: boolean;
+  /** Override the label color (defaults to light cream on every button). */
+  labelColor?: number | string;
 }
 
 /**
@@ -32,8 +34,10 @@ export class Button extends Container {
     this.primary = opts.primary ?? false;
 
     this.addChild(this.bg);
+    // Every button reads with light cream text (over a black stroke from makeText)
+    // for consistent contrast on both brass-primary and steel-secondary fills.
     const label = makeText(opts.label, opts.preset ?? 'title', {
-      fill: this.primary ? '#2a1808' : undefined,
+      fill: opts.labelColor ?? COLORS.textBright,
     });
     label.anchor.set(0.5);
     this.addChild(label);

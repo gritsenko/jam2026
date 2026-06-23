@@ -1,36 +1,37 @@
 import type { BattleStateMock } from './types';
 
 /**
- * Builds a fresh mock battle snapshot. Mirrors the style reference
- * (WAVE 8/20, gold, SP) and seeds the 3x3 platform with a believable mix of
- * placed cards plus a 3-card hand. No simulation — this just feeds the HUD.
+ * Builds a fresh mock battle snapshot: the player's starting resources and the
+ * pre-placed platform. Three attacking towers sit on the *edge* slots (so their
+ * short range reaches the adjacent road) plus a central support; the rest of the
+ * grid is open for the player to build into. Wave/HP/economy beyond this seed are
+ * driven by the live simulation (see src/game/BattleSim.ts), not these numbers.
  */
 export function createBattleState(): BattleStateMock {
   return {
-    wave: 8,
-    maxWave: 20,
-    gold: 510,
+    wave: 1,
+    maxWave: 5,
+    gold: 320,
     crystals: 24,
-    sp: 100,
-    energyLoad: 8,
+    energyLoad: 6, // = sum of the seeded towers' baseLoad (2 + 1 + 1 + 2)
     energyCapacity: 10,
     energyMax: 15,
     overdrive: false,
     slots: [
       null,
-      { cardId: 'plasma_shutter', grade: 1 },
+      { cardId: 'plasma_shutter', grade: 1 }, // top edge
       null,
-      { cardId: 'frost_pulse', grade: 2 },
-      { cardId: 'storm_coil', grade: 1 },
-      { cardId: 'shield_generator', grade: 1 },
-      { cardId: 'grid_stabilizer', grade: 1 },
       null,
-      { cardId: 'railgun', grade: 1 },
+      { cardId: 'shield_generator', grade: 1 }, // center support
+      { cardId: 'frost_pulse', grade: 1 }, // right edge
+      null,
+      { cardId: 'storm_coil', grade: 1 }, // bottom edge — covers the entry gate
+      null,
     ],
     hand: [
-      { instanceId: 'h1', cardId: 'plasma_shutter', grade: 1 },
-      { instanceId: 'h2', cardId: 'frost_pulse', grade: 1 },
-      { instanceId: 'h3', cardId: 'storm_coil', grade: 2 },
+      { instanceId: 'h1', cardId: 'storm_coil', grade: 1 },
+      { instanceId: 'h2', cardId: 'plasma_shutter', grade: 1 },
+      { instanceId: 'h3', cardId: 'railgun', grade: 1 },
     ],
   };
 }

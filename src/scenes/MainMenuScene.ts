@@ -58,6 +58,7 @@ export class MainMenuScene extends Scene {
       primary: true,
       width: 420,
       height: 110,
+      labelColor: hex(COLORS.textBright),
       onClick: () => this.services.navigate('worldmap'),
     });
     this.addChild(this.startBtn);

@@ -16,14 +16,19 @@ export class SlotView extends Container {
   private content = new Container();
   /** Translucent preview of the building that would land here while dragging. */
   private ghost = new Container();
+  /** Mini cooldown dial in the corner of an attacking tower (a shrinking sector). */
+  private cdDial = new Graphics();
+  /** Element glow color the cooldown dial is drawn in (set when a tower is placed). */
+  private cdColor: number = COLORS.white;
   private occupied = false;
 
   constructor(index: number, size: number) {
     super();
     this.index = index;
     this.size = size;
-    this.addChild(this.base, this.content, this.hl, this.ghost);
+    this.addChild(this.base, this.content, this.hl, this.ghost, this.cdDial);
     this.ghost.visible = false;
+    this.cdDial.visible = false;
     this.drawEmpty();
   }
 
@@ -34,14 +39,17 @@ export class SlotView extends Container {
   setEmpty(): void {
     this.occupied = false;
     this.content.removeChildren().forEach((c) => c.destroy());
+    this.setCooldown(0);
     this.drawEmpty();
   }
 
   setPlaced(art: Texture, element: ElementId, grade: number): void {
     this.occupied = true;
     this.content.removeChildren().forEach((c) => c.destroy());
+    this.setCooldown(0);
     const s = this.size;
     const skin = ELEMENTS[element];
+    this.cdColor = skin.glow;
 
     this.base.clear();
     this.base.roundRect(-s / 2, -s / 2, s, s, 16).fill({ color: COLORS.metalDark, alpha: 0.92 });
@@ -96,6 +104,33 @@ export class SlotView extends Container {
   clearGhost(): void {
     this.ghost.removeChildren().forEach((c) => c.destroy());
     this.ghost.visible = false;
+  }
+
+  /**
+   * Draw the attack cooldown as a shrinking pie sector tucked into the tower's
+   * top-right corner: a full wedge right after firing that winds down to empty
+   * as the shot recharges. `frac` is 1 (just fired) → 0 (ready); 0 hides it.
+   */
+  setCooldown(frac: number): void {
+    const g = this.cdDial;
+    g.clear();
+    if (frac <= 0.001) {
+      g.visible = false;
+      return;
+    }
+    g.visible = true;
+    const s = this.size;
+    const r = s * 0.15;
+    const cx = s / 2 - r - 6;
+    const cy = -s / 2 + r + 6;
+    // Dark disc so the wedge reads over the tower art.
+    g.circle(cx, cy, r).fill({ color: COLORS.black, alpha: 0.55 });
+    // Shrinking wedge, clockwise from the top.
+    const start = -Math.PI / 2;
+    const end = start + Math.min(frac, 0.9999) * Math.PI * 2;
+    g.moveTo(cx, cy).arc(cx, cy, r, start, end).fill({ color: this.cdColor, alpha: 0.85 });
+    // Rim.
+    g.circle(cx, cy, r).stroke({ width: 2, color: this.cdColor, alpha: 0.9 });
   }
 
   setHighlight(state: SlotHighlight): void {

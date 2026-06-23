@@ -45,6 +45,8 @@ export interface TweenHandle {
   stop(): void;
   /** Fast-forward to the end and fire onComplete. */
   finish(): void;
+  /** True once the tween has completed or been stopped (lets owners prune handles). */
+  readonly done: boolean;
 }
 
 export function tween(opts: TweenOptions): TweenHandle {
@@ -53,30 +55,47 @@ export function tween(opts: TweenOptions): TweenHandle {
   let elapsed = -delay;
   let done = false;
 
+  const stop = () => {
+    if (done) return;
+    done = true;
+    ticker.remove(tick);
+  };
+
+  // Callbacks run inside the shared ticker loop: an exception escaping here would
+  // stop PixiJS scheduling further frames (the whole app freezes on a black
+  // screen). Contain it to this tween — log and end it instead of killing the loop.
   const finishNow = () => {
     if (done) return;
     done = true;
     ticker.remove(tick);
-    onUpdate(easing(1), 1);
-    onComplete?.();
+    try {
+      onUpdate(easing(1), 1);
+      onComplete?.();
+    } catch (err) {
+      console.error('[tween] completion callback threw', err);
+    }
   };
 
   const tick = (t: Ticker) => {
-    elapsed += t.deltaMS / 1000;
-    if (elapsed < 0) return;
-    const raw = duration <= 0 ? 1 : Math.min(elapsed / duration, 1);
-    onUpdate(easing(raw), raw);
-    if (raw >= 1) finishNow();
+    try {
+      elapsed += t.deltaMS / 1000;
+      if (elapsed < 0) return;
+      const raw = duration <= 0 ? 1 : Math.min(elapsed / duration, 1);
+      onUpdate(easing(raw), raw);
+      if (raw >= 1) finishNow();
+    } catch (err) {
+      console.error('[tween] update callback threw; tween stopped', err);
+      stop();
+    }
   };
 
   ticker.add(tick);
   return {
-    stop: () => {
-      if (done) return;
-      done = true;
-      ticker.remove(tick);
-    },
+    stop,
     finish: finishNow,
+    get done() {
+      return done;
+    },
   };
 }
 
