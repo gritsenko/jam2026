@@ -109,7 +109,9 @@ export class PlatformGrid extends Container {
     // is showcased on the main menu instead, where no grid alignment is needed.)
     const g = new Graphics();
     const o = s / 2;
-    const chamfer = s * 0.16;
+    // Small corner cut only — a near-square plate gives the 3x3 grid more usable
+    // area (bigger, easier tap targets on phones) than the old wide octagon.
+    const chamfer = s * 0.07;
     const oct: number[] = [
       -o + chamfer, -o, o - chamfer, -o, o, -o + chamfer, o, o - chamfer,
       o - chamfer, o, -o + chamfer, o, -o, o - chamfer, -o, -o + chamfer,

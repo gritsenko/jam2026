@@ -16,6 +16,7 @@ import { PlatformGrid } from '../ui/PlatformGrid';
 import { ReactorZone } from '../ui/ReactorZone';
 import { ResourceChip } from '../ui/ResourceChip';
 import { SceneBackground } from '../ui/SceneBackground';
+import type { SlotView } from '../ui/SlotView';
 import { WaveBadge } from '../ui/WaveBadge';
 import { makeText } from '../ui/helpers';
 
@@ -35,6 +36,15 @@ const ENEMY_SPOTS = [
 ];
 
 /**
+ * Arena-image width fraction between the opposite *outer road edges*. The
+ * playfield zooms in until this span fills the screen width, cropping the
+ * rocky frame in the image so the road ring sits right at the screen edges.
+ */
+const ROAD_SPAN = 0.76;
+/** Platform plate width as a fraction of the arena image width. */
+const PLATFORM_FRAC = 0.5;
+
+/**
  * The main battle screen. All HUD elements from the brief (§5.3) on mock data.
  *
  * The arena (background-with-road + platform + enemies) lives in a single
@@ -49,6 +59,8 @@ export class BattleScene extends Scene {
   private marginBg!: SceneBackground; // dimmed backdrop that fills wide-screen margins
   private scrim = new Graphics();
   private field = new Container(); // the locked playfield (arena + platform + enemies)
+  private fieldMask = new Graphics(); // clips the zoomed field to the play area
+  private fieldFrame = new Graphics(); // viewport vignette + edge drawn over the field
   private enemyLayer = new Container();
   private hudLayer = new Container();
   private handLayer = new Container();
@@ -76,6 +88,11 @@ export class BattleScene extends Scene {
   // Drag state.
   private dragging: BattleCard | null = null;
   private dragOffset: PointData = { x: 0, y: 0 };
+  /** Slot currently showing a build preview (ghost) under the dragged card. */
+  private previewSlot: SlotView | null = null;
+  /** Whether the dragged card is faded out (because a slot preview is showing). */
+  private cardGhosted = false;
+  private cardFadeTween?: TweenHandle;
 
   /** All scene-local tweens, stopped on exit so none outlive the scene. */
   private tweens: TweenHandle[] = [];
@@ -109,12 +126,15 @@ export class BattleScene extends Scene {
     this.grid = new PlatformGrid(assets, 720);
     this.grid.applyState(this.state);
     this.grid.position.set(this.arenaW * 0.5, this.arenaH * 0.5);
-    this.grid.setScaleSize(this.arenaW * 0.56);
+    this.grid.setScaleSize(this.arenaW * PLATFORM_FRAC);
     this.field.addChild(this.grid);
     this.wireSlotTaps();
 
     this.resonanceLabel.anchor.set(0.5);
-    this.resonanceLabel.position.set(this.arenaW * 0.5, this.arenaH * 0.5 - this.arenaW * 0.27 - 24);
+    this.resonanceLabel.position.set(
+      this.arenaW * 0.5,
+      this.arenaH * 0.5 - this.arenaW * PLATFORM_FRAC * 0.5 - 30,
+    );
     this.field.addChild(this.resonanceLabel);
 
     const enemySize = this.arenaW * 0.13;
@@ -130,7 +150,18 @@ export class BattleScene extends Scene {
     this.buildHud();
     this.buildHand();
 
-    this.addChild(this.marginBg, this.scrim, this.field, this.hudLayer, this.handLayer, this.dragLayer);
+    this.addChild(
+      this.marginBg,
+      this.scrim,
+      this.field,
+      this.fieldFrame,
+      this.fieldMask,
+      this.hudLayer,
+      this.handLayer,
+      this.dragLayer,
+    );
+    // Clip the zoomed playfield to its viewport (rect set in layout()).
+    this.field.mask = this.fieldMask;
     // Reactor overlays the field but sits below the dragged card.
     this.hudLayer.addChild(this.reactor);
   }
@@ -249,6 +280,8 @@ export class BattleScene extends Scene {
 
     this.track(tween({ duration: 0.12, onUpdate: (t) => { if (!card.destroyed) card.scale.set(1 + 0.14 * t); } }));
     card.alpha = 0.97;
+    this.previewSlot = null;
+    this.cardGhosted = false;
 
     this.showReactor();
     this.grid.showDropTargets();
@@ -262,14 +295,39 @@ export class BattleScene extends Scene {
     const p = this.dragLayer.toLocal(e.global);
     card.position.set(p.x + this.dragOffset.x, p.y + this.dragOffset.y);
 
-    if (this.reactor.visible && this.reactor.containsGlobal(e.global)) {
-      this.reactor.setHighlight('hover');
-      this.grid.setHover(null);
-    } else {
-      this.reactor.setHighlight('valid');
-      const slot = this.grid.slotAtGlobal(e.global);
-      this.grid.setHover(slot && !slot.isOccupied ? slot : null);
+    const overReactor = this.reactor.visible && this.reactor.containsGlobal(e.global);
+    const slot = overReactor ? null : this.grid.slotAtGlobal(e.global);
+    const targetSlot = slot && !slot.isOccupied ? slot : null;
+
+    // Reactor hover charges the gauge (previewing the burn payoff); otherwise
+    // the reactor sits as a plain valid target.
+    this.reactor.setHighlight(overReactor ? 'hover' : 'valid');
+    this.gauge.setCharging(overReactor);
+
+    // Over a free slot: drop a translucent build preview into it and fade the
+    // dragged card out so the preview reads cleanly.
+    if (targetSlot !== this.previewSlot) {
+      this.previewSlot?.clearGhost();
+      this.previewSlot = targetSlot;
+      targetSlot?.showGhost(this.services.assets.get(card.def.iconKey), card.def.element);
     }
+    this.grid.setHover(targetSlot);
+    this.setCardGhosted(targetSlot !== null);
+  }
+
+  /** Fast fade of the dragged card while a slot build-preview is showing. */
+  private setCardGhosted(on: boolean): void {
+    if (this.cardGhosted === on) return;
+    this.cardGhosted = on;
+    const card = this.dragging;
+    if (!card) return;
+    const from = card.alpha;
+    // Fully fade the card out over a slot so only the clean build-preview shows.
+    const to = on ? 0 : 0.97;
+    this.cardFadeTween?.stop();
+    this.cardFadeTween = this.track(
+      tween({ duration: 0.1, onUpdate: (t) => { if (!card.destroyed) card.alpha = from + (to - from) * t; } }),
+    );
   }
 
   private endDrag(e: FederatedPointerEvent): void {
@@ -291,6 +349,11 @@ export class BattleScene extends Scene {
       }
     }
 
+    this.cardFadeTween?.stop();
+    this.previewSlot?.clearGhost();
+    this.previewSlot = null;
+    this.cardGhosted = false;
+    this.gauge.setCharging(false);
     this.grid.clearHighlights();
     this.hideReactor();
     this.hint.alpha = 0.7;
@@ -302,6 +365,7 @@ export class BattleScene extends Scene {
     if (!entry) return;
     const from = { x: card.x, y: card.y };
     const fromScale = card.scale.x;
+    const fromAlpha = card.alpha;
     entry.returnTween?.stop();
     entry.returnTween = this.track(
       tween({
@@ -312,6 +376,7 @@ export class BattleScene extends Scene {
           const tgt = this.dragLayer.toLocal(this.handLayer.toGlobal(entry.home));
           card.position.set(from.x + (tgt.x - from.x) * t, from.y + (tgt.y - from.y) * t);
           card.scale.set(fromScale + (1 - fromScale) * t);
+          card.alpha = fromAlpha + (1 - fromAlpha) * t;
         },
         onComplete: () => {
           entry.returnTween = undefined;
@@ -394,34 +459,50 @@ export class BattleScene extends Scene {
     const gaugeY = handCY - cardH / 2 - 16 - gaugeH;
     this.gauge.position.set(cx - gaugeW / 2, gaugeY);
 
-    // --- Playfield: contain-fit the arena between the top bar and the gauge,
-    //     centered horizontally (so the platform sits dead-center). ----------
+    // --- Playfield: zoom the arena so the road ring reaches the screen edges
+    //     (the rocky frame baked into the image is cropped off), centered
+    //     horizontally. Arena + platform + enemies scale as one locked unit. --
     const fieldTop = Math.max(topY + this.waveBadge.badgeH, avatarCY + this.avatarR) + 14;
     const fieldBottom = gaugeY - 14;
     const availW = safe.width;
     const availH = Math.max(50, fieldBottom - fieldTop);
-    const scale = Math.min(availW / this.arenaW, availH / this.arenaH);
+    const contain = Math.min(availW / this.arenaW, availH / this.arenaH);
+    // Fill the width up to the road ring; only ever zoom *in* past contain-fit.
+    const fillW = availW / (ROAD_SPAN * this.arenaW);
+    // …but never let the platform outgrow the vertical play area (short screens).
+    const platformMax = (availH * 0.94) / (this.arenaW * PLATFORM_FRAC);
+    const scale = Math.min(Math.max(contain, fillW), platformMax);
     this.field.scale.set(scale);
     const fieldCY = (fieldTop + fieldBottom) / 2;
-    const ax = cx - this.arenaW * 0.5 * scale;
-    const ay = fieldCY - this.arenaH * 0.5 * scale;
-    this.field.position.set(ax, ay);
+    this.field.position.set(cx - this.arenaW * 0.5 * scale, fieldCY - this.arenaH * 0.5 * scale);
 
-    // Soft contact shadow around the arena so it reads as inset into the neutral
-    // backdrop (rather than an image pasted on top). Drawn into the scrim, which
-    // sits just below the field — darkest at the arena edge, fading outward.
-    const aw = this.arenaW * scale;
-    const ah = this.arenaH * scale;
-    const bands = 7;
-    for (let i = 0; i < bands; i++) {
-      const spread = 3 + i * 4;
-      this.scrim
-        .roundRect(ax - spread, ay - spread, aw + spread * 2, ah + spread * 2, 14)
-        .fill({ color: COLORS.black, alpha: 0.05 });
+    // Clip the zoomed field to the game-frame viewport: full width in portrait
+    // (so the road bleeds to the true screen edges), and just the centered
+    // portrait column in wide mode (so the arena never spills onto the decor).
+    const viewX = 0;
+    const viewW = info.width;
+    this.fieldMask.clear();
+    this.fieldMask.roundRect(viewX, fieldTop, viewW, availH, 10).fill({ color: COLORS.white });
+
+    // Frame the viewport: a soft inner vignette + a thin brass edge, so the
+    // full-bleed arena reads as an inset window rather than a pasted image.
+    this.fieldFrame.clear();
+    const vbands = 6;
+    for (let i = 0; i < vbands; i++) {
+      const inset = i * 5;
+      this.fieldFrame
+        .roundRect(viewX + inset, fieldTop + inset, viewW - inset * 2, availH - inset * 2, 10)
+        .stroke({ width: 6, color: COLORS.black, alpha: 0.06 });
     }
+    this.fieldFrame
+      .roundRect(viewX + 2, fieldTop + 2, viewW - 4, availH - 4, 10)
+      .stroke({ width: 3, color: COLORS.brass, alpha: 0.35 });
 
-    // Reactor: right edge, vertically centered on the playfield.
-    this.reactor.position.set(safe.x + safe.width - pad - 98, fieldCY);
+    // Reactor: right edge, dropped down to sit just above the energy gauge.
+    this.reactor.position.set(
+      safe.x + safe.width - pad - this.reactor.zoneW / 2,
+      gaugeY - 14 - this.reactor.zoneH / 2,
+    );
 
     this.hint.position.set(cx, gaugeY - 24);
   }

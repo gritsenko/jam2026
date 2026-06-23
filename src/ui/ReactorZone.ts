@@ -14,6 +14,14 @@ export class ReactorZone extends Container {
   private w: number;
   private h: number;
 
+  /** Drop-zone footprint (origin is the center), for scene-side anchoring. */
+  get zoneW(): number {
+    return this.w;
+  }
+  get zoneH(): number {
+    return this.h;
+  }
+
   constructor(assets: AssetLoader, width = 196, height = 300) {
     super();
     this.w = width;

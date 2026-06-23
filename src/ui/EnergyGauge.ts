@@ -18,6 +18,9 @@ interface GaugeState {
 export class EnergyGauge extends Container {
   private frame = new Graphics();
   private segs = new Graphics();
+  /** Gold "charge" overlay shown while a card is hovered over the Reactor. */
+  private chargeGlow = new Graphics();
+  private charging = false;
   private odLabel: Text;
   private readout: Text;
   private w: number;
@@ -29,7 +32,7 @@ export class EnergyGauge extends Container {
     super();
     this.w = width;
     this.h = height;
-    this.addChild(this.frame, this.segs);
+    this.addChild(this.frame, this.segs, this.chargeGlow);
 
     this.readout = makeText('', 'label', { fontSize: 22, fill: hex(COLORS.textBright) });
     this.readout.anchor.set(0, 0.5);
@@ -53,12 +56,24 @@ export class EnergyGauge extends Container {
     this.redraw();
   }
 
+  /**
+   * Toggle the Reactor "charge preview": while a card is held over the Reactor,
+   * the gauge lights up its Overdrive cap and rim to telegraph the +Overdrive
+   * the burn would grant. Pulsed in {@link tick}.
+   */
+  setCharging(on: boolean): void {
+    if (this.charging === on) return;
+    this.charging = on;
+    this.drawCharge();
+  }
+
   /** Optional ambient animation — scene may pump this each frame. */
   tick(dt: number): void {
     this.pulse = (this.pulse + dt * 3) % (Math.PI * 2);
     this.segs.alpha = 1;
     if (this.state.overdrive) this.odLabel.alpha = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(this.pulse));
     else this.odLabel.alpha = 0.4;
+    if (this.charging) this.chargeGlow.alpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(this.pulse * 1.7));
   }
 
   private segColor(index: number): number {
@@ -131,5 +146,30 @@ export class EnergyGauge extends Container {
     });
     this.odLabel.style.fill = hex(overdrive ? COLORS.textDark : COLORS.energyOverdrive);
     this.odLabel.position.set(this.w - padX - 14, this.h / 2);
+
+    if (this.charging) this.drawCharge();
+  }
+
+  private drawCharge(): void {
+    this.chargeGlow.clear();
+    if (!this.charging) {
+      this.chargeGlow.visible = false;
+      return;
+    }
+    const odW = 184;
+    const padX = 16;
+    const padY = 14;
+    const barH = this.h - padY * 2;
+    const odX = this.w - padX - odW;
+    // Bright fill on the Overdrive cap — previews the burn payoff.
+    this.chargeGlow.roundRect(odX, padY, odW, barH, 10).fill({ color: COLORS.energyOverdrive, alpha: 0.85 });
+    this.chargeGlow.roundRect(odX, padY, odW, barH, 10).stroke({ width: 3, color: COLORS.white, alpha: 0.85 });
+    // Charged rim around the whole gauge.
+    this.chargeGlow.roundRect(2, 2, this.w - 4, this.h - 4, 14).stroke({
+      width: 3,
+      color: COLORS.energyOverdrive,
+      alpha: 0.9,
+    });
+    this.chargeGlow.visible = true;
   }
 }

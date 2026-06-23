@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { ColorMatrixFilter, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, type ElementId } from '../theme';
 import { fitSprite } from './helpers';
 
@@ -14,13 +14,16 @@ export class SlotView extends Container {
   private base = new Graphics();
   private hl = new Graphics();
   private content = new Container();
+  /** Translucent preview of the building that would land here while dragging. */
+  private ghost = new Container();
   private occupied = false;
 
   constructor(index: number, size: number) {
     super();
     this.index = index;
     this.size = size;
-    this.addChild(this.base, this.content, this.hl);
+    this.addChild(this.base, this.content, this.hl, this.ghost);
+    this.ghost.visible = false;
     this.drawEmpty();
   }
 
@@ -62,6 +65,37 @@ export class SlotView extends Container {
         .fill({ color: on ? skin.glow : COLORS.metalLight, alpha: on ? 1 : 0.5 });
     }
     this.content.addChild(pips);
+  }
+
+  /**
+   * Show a translucent preview of the tower that a dragged card would build
+   * here — an element ring plus its desaturated art, so the drop reads before
+   * the card is even released. Cleared with {@link clearGhost}.
+   */
+  showGhost(art: Texture, element: ElementId): void {
+    this.clearGhost();
+    const s = this.size;
+    const skin = ELEMENTS[element];
+
+    const ring = new Graphics();
+    ring.roundRect(-s / 2 + 4, -s / 2 + 4, s - 8, s - 8, 14).fill({ color: skin.dark, alpha: 0.35 });
+    ring.roundRect(-s / 2 + 4, -s / 2 + 4, s - 8, s - 8, 14).stroke({ width: 3, color: skin.glow, alpha: 0.85 });
+    this.ghost.addChild(ring);
+
+    const sprite = new Sprite(art);
+    fitSprite(sprite, s * 0.8, s * 0.8);
+    const desat = new ColorMatrixFilter();
+    desat.desaturate();
+    sprite.filters = [desat];
+    this.ghost.addChild(sprite);
+
+    this.ghost.alpha = 0.62;
+    this.ghost.visible = true;
+  }
+
+  clearGhost(): void {
+    this.ghost.removeChildren().forEach((c) => c.destroy());
+    this.ghost.visible = false;
   }
 
   setHighlight(state: SlotHighlight): void {
