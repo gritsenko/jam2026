@@ -1,0 +1,6 @@
+Скопируй этот файл в tools/.gemini_key (без .example) и вставь свой ключ
+из https://aistudio.google.com/apikey одной строкой, без кавычек.
+Файл tools/.gemini_key добавлен в .gitignore и не попадёт в репозиторий.
+
+Пример содержимого tools/.gemini_key:
+AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX

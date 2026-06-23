@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#1a0f0a" />
+    <title>Synergy Grid TD</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: radial-gradient(circle at 50% 35%, #3a2415 0%, #1a0f0a 70%, #0d0705 100%);
+        /* Disable mobile gestures / pull-to-refresh / double-tap zoom on the play area. */
+        touch-action: none;
+        overscroll-behavior: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #app,
+      #app canvas {
+        display: block;
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      /* Loading flash before Pixi mounts. */
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, sans-serif;
+        font-size: 14px;
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        color: #c79a5b;
+        opacity: 0.7;
+        pointer-events: none;
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-DXFsHhkG.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="boot">Synergy Grid TD</div>
+  </body>
+</html>

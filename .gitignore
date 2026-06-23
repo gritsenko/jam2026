@@ -1,0 +1,15 @@
+# --- secrets ---
+tools/.gemini_key
+.gemini_key
+.env
+*.key
+
+# --- generated / intermediate sprites ---
+# Raw 1K-2K generations before post-processing. Final sprites in
+# assets/sprites/ ARE committed; raw ones are disposable.
+assets/raw/
+
+# --- python ---
+tools/.venv/
+__pycache__/
+*.pyc

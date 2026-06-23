@@ -1,0 +1,20 @@
+{
+  "name": "synergy-grid-td",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Synergy Grid TD — playable shell (Tower Defense / Merge on a 3x3 grid). Built with Vite + TypeScript + PixiJS v8.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pixi.js": "^8.19.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0"
+  }
+}

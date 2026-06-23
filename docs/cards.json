@@ -1,0 +1,401 @@
+{
+    "system_constants": {
+        "start_platform_capacity": 6,
+        "max_platform_capacity": 15,
+        "overload_penalty_per_unit": {
+            "stat": "attack_speed_pct",
+            "value": -5
+        },
+        "reactor_overclock": {
+            "capacity_boost": 2,
+            "duration_seconds": 15
+        }
+    },
+    "cards": {
+        "attacking": [
+            {
+                "id": "plasma_shutter",
+                "name": "Плазменный Затвор",
+                "element": "Fire",
+                "base_load": 2,
+                "cooldown": 0.8,
+                "base_damage": 15,
+                "damage_type": "physical_and_dot",
+                "buff_profile": {
+                    "type": "Linear",
+                    "target_stat": "damage_pct",
+                    "value": 15
+                },
+                "grades": [
+                    {
+                        "level": 1,
+                        "directions": [
+                            "Up"
+                        ],
+                        "base_damage": 15,
+                        "description": "Транслирует бафф только Вверх."
+                    },
+                    {
+                        "level": 2,
+                        "directions": [
+                            "Up",
+                            "Down"
+                        ],
+                        "base_damage": 23,
+                        "description": "Транслирует бафф Вверх и Вниз."
+                    },
+                    {
+                        "level": 3,
+                        "directions": [
+                            "Up",
+                            "Down",
+                            "Left",
+                            "Right"
+                        ],
+                        "base_damage": 35,
+                        "description": "Транслирует бафф во все 4 ортогональных направления."
+                    }
+                ]
+            },
+            {
+                "id": "frost_pulse",
+                "name": "Морозный Импульс (Frost Pulse)",
+                "element": "Water",
+                "base_load": 1,
+                "cooldown": 1.5,
+                "base_damage": 8,
+                "damage_type": "magic",
+                "special_effect": {
+                    "status": "Wet",
+                    "duration": 3.0,
+                    "slow_pct": 25
+                },
+                "buff_profile": {
+                    "type": "T-Shape",
+                    "target_stat": "attack_range_pct",
+                    "value": 20
+                },
+                "grades": [
+                    {
+                        "level": 1,
+                        "directions": [
+                            "Left",
+                            "Right"
+                        ],
+                        "base_damage": 8,
+                        "description": "Транслирует бафф Влево и Вправо."
+                    },
+                    {
+                        "level": 2,
+                        "directions": [
+                            "Left",
+                            "Right",
+                            "Up"
+                        ],
+                        "base_damage": 8,
+                        "special_effect": {
+                            "status": "Wet",
+                            "duration": 3.0,
+                            "slow_pct": 35
+                        },
+                        "description": "Открывается вектор Вперед. Замедление увеличивается до $35\\%$."
+                    },
+                    {
+                        "level": 3,
+                        "directions": [
+                            "Left",
+                            "Right",
+                            "Up",
+                            "Down"
+                        ],
+                        "base_damage": 8,
+                        "special_effect": {
+                            "status": "Wet",
+                            "duration": 5.0,
+                            "slow_pct": 50
+                        },
+                        "description": "Добавляется вектор Назад. Замедление увеличивается до $50\\%$, статус «Влажность» длится $5$ секунд."
+                    }
+                ]
+            },
+            {
+                "id": "storm_coil",
+                "name": "Грозовая Катушка (Storm Coil)",
+                "element": "Electricity",
+                "base_load": 2,
+                "cooldown": 1.2,
+                "base_damage": 10,
+                "damage_type": "chain_lightning",
+                "max_targets": 3,
+                "synergy_effect": {
+                    "trigger_status": "Wet",
+                    "damage_multiplier": 2.0,
+                    "guaranteed_crit": true
+                },
+                "buff_profile": {
+                    "type": "Directional",
+                    "target_stat": "attack_speed_pct",
+                    "value": 15
+                },
+                "grades": [
+                    {
+                        "level": 1,
+                        "directions": [
+                            "Left"
+                        ],
+                        "base_damage": 10,
+                        "max_targets": 3,
+                        "description": "Транслирует бафф Влево."
+                    },
+                    {
+                        "level": 2,
+                        "directions": [
+                            "Left",
+                            "Right"
+                        ],
+                        "base_damage": 10,
+                        "max_targets": 5,
+                        "description": "Транслирует бафф Влево и Вправо. Количество целей цепной молнии увеличивается до $5$."
+                    },
+                    {
+                        "level": 3,
+                        "directions": [
+                            "Left",
+                            "Right",
+                            "Up",
+                            "Down"
+                        ],
+                        "base_damage": 10,
+                        "max_targets": 8,
+                        "description": "Открываются векторы Вверх и Вниз. Цепная молния поражает до $8$ целей."
+                    }
+                ]
+            },
+            {
+                "id": "railgun",
+                "name": "Тяжелый Рельсотрон (Railgun)",
+                "element": "Physical",
+                "base_load": 3,
+                "cooldown": 3.0,
+                "base_damage": 120,
+                "damage_type": "pierce_line",
+                "buff_profile": {
+                    "type": "None"
+                },
+                "special_negative_effect": {
+                    "target": "adjacent_rooms",
+                    "penalty_type": "attack_speed_pct",
+                    "value": -5
+                },
+                "grades": [
+                    {
+                        "level": 1,
+                        "base_damage": 120,
+                        "special_negative_effect": {
+                            "target": "adjacent_rooms",
+                            "penalty_type": "attack_speed_pct",
+                            "value": -5
+                        },
+                        "description": "Потребляет энергию соседей. Базовый урон: $120$ ед."
+                    },
+                    {
+                        "level": 2,
+                        "base_damage": 200,
+                        "special_negative_effect": {
+                            "target": "adjacent_rooms",
+                            "penalty_type": "attack_speed_pct",
+                            "value": -2
+                        },
+                        "description": "Эффект поглощения соседей снижается до $-2\\%$. Базовый урон: $200$ ед."
+                    },
+                    {
+                        "level": 3,
+                        "base_damage": 350,
+                        "special_negative_effect": {
+                            "target": "adjacent_rooms",
+                            "penalty_type": "attack_speed_pct",
+                            "value": 0
+                        },
+                        "description": "Полностью исчезает негативный эффект поглощения. Базовый урон: $350$ ед."
+                    }
+                ]
+            }
+        ],
+        "support": [
+            {
+                "id": "shield_generator",
+                "name": "Генератор Щита (Энерго-купол)",
+                "element": "Physical",
+                "base_load": 1,
+                "cooldown_type": "passive",
+                "road_barrier": {
+                    "active_duration": 4.0,
+                    "cooldown_duration": 12.0
+                },
+                "buff_profile": {
+                    "type": "Sides",
+                    "target_stat": "defense_and_immunity",
+                    "defense_boost_pct": 50,
+                    "immunity_to_debuffs": true
+                },
+                "grades": [
+                    {
+                        "level": 1,
+                        "directions": [
+                            "Left",
+                            "Right"
+                        ],
+                        "barrier_hp": 100,
+                        "barrier_hold_time": 4.0,
+                        "description": "Прочность барьера $100$ ед."
+                    },
+                    {
+                        "level": 2,
+                        "directions": [
+                            "Left",
+                            "Right"
+                        ],
+                        "barrier_hp": 250,
+                        "barrier_hold_time": 6.0,
+                        "description": "Прочность барьера $250$ ед. Время удержания врагов увеличивается до $6$ секунд."
+                    },
+                    {
+                        "level": 3,
+                        "directions": [
+                            "Left",
+                            "Right",
+                            "Up"
+                        ],
+                        "barrier_hp": 250,
+                        "barrier_hold_time": 6.0,
+                        "additional_buff": {
+                            "target_stat": "total_damage_pct",
+                            "value": 10
+                        },
+                        "description": "Открывается вектор Вперед. Бафф соседним картам дает дополнительно $+10\\%$ к общему урону."
+                    }
+                ]
+            },
+            {
+                "id": "grid_stabilizer",
+                "name": "Стабилизатор Сети (Урановая Батарейка)",
+                "element": "Energy",
+                "base_load": -2,
+                "cooldown_type": "passive",
+                "special_negative_effect": {
+                    "target": "adjacent_rooms",
+                    "penalty_type": "attack_speed_pct",
+                    "value": -15
+                },
+                "buff_profile": {
+                    "type": "None"
+                },
+                "grades": [
+                    {
+                        "level": 1,
+                        "energy_generation": 2,
+                        "special_negative_effect": {
+                            "target": "adjacent_rooms",
+                            "penalty_type": "attack_speed_pct",
+                            "value": -15
+                        },
+                        "description": "Вырабатывает $2$ ед. энергии. Штраф соседям: $-15\\%$."
+                    },
+                    {
+                        "level": 2,
+                        "energy_generation": 4,
+                        "special_negative_effect": {
+                            "target": "adjacent_rooms",
+                            "penalty_type": "attack_speed_pct",
+                            "value": -10
+                        },
+                        "description": "Вырабатывает $4$ ед. энергии. Штраф соседям снижается до $-10\\%$."
+                    },
+                    {
+                        "level": 3,
+                        "energy_generation": 6,
+                        "special_negative_effect": {
+                            "target": "adjacent_rooms",
+                            "penalty_type": "attack_speed_pct",
+                            "value": 0
+                        },
+                        "additional_buff": {
+                            "target_stat": "damage_pct",
+                            "value": 10
+                        },
+                        "description": "Вырабатывает $6$ ед. энергии. Полностью убирает штраф соседям, заменяя его на бафф $+10\\%$ к урону."
+                    }
+                ]
+            }
+        ],
+        "global_upgrades": [
+            {
+                "id": "isolation_circuit",
+                "name": "Изоляционный Контур",
+                "cost_gold": 150,
+                "action_type": "permanent_upgrade",
+                "effect": {
+                    "target": "platform_base_capacity",
+                    "value": 2
+                },
+                "description": "Навсегда увеличивает базовую емкость сети Платформы на $+2$ ед."
+            },
+            {
+                "id": "emergency_overdrive",
+                "name": "Экстренный Овердрайв",
+                "cost_crystals": 80,
+                "action_type": "instant_active",
+                "effect": {
+                    "target": "reactor_overdrive_timer",
+                    "value": 10
+                },
+                "description": "Запускает фазу «Временного разгона» Реактора на $10$ секунд без сжигания карт."
+            },
+            {
+                "id": "elemental_focus",
+                "name": "Элементальный Фокус",
+                "cost_gold": 120,
+                "action_type": "wave_modifier",
+                "effect": {
+                    "target": "selected_element_damage_pct",
+                    "value": 25
+                },
+                "description": "Повышает урон всех башен выбранной стихии на $+25\\%$ до конца текущей волны."
+            }
+        ]
+    },
+    "synergy_reactions": [
+        {
+            "element_a": "Fire",
+            "element_b": "Water",
+            "reaction_name": "Паровой Выброс",
+            "effect": {
+                "description": "Атаки турели создают облако горячего пара. Оно замедляет врагов на $15\\%$ и наносит $12$ ед. периодического урона в секунду.",
+                "slow_pct": 15,
+                "dot_damage": 12,
+                "dot_interval": 1.0
+            }
+        },
+        {
+            "element_a": "Water",
+            "element_b": "Electricity",
+            "reaction_name": "Сверхпроводимость",
+            "effect": {
+                "description": "Скорость атаки турели увеличивается на $+50\\%$. Снаряды получают шанс $20\\%$ мгновенно оглушить врага на $0.5$ сек.",
+                "attack_speed_boost_pct": 50,
+                "stun_chance_pct": 20,
+                "stun_duration": 0.5
+            }
+        },
+        {
+            "element_a": "Fire",
+            "element_b": "Physical",
+            "reaction_name": "Осколочный Фугас",
+            "effect": {
+                "description": "Радиус поражения снарядов турели увеличивается на $+40\\%$. Снаряды взрываются, нанося урон по площади.",
+                "aoe_radius_boost_pct": 40,
+                "is_aoe": true
+            }
+        }
+    ]
+}
