@@ -1,22 +1,50 @@
 import { Container, Graphics, type PointData } from 'pixi.js';
 import { COLORS, ELEMENTS, hex } from '../theme';
 import type { AssetLoader } from '../core/AssetLoader';
-import { CARDS } from '../config/cards';
-import type { BattleStateMock, CardDef, Direction, PlacedCard } from '../config/types';
+import { CARDS, cardGrade } from '../config/cards';
+import type { BattleStateMock, BuffStat, CardDef, PlacedCard } from '../config/types';
+import { computeSynergy, type SlotSynergy } from '../game/synergy';
 import { makeText } from './helpers';
 import { SlotView, type SlotHighlight } from './SlotView';
 
-const DIR_DELTA: Record<Direction, { dc: number; dr: number }> = {
-  Up: { dc: 0, dr: -1 },
-  Down: { dc: 0, dr: 1 },
-  Left: { dc: -1, dr: 0 },
-  Right: { dc: 1, dr: 0 },
+/** Short suffix per broadcast stat, for the inspection badges. */
+const STAT_SUFFIX: Record<BuffStat, string> = {
+  damage: 'DMG',
+  range: 'RNG',
+  tempo: 'SPD',
+  defense: 'DEF',
 };
+
+/** Neighbor cells a card at (c,r) broadcasts to: orthogonal always, +diagonals when `diag`. */
+function broadcastCells(c: number, r: number, diag: boolean): { c: number; r: number }[] {
+  const out: { c: number; r: number }[] = [];
+  const ortho = [
+    [0, -1],
+    [0, 1],
+    [-1, 0],
+    [1, 0],
+  ];
+  const diagonals = [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+  ];
+  const offsets = diag ? [...ortho, ...diagonals] : ortho;
+  for (const [dc, dr] of offsets) {
+    const nc = c + dc!;
+    const nr = r + dr!;
+    if (nc < 0 || nc > 2 || nr < 0 || nr > 2) continue;
+    out.push({ c: nc, r: nr });
+  }
+  return out;
+}
 
 /**
  * The 3x3 steampunk platform: plate art + nine SlotViews + resonance beams.
  * Origin is the center. Exposes slot hit-testing and drop highlighting for the
- * battle scene's drag & drop.
+ * battle scene's drag & drop. Synergy (v2 positional model) is resolved here so
+ * the dots, broadcast arrows and resonance beams all read from one source.
  */
 export class PlatformGrid extends Container {
   readonly slots: SlotView[] = [];
@@ -32,6 +60,8 @@ export class PlatformGrid extends Container {
   private step = 0;
   /** Last applied placement, so inspection can read the inspected card. */
   private placed: (PlacedCard | null)[] = [];
+  /** Resolved synergy for the last applied placement. */
+  private synergy: (SlotSynergy | null)[] = [];
   private inspectedIndex: number | null = null;
 
   constructor(
@@ -73,17 +103,19 @@ export class PlatformGrid extends Container {
     return { x: (c - 1) * this.step, y: (r - 1) * this.step };
   }
 
-  /** Render the placed cards from the mock state and (re)draw resonance beams. */
+  /** Render the placed cards from the mock state, resolve synergy and (re)draw beams. */
   applyState(state: BattleStateMock): void {
     // Cards changed → any active inspection overlay is stale.
     this.clearInspect();
     this.placed = state.slots;
+    this.synergy = computeSynergy(state.slots);
     state.slots.forEach((placed, i) => {
       const slot = this.slots[i];
       if (!slot) return;
       if (placed) {
         const def = CARDS[placed.cardId];
-        if (def) slot.setPlaced(this.artFor(placed.cardId), def.element, placed.grade);
+        const syn = this.synergy[i];
+        if (def) slot.setPlaced(this.artFor(placed.cardId), def.element, placed.grade, syn?.dots ?? [], syn?.resonant ?? false);
         else slot.setEmpty();
       } else {
         slot.setEmpty();
@@ -113,7 +145,7 @@ export class PlatformGrid extends Container {
 
   /**
    * Highlight every empty slot as a drop target. When `affordable` is false
-   * (not enough SP for the held card) they light up red instead of green.
+   * (not enough gold for the held card) they light up red instead of green.
    */
   showDropTargets(affordable = true): void {
     const empty: SlotHighlight = affordable ? 'valid' : 'invalid';
@@ -136,6 +168,14 @@ export class PlatformGrid extends Container {
     }
   }
 
+  /** Mark a slot as a valid merge target (a same-type tower under the dragged card). */
+  setMergeTarget(slot: SlotView | null): void {
+    for (const s of this.slots) {
+      if (s === slot) s.setHighlight('hover');
+      else if (s.isOccupied) s.setHighlight('none');
+    }
+  }
+
   clearHighlights(): void {
     for (const slot of this.slots) slot.setHighlight('none' as SlotHighlight);
   }
@@ -145,12 +185,17 @@ export class PlatformGrid extends Container {
     return this.inspectedIndex;
   }
 
+  /** Resolved synergy for a slot (read by the scene for the inspection panel). */
+  synergyAt(index: number): SlotSynergy | null {
+    return this.synergy[index] ?? null;
+  }
+
   /**
    * Spotlight a placed tower: ring the inspected slot, highlight the neighbor
-   * cells it feeds, and stamp each with an effect badge (e.g. '+15% DMG').
-   * Buffs read green, drains read red. The always-on resonance beams are dimmed
-   * so the selected tower's links stand out. The attack-range circle is drawn by
-   * the scene (it owns the cells→pixels grade math).
+   * cells it feeds, and stamp each with an effect badge (e.g. '+22% DMG'). Buffs
+   * read green, drains red. The always-on resonance beams are dimmed so the
+   * selected tower's links stand out. The attack-range circle is drawn by the
+   * scene (it owns the cells→pixels grade math).
    */
   inspect(index: number): void {
     this.clearInspect();
@@ -170,55 +215,47 @@ export class PlatformGrid extends Container {
       .stroke({ width: 5, color: COLORS.dropHover, alpha: 0.95 });
     this.inspectAbove.addChild(ring);
 
-    this.drawBuffLinks(index, def);
+    this.drawBuffLinks(index, def, placed.grade);
   }
 
   /**
    * Preview where a held card's buffs would land while it is being dragged over
    * slot `index` — the same affected-neighbor cells, arrows and effect badges as
-   * tap-to-inspect, but without the selection ring (the dragged ghost already
-   * marks the target slot). Cleared via {@link clearInspect}.
+   * tap-to-inspect, but without the selection ring. Cleared via {@link clearInspect}.
    */
-  previewBuffs(index: number, def: CardDef): void {
+  previewBuffs(index: number, def: CardDef, grade: number): void {
     this.clearInspect();
-    this.beams.alpha = 0.18; // de-emphasize the global resonance web
-    this.drawBuffLinks(index, def);
+    this.beams.alpha = 0.18;
+    this.drawBuffLinks(index, def, grade);
   }
 
   /**
-   * Draw the buff arrows, affected-neighbor cell highlights and effect badges for
-   * a card (placed or previewed) sitting at `index`. Shared by tap-to-inspect and
-   * the drag-time placement preview.
+   * Draw broadcast arrows, affected-neighbor cell highlights and effect badges for
+   * a card sitting at `index` at `grade`: it reaches all orthogonal neighbors, plus
+   * diagonals at Grade III. Shared by tap-to-inspect and the drag-time preview.
    */
-  private drawBuffLinks(index: number, def: CardDef): void {
-    const buff = def.buff;
-    if (!buff) return;
+  private drawBuffLinks(index: number, def: CardDef, grade: number): void {
+    const g = cardGrade(def, grade);
+    if (g.buff === 0 && !g.bonusDamage) return;
 
     const s = this.cell;
     const origin = this.slotLocal(index);
-    const dirs: Direction[] =
-      buff.scope === 'adjacent' ? ['Up', 'Down', 'Left', 'Right'] : def.directions;
-    const accent = buff.value >= 0 ? COLORS.dropValid : COLORS.energyDanger;
+    const accent = g.buff >= 0 ? COLORS.dropValid : COLORS.energyDanger;
+    const label = `${g.buff >= 0 ? '+' : ''}${g.buff}% ${STAT_SUFFIX[def.buffStat]}`;
     const c = index % 3;
     const r = Math.floor(index / 3);
 
-    for (const dir of dirs) {
-      const d = DIR_DELTA[dir];
-      const nc = c + d.dc;
-      const nr = r + d.dr;
-      if (nc < 0 || nc > 2 || nr < 0 || nr > 2) continue;
-      const nx = (nc - 1) * this.step;
-      const ny = (nr - 1) * this.step;
+    for (const cell of broadcastCells(c, r, g.diagonal === true)) {
+      const nx = (cell.c - 1) * this.step;
+      const ny = (cell.r - 1) * this.step;
 
-      // Highlight the affected neighbor cell (under the towers).
-      const cell = new Graphics();
-      cell.roundRect(nx - s / 2, ny - s / 2, s, s, 14).fill({ color: accent, alpha: 0.18 });
-      cell.roundRect(nx - s / 2, ny - s / 2, s, s, 14).stroke({ width: 3, color: accent, alpha: 0.85 });
-      this.inspectBelow.addChild(cell);
+      const tint = new Graphics();
+      tint.roundRect(nx - s / 2, ny - s / 2, s, s, 14).fill({ color: accent, alpha: 0.18 });
+      tint.roundRect(nx - s / 2, ny - s / 2, s, s, 14).stroke({ width: 3, color: accent, alpha: 0.85 });
+      this.inspectBelow.addChild(tint);
 
-      // Emphasized arrow from the tower into that neighbor, plus its effect badge.
       this.drawInspectArrow(origin.x, origin.y, nx, ny, accent);
-      this.addBadge(nx, ny, buff.label, accent);
+      this.addBadge(nx, ny, label, accent);
     }
   }
 
@@ -247,7 +284,7 @@ export class PlatformGrid extends Container {
     this.inspectAbove.addChild(g);
   }
 
-  /** A small labelled pill (e.g. '+15% DMG') centered on a neighbor cell. */
+  /** A small labelled pill (e.g. '+22% DMG') centered on a neighbor cell. */
   private addBadge(x: number, y: number, label: string, color: number): void {
     const txt = makeText(label, 'small', { fontSize: 30, fill: hex(color) });
     txt.anchor.set(0.5);
@@ -268,13 +305,8 @@ export class PlatformGrid extends Container {
   private buildPlate(): void {
     const s = this.size;
     this.plate.removeChildren().forEach((c) => c.destroy());
-    // Crisp procedural plate: keeps the flat 3x3 slots perfectly aligned with
-    // drop-highlights and hit-testing. (The isometric base_platform.png sprite
-    // is showcased on the main menu instead, where no grid alignment is needed.)
     const g = new Graphics();
     const o = s / 2;
-    // Small corner cut only — a near-square plate gives the 3x3 grid more usable
-    // area (bigger, easier tap targets on phones) than the old wide octagon.
     const chamfer = s * 0.07;
     const oct: number[] = [
       -o + chamfer, -o, o - chamfer, -o, o, -o + chamfer, o, o - chamfer,
@@ -283,7 +315,6 @@ export class PlatformGrid extends Container {
     g.poly(oct).fill({ color: COLORS.metalMid });
     g.poly(oct).stroke({ width: 10, color: COLORS.brass });
     g.poly(oct.map((v) => v * 0.92)).stroke({ width: 4, color: COLORS.brassLight, alpha: 0.4 });
-    // Rivets along the rim.
     const rivetR = o * 0.86;
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2 + Math.PI / 12;
@@ -292,28 +323,24 @@ export class PlatformGrid extends Container {
     this.plate.addChild(g);
   }
 
+  /** Always-on broadcast web: every placed card → its reachable neighbors. */
   private drawBeams(state: BattleStateMock): void {
     this.beams.clear();
     state.slots.forEach((placed, i) => {
       if (!placed) return;
       const def = CARDS[placed.cardId];
       if (!def) return;
+      const g = cardGrade(def, placed.grade);
       const skin = ELEMENTS[def.element];
       const c = i % 3;
       const r = Math.floor(i / 3);
-      for (const dir of def.directions) {
-        const d = DIR_DELTA[dir];
-        const nc = c + d.dc;
-        const nr = r + d.dr;
-        if (nc < 0 || nc > 2 || nr < 0 || nr > 2) continue;
-        const x1 = (c - 1) * this.step;
-        const y1 = (r - 1) * this.step;
-        const x2 = (nc - 1) * this.step;
-        const y2 = (nr - 1) * this.step;
-        // Beam.
-        this.beams.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 10, color: skin.glow, alpha: 0.5 });
-        this.beams.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 4, color: COLORS.white, alpha: 0.5 });
-        // Arrowhead near the neighbor.
+      const x1 = (c - 1) * this.step;
+      const y1 = (r - 1) * this.step;
+      for (const cell of broadcastCells(c, r, g.diagonal === true)) {
+        const x2 = (cell.c - 1) * this.step;
+        const y2 = (cell.r - 1) * this.step;
+        this.beams.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 10, color: skin.glow, alpha: 0.4 });
+        this.beams.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 4, color: COLORS.white, alpha: 0.4 });
         const ang = Math.atan2(y2 - y1, x2 - x1);
         const hx = x2 - Math.cos(ang) * this.cell * 0.34;
         const hy = y2 - Math.sin(ang) * this.cell * 0.34;
@@ -327,7 +354,7 @@ export class PlatformGrid extends Container {
             hx + Math.cos(ang - 2.5) * ah,
             hy + Math.sin(ang - 2.5) * ah,
           ])
-          .fill({ color: skin.glow, alpha: 0.85 });
+          .fill({ color: skin.glow, alpha: 0.8 });
       }
     });
   }

@@ -2,57 +2,93 @@ import type { ElementId } from '../theme';
 
 export type { ElementId };
 
+/** Orthogonal directions — still used by the grid to draw broadcast arrows. */
 export type Direction = 'Up' | 'Down' | 'Left' | 'Right';
 
 export type CardCategory = 'attacking' | 'support';
 
-/** Stat a card broadcasts to its neighbors (drives the inspection badges). */
+/** Stat a card broadcasts to its neighbors (drives the buff badges + combat). */
 export type BuffStat = 'damage' | 'range' | 'tempo' | 'defense';
 
 /**
- * What a placed card transmits to neighboring slots (mock display data distilled
- * from the `buff_profile` / `special_negative_effect` in docs/cards.json). Drives
- * the tap-to-inspect overlay; no battle logic consumes it yet.
+ * The signature parameter a tower type scales as it merges (v2 §5). Each type
+ * grows a *different* dimension, so grading feels distinct per card.
  */
-export interface CardBuff {
-  /** Which neighbor stat is modified. */
-  readonly stat: BuffStat;
-  /** Percent delta applied to neighbors: +15 → +15%, -15 → a -15% penalty. */
-  readonly value: number;
+export type SignatureKind =
+  | 'projectile_power' // Plasma — damage per shot
+  | 'freeze_radius' // Frost — slow strength + Wet duration (chill AoE)
+  | 'chain_targets' // Storm — number of chain-lightning targets
+  | 'pierce_length' // Railgun — pierce-line length (attack range)
+  | 'barrier' // Shield — road-barrier HP + hold duration
+  | 'energy_output'; // Stabilizer — energy generated for the network
+
+/**
+ * Stable id for each element-pair resonance reaction (v2 §7). Resolved against
+ * the {@link import('./resonance').REACTIONS} table.
+ */
+export type ReactionId = 'steam' | 'superconductivity' | 'shrapnel';
+
+/**
+ * Per-grade tunables for a card (the array index is grade-1: [0]=Grade I).
+ * Distilled from the v2 stat tables in §5/§6.
+ */
+export interface CardGrade {
+  /** Damage per shot (attacking towers). */
+  readonly damage?: number;
+  /** Attack radius in grid cells (attacking towers; 0/undefined = no direct attack). */
+  readonly rangeCells?: number;
   /**
-   * Who receives it: 'directions' uses the card's broadcast `directions`;
-   * 'adjacent' hits all four orthogonal neighbors (e.g. energy/heat drains).
+   * Buff/penalty broadcast to every neighbor in reach, in percent on the card's
+   * {@link CardDef.buffStat}: +22 → +22%, -15 → a -15% penalty (Railgun/Cell).
    */
-  readonly scope: 'directions' | 'adjacent';
-  /** Short label drawn on the neighbor badge, e.g. '+15% DMG'. */
-  readonly label: string;
+  readonly buff: number;
+  /**
+   * Primary signature value at this grade. Meaning depends on
+   * {@link CardDef.signature}: damage / slow% / chain targets / pierce range
+   * cells / barrier HP / energy output.
+   */
+  readonly sig: number;
+  /** Secondary signature value: Wet seconds (Frost) or barrier hold seconds (Shield). */
+  readonly sig2?: number;
+  /**
+   * Extra +damage% the card also broadcasts at this grade (v2: Shield III and
+   * Stabilizer III hand neighbors +10% damage on top of / instead of their main buff).
+   */
+  readonly bonusDamage?: number;
+  /** Grade III: the broadcast also reaches the four diagonal neighbors. */
+  readonly diagonal?: boolean;
 }
 
 /**
- * A card definition (mock-data shape, distilled from docs/cards.json).
- * Combat fields are kept for display only — no battle logic runs on them yet.
+ * A card definition (v2 model). Grade-independent identity + per-grade stat
+ * tables. Synergy is positional now (orthogonal neighbors, +diagonals at G III)
+ * — there are no per-card broadcast directions.
  */
 export interface CardDef {
   readonly id: string;
   readonly name: string;
-  /** Short label shown on the card face (the ref shows e.g. "STORM COIL"). */
+  /** Short label shown on the card face (e.g. "STORM COIL"). */
   readonly shortName: string;
   readonly element: ElementId;
   readonly category: CardCategory;
-  readonly baseLoad: number; // energy load (can be negative for generators)
-  readonly costSP: number; // play cost in Synergy Points (legacy mock, unused)
-  /** Gold spent to place this card from the hand. Gated by the player's gold. */
+  /** Network load added on placement (negative for generators). */
+  readonly baseLoad: number;
+  /** Gold spent to place this card from the hand. */
   readonly costGold: number;
+  /** Base seconds between shots (attacking towers). */
   readonly cooldown?: number;
-  readonly baseDamage?: number;
-  /** Attack radius in grid cells (attacking towers only). Only nearby road is in reach. */
-  readonly rangeCells?: number;
-  /** Which stat a merge grade upgrades for this tower: damage / fire-rate / radius. */
-  readonly upgrade?: 'power' | 'tempo' | 'range';
-  /** Buff broadcast directions at grade 1 — used to draw resonance arrows (mock). */
-  readonly directions: Direction[];
-  /** Effect transmitted to neighboring slots (inspection overlay). */
-  readonly buff?: CardBuff;
+  /** Which neighbor stat this card buffs / penalizes. */
+  readonly buffStat: BuffStat;
+  /** The signature parameter this tower scales as it merges (v2 §5). */
+  readonly signature: SignatureKind;
+  /**
+   * Desired-neighbor elements in slot-open order (v2 §9). The i-th synergy slot
+   * (opens at grade i+1) wants this element; a neighbor of it lights that dot.
+   * Support cards leave this empty and instead show coverage dots.
+   */
+  readonly slotElements: ElementId[];
+  /** Per-grade stat tables (3 entries: Grade I / II / III). */
+  readonly grades: readonly [CardGrade, CardGrade, CardGrade];
   /** One-line flavor for the card face / tooltip. */
   readonly blurb: string;
   /** Asset manifest key for the card art; resolves to a placeholder until generated. */

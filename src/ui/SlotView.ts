@@ -1,5 +1,6 @@
 import { ColorMatrixFilter, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, type ElementId } from '../theme';
+import type { SynergyDot } from '../game/synergy';
 import { fitSprite } from './helpers';
 
 export type SlotHighlight = 'none' | 'valid' | 'hover' | 'invalid';
@@ -13,6 +14,8 @@ export class SlotView extends Container {
   private size: number;
   private base = new Graphics();
   private hl = new Graphics();
+  /** Resonance halo drawn around an actively-resonating tower. */
+  private reso = new Graphics();
   private content = new Container();
   /** Translucent preview of the building that would land here while dragging. */
   private ghost = new Container();
@@ -26,7 +29,7 @@ export class SlotView extends Container {
     super();
     this.index = index;
     this.size = size;
-    this.addChild(this.base, this.content, this.hl, this.ghost, this.cdDial);
+    this.addChild(this.base, this.reso, this.content, this.hl, this.ghost, this.cdDial);
     this.ghost.visible = false;
     this.cdDial.visible = false;
     this.drawEmpty();
@@ -39,11 +42,24 @@ export class SlotView extends Container {
   setEmpty(): void {
     this.occupied = false;
     this.content.removeChildren().forEach((c) => c.destroy());
+    this.reso.clear();
     this.setCooldown(0);
     this.drawEmpty();
   }
 
-  setPlaced(art: Texture, element: ElementId, grade: number): void {
+  /**
+   * Render a placed tower: art in an element ring, the v2 influence-dot row at
+   * the bottom (one dot per open synergy slot, colored by its wanted element and
+   * lit when that synergy is present), and a resonance halo when two different
+   * elements are active on it (§9).
+   */
+  setPlaced(
+    art: Texture,
+    element: ElementId,
+    _grade: number,
+    dots: readonly SynergyDot[] = [],
+    resonant = false,
+  ): void {
     this.occupied = true;
     this.content.removeChildren().forEach((c) => c.destroy());
     this.setCooldown(0);
@@ -60,19 +76,46 @@ export class SlotView extends Container {
     fitSprite(sprite, s * 0.82, s * 0.82);
     this.content.addChild(sprite);
 
-    // Grade pips along the bottom.
-    const pips = new Graphics();
-    const total = 3;
-    const r = 5;
-    const gap = 16;
-    const startX = -((total - 1) * gap) / 2;
-    for (let i = 0; i < total; i++) {
-      const on = i < grade;
-      pips
-        .circle(startX + i * gap, s / 2 - 12, r)
-        .fill({ color: on ? skin.glow : COLORS.metalLight, alpha: on ? 1 : 0.5 });
+    this.drawDots(dots);
+    this.drawResonance(resonant, skin.glow);
+  }
+
+  /** Influence dots along the bottom edge (v2 §9): grade = count, color = wanted element. */
+  private drawDots(dots: readonly SynergyDot[]): void {
+    if (dots.length === 0) return;
+    const s = this.size;
+    const g = new Graphics();
+    const r = 6;
+    const gap = 18;
+    const startX = -((dots.length - 1) * gap) / 2;
+    const y = s / 2 - 13;
+    for (let i = 0; i < dots.length; i++) {
+      const d = dots[i]!;
+      const color = ELEMENTS[d.element].glow;
+      const x = startX + i * gap;
+      // Socket so an unlit slot still reads.
+      g.circle(x, y, r + 2).fill({ color: COLORS.black, alpha: 0.55 });
+      if (d.lit) {
+        g.circle(x, y, r + 3).stroke({ width: 2, color, alpha: 0.5 }); // glow ring
+        g.circle(x, y, r).fill({ color });
+      } else {
+        g.circle(x, y, r).stroke({ width: 2, color, alpha: 0.55 });
+      }
     }
-    this.content.addChild(pips);
+    this.content.addChild(g);
+  }
+
+  /** A soft pulsing-color halo marking an active resonance. */
+  private drawResonance(resonant: boolean, color: number): void {
+    this.reso.clear();
+    if (!resonant) return;
+    const s = this.size;
+    for (let i = 0; i < 3; i++) {
+      const grow = 4 + i * 5;
+      this.reso
+        .roundRect(-s / 2 - grow, -s / 2 - grow, s + grow * 2, s + grow * 2, 18 + grow)
+        .stroke({ width: 4 - i, color, alpha: 0.4 - i * 0.12 });
+    }
   }
 
   /**

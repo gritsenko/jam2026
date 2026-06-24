@@ -1,9 +1,9 @@
 import type { PointData } from 'pixi.js';
 
 /**
- * Tunables for the battle *simulation* (waves, tower fire, projectiles, core).
- * Kept beside the rest of the game data; the hand/placement loop tunables live
- * in battleRules.ts.
+ * Tunables for the battle *simulation* (waves, tower fire, projectiles, core,
+ * statuses & resonance). The hand/placement loop tunables live in battleRules.ts;
+ * per-card stat tables live with the cards in cards.ts.
  */
 
 /** Core integrity at the start of a battle. Each leaked enemy subtracts its `coreDamage`. */
@@ -16,10 +16,10 @@ export const FIRST_WAVE_DELAY = 4;
 export const WAVE_INTERMISSION = 7;
 
 /**
- * Tower attack range is per-card and measured in *grid cells* (see CardDef.rangeCells),
- * so only towers placed near a road segment can hit enemies on it — positioning
- * matters. The scene converts cells → pixels via the grid's on-screen cell size.
- * Grade growth raises one stat per card (range / tempo / power), below.
+ * Tower attack range is per-card and measured in *grid cells* (CardGrade.rangeCells),
+ * so only towers placed near a road segment can hit enemies on it. Damage, range
+ * and the signature parameter all come from the card's per-grade table (cards.ts);
+ * neighbor buffs then scale them at runtime (see game/synergy.ts).
  */
 
 /** Projectile travel speed, as a fraction of the arena width per second. */
@@ -29,35 +29,65 @@ export const PROJECTILE_SPEED_FRAC = 1.15;
 export const PROJECTILE_HIT_FRAC = 0.018;
 
 /**
- * Per-grade multipliers (grade 1..3). Each attacking card upgrades exactly one
- * of these as it merges (CardDef.upgrade): a 'power' tower hits harder, a 'tempo'
- * tower fires faster (cooldown divided), a 'range' tower reaches further.
- */
-export const POWER_MULT = [1, 1.7, 2.6] as const;
-export const TEMPO_MULT = [1, 1.4, 1.9] as const;
-export const RANGE_MULT = [1, 1.5, 2.1] as const;
-
-/**
  * Overload penalty: each unit of energy load past capacity multiplies every
  * tower's cooldown by (1 + this), i.e. slows the whole grid's fire rate.
  */
 export const OVERLOAD_FIRE_PENALTY = 0.3;
 
-/** While Overdrive is active (a card was burned), capacity is treated as this much higher. */
+/** Reactor burn temporarily raises capacity by this much (v2 §3.Г). */
 export const OVERDRIVE_CAPACITY_BONUS = 2;
 
 /** Gold granted for fully clearing a wave. */
 export const WAVE_CLEAR_BONUS = 25;
+
+/** Crystals granted for clearing a wave without losing any Core integrity (Perfect Clear, §8). */
+export const PERFECT_CLEAR_CRYSTALS = 15;
+
+// --- Status effects (applied to enemies) -----------------------------------
+
+/** Damage multiplier a Wet enemy takes from Electricity (Storm Coil) — v2 §2.В / §6. */
+export const WET_DAMAGE_MULT = 2;
+
+/** Seconds an enemy stays slowed after a slowing hit (re-applied on each hit). */
+export const SLOW_REFRESH_SEC = 1.2;
+
+// --- Signature behaviors ----------------------------------------------------
+
+/** Chain-lightning reach (fraction of arena width) for hops between targets. */
+export const CHAIN_RADIUS_FRAC = 0.17;
+
+/** Each chain hop deals this fraction of the previous hit's damage. */
+export const CHAIN_FALLOFF = 0.72;
+
+/** Splash radius (fraction of arena width) of a Plasma III shockwave shot. */
+export const PLASMA_SHOCKWAVE_FRAC = 0.05;
+
+/** Resonance "Shrapnel" widens any splash by this factor (v2 §7: blast radius +40%). */
+export const SHRAPNEL_AOE_MULT = 1.4;
+
+/** Fraction of the direct hit dealt to other enemies caught in a splash. */
+export const AOE_SPLASH_FRAC = 0.6;
+
+/** Seconds a Shield barrier holds the lead enemy still; recharge after. */
+export const BARRIER_COOLDOWN_SEC = 12;
+
+// --- Resonance reaction effects (v2 §7) ------------------------------------
+
+/** Steam Burst: movement slow and damage-over-time applied to hit enemies. */
+export const STEAM_SLOW = 0.15;
+export const STEAM_DOT_DPS = 12;
+export const STEAM_DOT_SEC = 1.5;
+
+/** Superconductivity: attack-speed multiplier and stun on hit. */
+export const SUPERCONDUCT_TEMPO_MULT = 1.5;
+export const SUPERCONDUCT_STUN_CHANCE = 0.2;
+export const SUPERCONDUCT_STUN_SEC = 0.5;
 
 /**
  * Waypoints of the enemy march, as fractions of the arena image (0..1). Enemies
  * spawn *off-screen below* (y > 1) so they are seen approaching, walk up to the
  * bottom "gate", circle the platform clockwise along the worn dirt road, and
  * breach the core when they return to the gate (t = 1).
- *
- * The ring is drawn just outside the central platform (~0.25..0.75) and inside
- * the rocky frame (~0.12..0.88). The first segment lives below the viewport so
- * the spawn itself is hidden until the creature climbs into view.
  */
 export const ENEMY_PATH: readonly PointData[] = [
   { x: 0.5, y: 1.22 }, // off-screen spawn (below the visible arena)

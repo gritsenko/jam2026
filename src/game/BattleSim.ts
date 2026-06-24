@@ -1,16 +1,27 @@
 import type { ElementId } from '../theme';
-import type { CardDef, EnemyDef, WaveDef } from '../config/types';
+import type { CardDef, EnemyDef, ReactionId, WaveDef } from '../config/types';
 import { getEnemy } from '../config/enemies';
+import { cardGrade } from '../config/cards';
 import {
+  AOE_SPLASH_FRAC,
+  BARRIER_COOLDOWN_SEC,
+  CHAIN_FALLOFF,
+  CHAIN_RADIUS_FRAC,
   FIRST_WAVE_DELAY,
-  OVERDRIVE_CAPACITY_BONUS,
   OVERLOAD_FIRE_PENALTY,
-  POWER_MULT,
+  PLASMA_SHOCKWAVE_FRAC,
   PROJECTILE_HIT_FRAC,
   PROJECTILE_SPEED_FRAC,
-  RANGE_MULT,
-  TEMPO_MULT,
+  SHRAPNEL_AOE_MULT,
+  SLOW_REFRESH_SEC,
+  STEAM_DOT_DPS,
+  STEAM_DOT_SEC,
+  STEAM_SLOW,
+  SUPERCONDUCT_STUN_CHANCE,
+  SUPERCONDUCT_STUN_SEC,
+  SUPERCONDUCT_TEMPO_MULT,
   WAVE_INTERMISSION,
+  WET_DAMAGE_MULT,
 } from '../config/combatRules';
 import type { ArenaPath } from './path';
 
@@ -30,17 +41,44 @@ export interface SimEnemy {
   alive: boolean;
   /** Set when removed by completing the lap (vs. being killed). */
   leaked: boolean;
+  // --- Statuses (sim-clock deadlines, in seconds) ---
+  /** Movement is multiplied by `slowFactor` until this time. */
+  slowUntil: number;
+  /** Remaining slow strength: 0.5 = move at 50% speed. */
+  slowFactor: number;
+  /** Wet until this time → takes extra Electricity damage. */
+  wetUntil: number;
+  /** Frozen/held in place until this time (barrier hold or stun). */
+  stunUntil: number;
+  /** Damage-over-time (Steam) until this time. */
+  dotUntil: number;
+  dotDps: number;
 }
 
-/** A firing tower derived from a placed card. */
-export interface SimTower {
+/** On-hit payload a tower stamps onto its shots / strikes. */
+export interface HitEffects {
+  aoeRadius: number; // px (0 = single target)
+  splashFrac: number;
+  slowFactor: number; // 0 = none
+  slowSec: number;
+  wetSec: number;
+  dotDps: number;
+  dotSec: number;
+  stunChance: number;
+  stunSec: number;
+  vsWetMult: number; // 1 = none (Storm = 2)
+  chainTargets: number; // 1 = no chain
+}
+
+/** A firing tower derived from a placed card + its synergy. */
+export interface SimTower extends HitEffects {
   readonly slotIndex: number;
   readonly element: ElementId;
   x: number;
   y: number;
   /** Targeting radius in arena pixels. */
   range: number;
-  /** Damage per shot (already grade-scaled by the caller). */
+  /** Damage per shot (grade + neighbor-buff scaled by the caller). */
   damage: number;
   /** Base seconds between shots. */
   cooldown: number;
@@ -48,13 +86,17 @@ export interface SimTower {
   cdLeft: number;
   /** Duration the current cooldown was started with (for the HUD dial); 0 = ready. */
   cdMax: number;
+  /** Hits every enemy in range at once (Railgun line). */
+  pierce: boolean;
+  /** Holds the lead enemy still for this many seconds, then long recharge (Shield). */
+  barrierSec: number;
 }
 
-/** Spec the scene feeds in for each attacking tower (the sim tracks the cooldown). */
+/** Spec the scene feeds in for each tower (the sim tracks the cooldown). */
 export type TowerSpec = Omit<SimTower, 'cdLeft' | 'cdMax'>;
 
-/** An in-flight projectile homing on its target enemy. */
-export interface SimProjectile {
+/** An in-flight projectile homing on its target enemy, carrying its on-hit effects. */
+export interface SimProjectile extends HitEffects {
   readonly id: number;
   x: number;
   y: number;
@@ -74,8 +116,12 @@ export interface SimCallbacks {
   onTowerFired?(slotIndex: number, target: SimEnemy): void;
   /** A projectile actually connected (vs. fizzling on an already-dead target). */
   onProjectileHit?(x: number, y: number, element: ElementId): void;
+  /** A chain-lightning hop / pierce beam — draw a line between two points. */
+  onBeam?(x1: number, y1: number, x2: number, y2: number, element: ElementId): void;
+  /** A Shield barrier engaged on the road at (x,y). */
+  onBarrier?(x: number, y: number): void;
   onWaveStart?(waveNumber: number): void;
-  onWaveCleared?(waveNumber: number): void;
+  onWaveCleared?(waveNumber: number, perfect: boolean): void;
   onVictory?(): void;
   onDefeat?(): void;
 }
@@ -96,8 +142,9 @@ interface QueuedSpawn {
 }
 
 /**
- * Headless battle simulation: drives waves, enemy movement, tower targeting &
- * firing, projectiles, the core's integrity and win/lose — all in arena
+ * Headless battle simulation: drives waves, enemy movement & statuses, tower
+ * targeting & firing (projectiles, chain lightning, pierce lines, barriers),
+ * resonance on-hit effects, the core's integrity and win/lose — all in arena
  * coordinates, with no PixiJS dependency. The scene calls {@link update} each
  * frame and reads {@link enemies}/{@link projectiles} to sync its sprites.
  */
@@ -117,11 +164,15 @@ export class BattleSim {
   /** Global fire-rate multiplier (>1 faster, <1 slower); set by the scene from energy state. */
   fireRateMult = 1;
 
+  /** Monotonic sim clock (seconds) — status deadlines are measured against this. */
+  private clock = 0;
+
   private readonly path: ArenaPath;
   private readonly waves: WaveDef[];
   private readonly cb: SimCallbacks;
   private readonly hitRadius: number;
   private readonly projectileSpeed: number;
+  private readonly chainRadius: number;
 
   /** Zero-based index of the wave being fought; -1 before the first one. */
   private waveIndex = -1;
@@ -129,6 +180,8 @@ export class BattleSim {
   private spawnTimer = 0;
   private enemySeq = 0;
   private projSeq = 0;
+  /** Whether the current wave has leaked any enemy (clears Perfect Clear). */
+  private waveLeaked = false;
 
   constructor(opts: BattleSimOptions) {
     this.path = opts.path;
@@ -138,6 +191,7 @@ export class BattleSim {
     this.cb = opts.callbacks ?? {};
     this.hitRadius = PROJECTILE_HIT_FRAC * opts.arenaWidth;
     this.projectileSpeed = PROJECTILE_SPEED_FRAC * opts.arenaWidth;
+    this.chainRadius = CHAIN_RADIUS_FRAC * opts.arenaWidth;
   }
 
   /** 1-based number of the current/next wave for the HUD. */
@@ -177,8 +231,8 @@ export class BattleSim {
 
   /**
    * Cooldown progress for the tower in `slotIndex`: 1 right after it fires,
-   * shrinking to 0 as it becomes ready again (0 if there is no attacking tower
-   * there or it is idle). Drives the slot's mini cooldown dial.
+   * shrinking to 0 as it becomes ready again (0 if there is no tower there or it
+   * is idle). Drives the slot's mini cooldown dial.
    */
   cooldownFrac(slotIndex: number): number {
     const tower = this.towers.find((t) => t.slotIndex === slotIndex);
@@ -188,9 +242,11 @@ export class BattleSim {
 
   update(dt: number): void {
     if (this.status !== 'running') return;
+    this.clock += dt;
 
     this.tickWaveSpawning(dt);
     this.moveEnemies(dt);
+    this.tickStatuses(dt);
     this.fireTowers(dt);
     this.moveProjectiles(dt);
 
@@ -233,6 +289,7 @@ export class BattleSim {
 
   private startNextWave(): void {
     this.waveIndex++;
+    this.waveLeaked = false;
     const wave = this.waves[this.waveIndex];
     if (!wave) {
       // No more waves queued — nothing to spawn (victory is handled on clear).
@@ -263,7 +320,7 @@ export class BattleSim {
     if (this.spawnQueue.length > 0 || this.enemies.length > 0) return;
 
     const clearedNumber = this.waveIndex + 1;
-    this.cb.onWaveCleared?.(clearedNumber);
+    this.cb.onWaveCleared?.(clearedNumber, !this.waveLeaked);
 
     if (this.waveIndex >= this.waves.length - 1) {
       this.status = 'victory';
@@ -286,21 +343,31 @@ export class BattleSim {
       y: p.y,
       alive: true,
       leaked: false,
+      slowUntil: 0,
+      slowFactor: 1,
+      wetUntil: 0,
+      stunUntil: 0,
+      dotUntil: 0,
+      dotDps: 0,
     });
   }
 
-  // --- Movement / combat ---------------------------------------------------
+  // --- Movement / statuses -------------------------------------------------
 
   private moveEnemies(dt: number): void {
     for (const e of this.enemies) {
       if (!e.alive) continue;
-      e.t += e.def.speed * dt;
+      // Held (barrier / stun) → no advance this frame.
+      if (e.stunUntil > this.clock) continue;
+      const slow = e.slowUntil > this.clock ? e.slowFactor : 1;
+      e.t += e.def.speed * slow * dt;
       if (e.t >= 1) {
         const end = this.path.pointAt(1);
         e.x = end.x;
         e.y = end.y;
         e.alive = false;
         e.leaked = true;
+        this.waveLeaked = true;
         this.coreHp -= e.def.coreDamage;
         this.cb.onEnemyLeaked?.(e);
       } else {
@@ -310,6 +377,22 @@ export class BattleSim {
       }
     }
   }
+
+  private tickStatuses(dt: number): void {
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      // Tick DoT, then clear lapsed statuses so a stale magnitude can't bleed into
+      // a later, weaker application (see applyHit).
+      if (e.dotUntil > this.clock) {
+        if (e.dotDps > 0) this.damageEnemy(e, e.dotDps * dt);
+      } else if (e.dotDps !== 0) {
+        e.dotDps = 0;
+      }
+      if (e.slowUntil <= this.clock && e.slowFactor !== 1) e.slowFactor = 1;
+    }
+  }
+
+  // --- Firing --------------------------------------------------------------
 
   private fireTowers(dt: number): void {
     const mult = Math.max(this.fireRateMult, 0.1);
@@ -323,7 +406,30 @@ export class BattleSim {
         tower.cdLeft = 0; // stay ready; fire the instant a target enters range
         continue;
       }
-      this.fireProjectile(tower, target);
+
+      if (tower.barrierSec > 0) {
+        // Shield: hold the lead enemy still, then a long recharge.
+        target.stunUntil = Math.max(target.stunUntil, this.clock + tower.barrierSec);
+        this.cb.onBarrier?.(target.x, target.y);
+        this.cb.onTowerFired?.(tower.slotIndex, target);
+        tower.cdLeft = BARRIER_COOLDOWN_SEC / mult;
+        tower.cdMax = tower.cdLeft;
+        continue;
+      }
+
+      if (tower.pierce) {
+        // Railgun: strike every enemy in range at once (a pierced line).
+        for (const e of this.enemies) {
+          if (!e.alive) continue;
+          if (this.dist2(e.x, e.y, tower.x, tower.y) > tower.range * tower.range) continue;
+          this.applyHit(e, tower.damage, tower);
+          this.cb.onBeam?.(tower.x, tower.y, e.x, e.y, tower.element);
+        }
+        this.cb.onTowerFired?.(tower.slotIndex, target);
+      } else {
+        this.fireProjectile(tower, target);
+        this.cb.onTowerFired?.(tower.slotIndex, target);
+      }
       tower.cdLeft = tower.cooldown / mult;
       tower.cdMax = tower.cdLeft;
     }
@@ -335,9 +441,7 @@ export class BattleSim {
     const r2 = tower.range * tower.range;
     for (const e of this.enemies) {
       if (!e.alive) continue;
-      const dx = e.x - tower.x;
-      const dy = e.y - tower.y;
-      if (dx * dx + dy * dy > r2) continue;
+      if (this.dist2(e.x, e.y, tower.x, tower.y) > r2) continue;
       if (!best || e.t > best.t) best = e;
     }
     return best;
@@ -353,8 +457,18 @@ export class BattleSim {
       damage: tower.damage,
       element: tower.element,
       alive: true,
+      aoeRadius: tower.aoeRadius,
+      splashFrac: tower.splashFrac,
+      slowFactor: tower.slowFactor,
+      slowSec: tower.slowSec,
+      wetSec: tower.wetSec,
+      dotDps: tower.dotDps,
+      dotSec: tower.dotSec,
+      stunChance: tower.stunChance,
+      stunSec: tower.stunSec,
+      vsWetMult: tower.vsWetMult,
+      chainTargets: tower.chainTargets,
     });
-    this.cb.onTowerFired?.(tower.slotIndex, target);
   }
 
   private moveProjectiles(dt: number): void {
@@ -373,7 +487,7 @@ export class BattleSim {
         p.y = p.target.y;
         p.alive = false;
         this.cb.onProjectileHit?.(p.x, p.y, p.element);
-        this.damageEnemy(p.target, p.damage);
+        this.resolveProjectileHit(p);
       } else {
         p.x += (dx / d) * step;
         p.y += (dy / d) * step;
@@ -381,14 +495,102 @@ export class BattleSim {
     }
   }
 
+  /** Direct hit + splash + chain for a connecting projectile. */
+  private resolveProjectileHit(p: SimProjectile): void {
+    const primary = p.target;
+    this.applyHit(primary, p.damage, p);
+
+    // Area splash (Plasma III shockwave / Shrapnel).
+    if (p.aoeRadius > 0) {
+      const r2 = p.aoeRadius * p.aoeRadius;
+      for (const e of this.enemies) {
+        if (!e.alive || e === primary) continue;
+        if (this.dist2(e.x, e.y, p.x, p.y) > r2) continue;
+        this.applyHit(e, p.damage * p.splashFrac, p);
+      }
+    }
+
+    // Chain lightning (Storm): hop to the nearest fresh targets.
+    if (p.chainTargets > 1) {
+      const hit = new Set<SimEnemy>([primary]);
+      let from = primary;
+      let dmg = p.damage;
+      for (let hop = 1; hop < p.chainTargets; hop++) {
+        const next = this.nearestUnhit(from.x, from.y, hit);
+        if (!next) break;
+        dmg *= CHAIN_FALLOFF;
+        this.applyHit(next, dmg, p);
+        this.cb.onBeam?.(from.x, from.y, next.x, next.y, p.element);
+        hit.add(next);
+        from = next;
+      }
+    }
+  }
+
+  /** Nearest alive enemy within chain reach not already struck this chain. */
+  private nearestUnhit(x: number, y: number, exclude: Set<SimEnemy>): SimEnemy | null {
+    let best: SimEnemy | null = null;
+    let bestD = this.chainRadius * this.chainRadius;
+    for (const e of this.enemies) {
+      if (!e.alive || exclude.has(e)) continue;
+      const d = this.dist2(e.x, e.y, x, y);
+      if (d <= bestD) {
+        bestD = d;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  /** Apply damage (with Wet bonus) and on-hit statuses from a hit source. */
+  private applyHit(e: SimEnemy, baseDamage: number, fx: HitEffects): void {
+    if (!e.alive) return;
+    const wet = e.wetUntil > this.clock;
+    const dmg = baseDamage * (wet ? fx.vsWetMult : 1);
+    this.damageEnemy(e, dmg);
+    if (!e.alive) return;
+
+    if (fx.slowFactor > 0) {
+      // Combine against the *current* slow (1 if the previous one lapsed) so a
+      // stale strong slow never over-slows a later weaker one.
+      const cur = e.slowUntil > this.clock ? e.slowFactor : 1;
+      e.slowFactor = Math.min(cur, 1 - fx.slowFactor);
+      e.slowUntil = Math.max(e.slowUntil, this.clock + fx.slowSec);
+    }
+    if (fx.wetSec > 0) e.wetUntil = Math.max(e.wetUntil, this.clock + fx.wetSec);
+    if (fx.dotDps > 0) {
+      const curDot = e.dotUntil > this.clock ? e.dotDps : 0;
+      e.dotDps = Math.max(curDot, fx.dotDps);
+      e.dotUntil = Math.max(e.dotUntil, this.clock + fx.dotSec);
+    }
+    if (fx.stunChance > 0 && this.roll(fx.stunChance, e)) {
+      e.stunUntil = Math.max(e.stunUntil, this.clock + fx.stunSec);
+    }
+  }
+
+  /**
+   * Deterministic-ish "random" for stun rolls without Math.random (so the sim
+   * stays resumable/replayable): hash the enemy id, the clock and the chance.
+   */
+  private roll(chance: number, e: SimEnemy): boolean {
+    const seed = Math.sin((e.id + 1) * 12.9898 + this.clock * 78.233) * 43758.5453;
+    return seed - Math.floor(seed) < chance;
+  }
+
   private damageEnemy(enemy: SimEnemy, amount: number): void {
-    if (!enemy.alive) return;
+    if (!enemy.alive || amount <= 0) return;
     enemy.hp -= amount;
     if (enemy.hp <= 0) {
       enemy.hp = 0;
       enemy.alive = false;
       this.cb.onEnemyKilled?.(enemy);
     }
+  }
+
+  private dist2(ax: number, ay: number, bx: number, by: number): number {
+    const dx = ax - bx;
+    const dy = ay - by;
+    return dx * dx + dy * dy;
   }
 
   private reap<T extends { alive: boolean }>(list: T[]): void {
@@ -398,34 +600,140 @@ export class BattleSim {
   }
 }
 
-/** Damage / cooldown / range a card resolves to at a given merge grade. */
+// --- Stat resolution --------------------------------------------------------
+
+/** Base (pre-synergy) stats a card resolves to at a grade, for the inspection panel. */
 export interface ResolvedTowerStats {
   damage: number;
   cooldown: number;
   /** Attack radius in grid cells (0 = does not attack). */
   rangeCells: number;
+  /** Human-readable signature readout (v2 §5). */
+  signatureLabel: string;
 }
 
-/**
- * Resolve an attacking card's stats at `grade`. Merging upgrades exactly one
- * dimension per card (CardDef.upgrade): 'power' scales damage, 'tempo' scales
- * fire rate (shrinks cooldown), 'range' scales the attack radius.
- */
+/** Multipliers from a slot's synergy that scale a tower's base stats. */
+export interface SynergyMods {
+  damageMult: number;
+  rangeMult: number;
+  tempoMult: number;
+  reactions: readonly ReactionId[];
+}
+
+/** Resolve an attacking/support card's base stats at `grade` (no synergy applied). */
 export function towerStats(def: CardDef, grade: number): ResolvedTowerStats {
-  const i = Math.min(Math.max(grade, 1), 3) - 1;
-  const power = def.upgrade === 'power' ? POWER_MULT[i]! : 1;
-  const tempo = def.upgrade === 'tempo' ? TEMPO_MULT[i]! : 1;
-  const range = def.upgrade === 'range' ? RANGE_MULT[i]! : 1;
+  const g = cardGrade(def, grade);
+  const cooldown = def.signature === 'barrier' ? BARRIER_COOLDOWN_SEC : (def.cooldown ?? 1);
   return {
-    damage: Math.round((def.baseDamage ?? 0) * power),
-    cooldown: (def.cooldown ?? 1) / tempo,
-    rangeCells: (def.rangeCells ?? 0) * range,
+    damage: g.damage ?? 0,
+    cooldown,
+    rangeCells: g.rangeCells ?? 0,
+    signatureLabel: signatureLabel(def, grade),
   };
 }
 
-/** Effective global fire-rate multiplier from the current energy state. */
-export function fireRateFromEnergy(load: number, capacity: number, overdrive: boolean): number {
-  const effectiveCap = capacity + (overdrive ? OVERDRIVE_CAPACITY_BONUS : 0);
-  const overload = Math.max(0, load - effectiveCap);
+/** A short readout of the card's signature parameter at a grade (v2 §5). */
+export function signatureLabel(def: CardDef, grade: number): string {
+  const g = cardGrade(def, grade);
+  switch (def.signature) {
+    case 'projectile_power':
+      return `POWER ${g.sig}`;
+    case 'freeze_radius':
+      return `SLOW ${g.sig}% • WET ${g.sig2 ?? 0}s`;
+    case 'chain_targets':
+      return `CHAIN ${g.sig}`;
+    case 'pierce_length':
+      return `PIERCE ${g.sig.toFixed(1)}`;
+    case 'barrier':
+      return `BARRIER ${g.sig} • ${g.sig2 ?? 0}s`;
+    case 'energy_output':
+      return `ENERGY +${g.sig}`;
+  }
+}
+
+/** A card produces a firing tower (attacker, or a barrier-casting Shield). */
+export function isTower(def: CardDef, grade: number): boolean {
+  const g = cardGrade(def, grade);
+  return (def.category === 'attacking' && (g.rangeCells ?? 0) > 0) || def.signature === 'barrier';
+}
+
+/**
+ * Build the full firing spec for a placed card, folding in its grade table, the
+ * signature behavior and any active resonance reactions plus the neighbor-buff
+ * multipliers. `cellPx` converts cell radii → arena pixels; `arenaWidth` sizes
+ * the splash / shockwave radii.
+ */
+export function buildTowerSpec(
+  def: CardDef,
+  grade: number,
+  pos: { x: number; y: number },
+  cellPx: number,
+  arenaWidth: number,
+  mods: SynergyMods,
+): TowerSpec {
+  const g = cardGrade(def, grade);
+  const base = towerStats(def, grade);
+  const has = (id: ReactionId) => mods.reactions.includes(id);
+
+  // Signature behavior.
+  const chainTargets = def.signature === 'chain_targets' ? Math.round(g.sig) : 1;
+  const pierce = def.signature === 'pierce_length';
+  const barrierSec = def.signature === 'barrier' ? (g.sig2 ?? 0) : 0;
+
+  let aoeFrac = def.signature === 'projectile_power' && g.diagonal ? PLASMA_SHOCKWAVE_FRAC : 0;
+  if (has('shrapnel')) aoeFrac = (aoeFrac || PLASMA_SHOCKWAVE_FRAC) * SHRAPNEL_AOE_MULT;
+
+  // Slow / Wet from Frost's signature; Steam reaction adds slow + DoT.
+  let slowFactor = def.signature === 'freeze_radius' ? g.sig / 100 : 0;
+  let slowSec = slowFactor > 0 ? SLOW_REFRESH_SEC : 0;
+  const wetSec = def.signature === 'freeze_radius' ? (g.sig2 ?? 0) : 0;
+  let dotDps = 0;
+  let dotSec = 0;
+  if (has('steam')) {
+    slowFactor = Math.max(slowFactor, STEAM_SLOW);
+    slowSec = Math.max(slowSec, STEAM_DOT_SEC);
+    dotDps = STEAM_DOT_DPS;
+    dotSec = STEAM_DOT_SEC;
+  }
+
+  // Superconductivity: faster fire + chance to stun.
+  const tempoMult = mods.tempoMult * (has('superconductivity') ? SUPERCONDUCT_TEMPO_MULT : 1);
+  const stunChance = has('superconductivity') ? SUPERCONDUCT_STUN_CHANCE : 0;
+  const stunSec = has('superconductivity') ? SUPERCONDUCT_STUN_SEC : 0;
+
+  // Storm doubles damage to Wet targets (intrinsic, §6).
+  const vsWetMult = def.element === 'Electricity' ? WET_DAMAGE_MULT : 1;
+
+  return {
+    slotIndex: -1, // set by the caller
+    element: def.element,
+    x: pos.x,
+    y: pos.y,
+    range: base.rangeCells * mods.rangeMult * cellPx,
+    damage: Math.round(base.damage * mods.damageMult),
+    cooldown: base.cooldown / Math.max(0.1, tempoMult),
+    pierce,
+    barrierSec,
+    aoeRadius: aoeFrac * arenaWidth,
+    splashFrac: AOE_SPLASH_FRAC,
+    slowFactor,
+    slowSec,
+    wetSec,
+    dotDps,
+    dotSec,
+    stunChance,
+    stunSec,
+    vsWetMult,
+    chainTargets,
+  };
+}
+
+/**
+ * Effective global fire-rate multiplier from the current energy state. `capacity`
+ * is the *effective* capacity (the scene folds in any Overdrive bonus), so every
+ * unit of load past it slows the whole grid's fire rate.
+ */
+export function fireRateFromEnergy(load: number, capacity: number): number {
+  const overload = Math.max(0, load - capacity);
   return 1 / (1 + OVERLOAD_FIRE_PENALTY * overload);
 }

@@ -15,8 +15,8 @@ export const HAND_SIZE = 3;
 /** Seconds an emptied hand position spends recharging before it spawns a new card. */
 export const HAND_RESPAWN_SEC = 4;
 
-/** Overdrive duration granted by burning a card in the Reactor (matches the "+5s" label). */
-export const OVERDRIVE_SEC = 5;
+/** Reactor burn duration: capacity stays boosted this long (v2 §3.Г: +2 for 15s). */
+export const OVERDRIVE_SEC = 15;
 
 /** Card ids eligible to spawn into the hand. */
 export const DRAW_POOL: string[] = CARD_LIST.map((c) => c.id);

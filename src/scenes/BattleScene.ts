@@ -5,18 +5,27 @@ import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
 import { createBattleState } from '../config/battleState';
 import { HAND_RESPAWN_SEC, HAND_SIZE, OVERDRIVE_SEC, rollHandCard } from '../config/battleRules';
-import { CORE_MAX, ENEMY_PATH, WAVE_CLEAR_BONUS } from '../config/combatRules';
+import {
+  CORE_MAX,
+  ENEMY_PATH,
+  OVERDRIVE_CAPACITY_BONUS,
+  PERFECT_CLEAR_CRYSTALS,
+  WAVE_CLEAR_BONUS,
+} from '../config/combatRules';
 import { getCard } from '../config/cards';
 import { WAVES } from '../config/waves';
 import type { BattleStateMock, CardDef } from '../config/types';
 import { ArenaPath } from '../game/path';
 import {
   BattleSim,
+  buildTowerSpec,
   fireRateFromEnergy,
+  isTower,
   towerStats,
   type SimEnemy,
   type TowerSpec,
 } from '../game/BattleSim';
+import { computeSynergy, type SlotSynergy } from '../game/synergy';
 import { BattleBanner } from '../ui/BattleBanner';
 import { BattleCard } from '../ui/BattleCard';
 import { Button } from '../ui/Button';
@@ -97,7 +106,9 @@ export class BattleScene extends Scene {
   private avatar!: HeroAvatar;
   private avatarR = 72;
   private backBtn!: Button;
-  private resonanceLabel = makeText('PAR RESONANCE', 'label', { fontSize: 26, fill: hex(COLORS.energyOk) });
+  private resonanceLabel = makeText('', 'label', { fontSize: 26, fill: hex(COLORS.energyOverdrive) });
+  /** Resolved positional synergy per slot (v2 model), recomputed on every change. */
+  private synergy: (SlotSynergy | null)[] = [];
   private hint = makeText('Drag a card onto a slot or the Reactor', 'micro', { fontSize: 20 });
   private waveToast = makeText('', 'title', { fontSize: 40, fill: hex(COLORS.gold) });
 
@@ -124,8 +135,12 @@ export class BattleScene extends Scene {
   private infoPanelWidth = 760;
   private infoPanelPos: PointData = { x: 0, y: 0 };
 
-  /** Remaining Overdrive time (s) granted by burning a card; 0 = inactive. */
-  private overdriveTimer = 0;
+  /**
+   * Active Overdrive stacks — one per burned card, each holding its remaining
+   * seconds. They stack (§3.Г): the effective capacity bonus is
+   * `stacks.length * OVERDRIVE_CAPACITY_BONUS`, and each expires on its own timer.
+   */
+  private overdriveStacks: number[] = [];
   /** Monotonic counter for unique spawned-card instance ids. */
   private instanceSeq = 0;
 
@@ -208,12 +223,15 @@ export class BattleScene extends Scene {
         onEnemyLeaked: (e) => this.onEnemyLeaked(e),
         onTowerFired: (slotIndex) => this.onTowerFired(slotIndex),
         onProjectileHit: (x, y, element) => this.burst(x, y, ELEMENTS[element].glow, this.arenaW * 0.03),
+        onBeam: (x1, y1, x2, y2, element) => this.beam(x1, y1, x2, y2, ELEMENTS[element].glow),
+        onBarrier: (x, y) => this.burst(x, y, COLORS.brassLight, this.arenaW * 0.05),
         onWaveStart: (n) => this.waveBadge.setWave(n, this.sim.totalWaves),
-        onWaveCleared: () => this.addReward(WAVE_CLEAR_BONUS),
+        onWaveCleared: (_n, perfect) => this.onWaveCleared(perfect),
         onVictory: () => this.showBanner('victory'),
         onDefeat: () => this.showBanner('defeat'),
       },
     });
+    this.refreshSynergy();
     this.syncTowers();
     this.sim.start();
 
@@ -407,7 +425,7 @@ export class BattleScene extends Scene {
     this.grid.inspect(index); // neighbor cells, arrows, effect badges
     this.drawInspectRange(index, def, placed.grade); // attack radius over the road
     this.infoPanel.setWidth(this.infoPanelWidth);
-    this.infoPanel.show(def, placed.grade, towerStats(def, placed.grade));
+    this.infoPanel.show(def, placed.grade, towerStats(def, placed.grade), this.synergy[index] ?? null);
     this.infoPanel.position.set(this.infoPanelPos.x, this.infoPanelPos.y);
   }
 
@@ -423,14 +441,16 @@ export class BattleScene extends Scene {
     this.infoPanel.hide();
   }
 
-  /** Draw the inspected tower's attack radius (attackers only) over the road. */
+  /** Draw the inspected tower's attack/barrier radius over the road. */
   private drawInspectRange(index: number, def: CardDef, grade: number): void {
     this.inspectRange.clear();
-    if (def.category !== 'attacking' || !def.rangeCells) {
+    const baseRange = towerStats(def, grade).rangeCells;
+    if (baseRange <= 0) {
       this.inspectRange.visible = false;
       return;
     }
-    const r = towerStats(def, grade).rangeCells * this.grid.cellWorldSize;
+    const rMult = this.synergy[index]?.rangeMult ?? 1;
+    const r = baseRange * rMult * this.grid.cellWorldSize;
     const skin = ELEMENTS[def.element];
     const p = this.grid.slotScenePos(index);
     this.inspectRange.position.set(p.x, p.y);
@@ -498,30 +518,43 @@ export class BattleScene extends Scene {
 
     const overReactor = this.reactor.visible && this.reactor.containsGlobal(e.global);
     const slot = overReactor ? null : this.grid.slotAtGlobal(e.global);
-    const targetSlot = slot && !slot.isOccupied ? slot : null;
+    const emptySlot = slot && !slot.isOccupied ? slot : null;
+    const mergeSlot = slot && slot.isOccupied && this.canMerge(card, slot.index) ? slot : null;
+    const targetSlot = emptySlot ?? mergeSlot;
+    // The grade the preview should reflect: a merge bumps it one up.
+    const previewGrade = mergeSlot ? this.state.slots[mergeSlot.index]!.grade + 1 : card.grade;
 
     // Reactor hover charges the gauge (previewing the burn payoff); otherwise
     // the reactor sits as a plain valid target.
     this.reactor.setHighlight(overReactor ? 'hover' : 'valid');
     this.gauge.setCharging(overReactor);
 
-    // Over a free slot: drop a translucent build preview into it, show the tower's
-    // attack-range footprint + the buffs it would feed its neighbors, and fade the
-    // dragged card out so the preview reads.
+    // Over a target slot: show the tower's attack-range footprint + the buffs it
+    // would feed its neighbors. An empty slot also gets a translucent build ghost
+    // (a merge keeps the existing tower art, so no ghost there).
     if (targetSlot !== this.previewSlot) {
       this.previewSlot?.clearGhost();
       this.previewSlot = targetSlot;
-      if (targetSlot) {
-        targetSlot.showGhost(this.services.assets.get(card.def.iconKey), card.def.element);
-        this.grid.previewBuffs(targetSlot.index, card.def);
-      } else {
-        this.grid.clearInspect();
-      }
+      if (emptySlot) emptySlot.showGhost(this.services.assets.get(card.def.iconKey), card.def.element);
+      if (!targetSlot) this.grid.clearInspect();
     }
-    if (targetSlot) this.showRangePreview(targetSlot, card.def, card.grade);
-    else this.hideRangePreview();
-    this.grid.setHover(targetSlot, true);
-    this.setCardGhosted(targetSlot !== null);
+    if (targetSlot) {
+      this.grid.previewBuffs(targetSlot.index, card.def, previewGrade);
+      this.showRangePreview(targetSlot, card.def, previewGrade);
+    } else {
+      this.hideRangePreview();
+    }
+    if (mergeSlot) this.grid.setMergeTarget(mergeSlot);
+    else this.grid.setHover(emptySlot, true);
+    // Fade the dragged card out over an empty slot (the ghost reads); keep it
+    // visible over a merge slot so the player sees what is being fed in.
+    this.setCardGhosted(emptySlot !== null);
+  }
+
+  /** Can the dragged card merge onto the tower at `index`? Same type, not yet maxed. */
+  private canMerge(card: BattleCard, index: number): boolean {
+    const placed = this.state.slots[index];
+    return !!placed && placed.cardId === card.def.id && placed.grade < 3;
   }
 
   /** Fast fade of the dragged card while a slot build-preview is showing. */
@@ -564,10 +597,14 @@ export class BattleScene extends Scene {
     }
     this.hideReactor();
 
-    // Place: dropped on a free slot (energy load is the only real cost).
+    // Place on a free slot, or merge onto a matching tower.
     const slot = this.grid.slotAtGlobal(e.global);
     if (slot && !slot.isOccupied) {
       this.placeCard(card, slot);
+      return;
+    }
+    if (slot && this.canMerge(card, slot.index)) {
+      this.mergeCard(card, slot);
       return;
     }
     this.returnCardHome(card);
@@ -588,7 +625,8 @@ export class BattleScene extends Scene {
     this.state.energyLoad = Math.max(0, this.state.energyLoad + def.baseLoad);
     this.gauge.setState({ load: this.state.energyLoad });
     this.spendGold(def.costGold);
-    this.grid.applyState(this.state); // renders the tower + redraws resonance beams
+    this.grid.applyState(this.state); // renders the tower + redraws broadcast beams
+    this.refreshSynergy(); // recompute neighbor buffs / resonance
     this.syncTowers(); // the new tower joins the firing line
 
     this.flash(slot, COLORS.dropValid);
@@ -596,14 +634,52 @@ export class BattleScene extends Scene {
     this.animatePlace(card, slot);
   }
 
-  /** Burn a card in the Reactor: trigger timed Overdrive, animate it in. */
+  /**
+   * Merge a hand card onto a matching tower (v2 §4): the tower grades up in place
+   * (wider reach, stronger buff, next signature tier, +1 synergy slot) for the
+   * card's gold, while its load grows — over-grading risks Overload.
+   */
+  private mergeCard(card: BattleCard, slot: SlotView): void {
+    const def = card.def;
+    const placed = this.state.slots[slot.index];
+    if (!placed || this.state.gold < def.costGold) {
+      this.returnCardHome(card);
+      return;
+    }
+    const newGrade = Math.min(3, placed.grade + 1);
+    this.state.slots[slot.index] = { cardId: placed.cardId, grade: newGrade };
+    this.state.energyLoad = Math.max(0, this.state.energyLoad + def.baseLoad);
+    // TODO (v2 §3.В, Phase C): grow energyCapacity from the platform's average grade.
+    this.gauge.setState({ load: this.state.energyLoad });
+    this.spendGold(def.costGold);
+    this.grid.applyState(this.state);
+    this.refreshSynergy();
+    this.syncTowers();
+
+    this.flash(slot, COLORS.dropHover);
+    this.freeHandCard(card);
+    this.animatePlace(card, slot);
+  }
+
+  /** Burn a card in the Reactor: add a stacking Overdrive window, animate it in. */
   private burnCard(card: BattleCard): void {
-    this.state.overdrive = true;
-    this.overdriveTimer = OVERDRIVE_SEC;
-    this.gauge.setState({ overdrive: true });
+    this.overdriveStacks.push(OVERDRIVE_SEC);
+    this.applyOverdrive();
     this.flash(this.reactor, COLORS.reactor);
     this.freeHandCard(card);
     this.animateBurn(card);
+  }
+
+  /** Reflect the current Overdrive stacks into the effective capacity + gauge. */
+  private applyOverdrive(): void {
+    const bonus = this.overdriveStacks.length * OVERDRIVE_CAPACITY_BONUS;
+    this.state.overdrive = bonus > 0;
+    this.gauge.setState({ overdrive: bonus > 0, capacity: this.state.energyCapacity + bonus });
+  }
+
+  /** Effective network capacity (base + Overdrive stacks). */
+  private get effectiveCapacity(): number {
+    return this.state.energyCapacity + this.overdriveStacks.length * OVERDRIVE_CAPACITY_BONUS;
   }
 
   /** Mark the hand position that held `card` as empty and start its recharge. */
@@ -752,26 +828,65 @@ export class BattleScene extends Scene {
 
   // --- Combat: simulation <-> sprites --------------------------------------
 
-  /** Rebuild the sim's firing towers from the placed attacking cards. */
+  /**
+   * Rebuild the sim's firing towers from placement + synergy: each attacking card
+   * (and the barrier-casting Shield) becomes a tower whose stats are scaled by its
+   * neighbor buffs and whose behavior folds in its signature + active reactions.
+   */
   private syncTowers(): void {
     const specs: TowerSpec[] = [];
     this.state.slots.forEach((placed, i) => {
       if (!placed) return;
       const def = getCard(placed.cardId);
-      if (def.category !== 'attacking' || !def.rangeCells) return;
-      const st = towerStats(def, placed.grade);
+      if (!isTower(def, placed.grade)) return;
+      const syn = this.synergy[i];
       const p = this.grid.slotScenePos(i);
-      specs.push({
-        slotIndex: i,
-        element: def.element,
-        x: p.x,
-        y: p.y,
-        range: st.rangeCells * this.grid.cellWorldSize,
-        damage: st.damage,
-        cooldown: st.cooldown,
+      const spec = buildTowerSpec(def, placed.grade, p, this.grid.cellWorldSize, this.arenaW, {
+        damageMult: syn?.damageMult ?? 1,
+        rangeMult: syn?.rangeMult ?? 1,
+        tempoMult: syn?.tempoMult ?? 1,
+        reactions: syn?.reactions ?? [],
       });
+      specs.push({ ...spec, slotIndex: i });
     });
     this.sim.setTowers(specs);
+  }
+
+  /** Recompute positional synergy and reflect resonance in the banner. */
+  private refreshSynergy(): void {
+    this.synergy = computeSynergy(this.state.slots);
+    const count = this.synergy.filter((s) => s?.resonant).length;
+    this.resonanceLabel.text = count > 1 ? `RESONANCE ×${count}` : count === 1 ? 'RESONANCE' : '';
+    this.resonanceLabel.alpha = count > 0 ? 1 : 0;
+  }
+
+  /** A wave was cleared: gold bounty + crystals on a Perfect Clear (no leak). */
+  private onWaveCleared(perfect: boolean): void {
+    this.addReward(WAVE_CLEAR_BONUS);
+    if (perfect) this.addCrystals(PERFECT_CLEAR_CRYSTALS);
+  }
+
+  /** Grant crystals (Perfect Clear) and refresh the chip. */
+  private addCrystals(n: number): void {
+    if (!n) return;
+    this.state.crystals += n;
+    this.crystalChip.setValue(this.state.crystals);
+  }
+
+  /** A brief line FX for chain-lightning hops and Railgun pierce beams. */
+  private beam(x1: number, y1: number, x2: number, y2: number, color: number): void {
+    const g = new Graphics();
+    g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: this.arenaW * 0.011, color, alpha: 0.9 });
+    g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: this.arenaW * 0.004, color: COLORS.white, alpha: 0.9 });
+    this.fxLayer.addChild(g);
+    this.track(
+      tween({
+        duration: 0.2,
+        easing: Easings.outCubic,
+        onUpdate: (t) => { if (!g.destroyed) g.alpha = 1 - t; },
+        onComplete: () => { if (!g.destroyed) g.destroy(); },
+      }),
+    );
   }
 
   /** Award gold (on a kill or a wave clear) and refresh the chip + hand locks. */
@@ -796,14 +911,15 @@ export class BattleScene extends Scene {
     }
   }
 
-  /** Draw the attack-range footprint of the held card centered on a slot. */
+  /** Draw the attack/barrier-range footprint of the held card centered on a slot. */
   private showRangePreview(slot: SlotView, def: CardDef, grade: number): void {
     this.rangePreview.clear();
-    if (def.category !== 'attacking' || !def.rangeCells) {
+    const baseRange = towerStats(def, grade).rangeCells;
+    if (baseRange <= 0) {
       this.rangePreview.visible = false;
       return;
     }
-    const r = towerStats(def, grade).rangeCells * this.grid.cellWorldSize;
+    const r = baseRange * this.grid.cellWorldSize;
     const skin = ELEMENTS[def.element];
     const p = this.grid.slotScenePos(slot.index);
     this.rangePreview.position.set(p.x, p.y);
@@ -1119,11 +1235,7 @@ export class BattleScene extends Scene {
     // Drive the combat simulation, then mirror it into sprites. Overload from
     // too much energy load slows every tower's fire rate (Overdrive lifts it).
     if (this.sim.status === 'running') {
-      this.sim.fireRateMult = fireRateFromEnergy(
-        this.state.energyLoad,
-        this.state.energyCapacity,
-        this.state.overdrive,
-      );
+      this.sim.fireRateMult = fireRateFromEnergy(this.state.energyLoad, this.effectiveCapacity);
     }
     this.sim.update(dt);
     this.syncEnemies(dt);
@@ -1131,14 +1243,14 @@ export class BattleScene extends Scene {
     this.syncCooldowns();
     this.updateWaveToast(dt);
 
-    // Overdrive countdown (granted by burning a card in the Reactor).
-    if (this.overdriveTimer > 0) {
-      this.overdriveTimer -= dt;
-      if (this.overdriveTimer <= 0) {
-        this.overdriveTimer = 0;
-        this.state.overdrive = false;
-        this.gauge.setState({ overdrive: false });
+    // Overdrive countdown: tick each burn stack; resync capacity when one expires.
+    if (this.overdriveStacks.length > 0) {
+      const before = this.overdriveStacks.length;
+      for (let i = this.overdriveStacks.length - 1; i >= 0; i--) {
+        this.overdriveStacks[i]! -= dt;
+        if (this.overdriveStacks[i]! <= 0) this.overdriveStacks.splice(i, 1);
       }
+      if (this.overdriveStacks.length !== before) this.applyOverdrive();
     }
 
     // Hand recharge: empty positions count down, then spawn a fresh card.

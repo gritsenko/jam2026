@@ -58,7 +58,7 @@ export class ReactorZone extends Container {
     burn.position.set(0, H / 2 - 78);
     this.addChild(burn);
 
-    const sub = makeText('+5s OVERDRIVE', 'micro', { fontSize: 18, fill: hex(COLORS.energyOverdrive) });
+    const sub = makeText('+2 ENERGY 15s', 'micro', { fontSize: 18, fill: hex(COLORS.energyOverdrive) });
     sub.anchor.set(0.5);
     sub.position.set(0, H / 2 - 44);
     this.addChild(sub);

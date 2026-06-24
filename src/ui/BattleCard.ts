@@ -87,9 +87,38 @@ export class BattleCard extends Container {
     if (blurb.width > W - 26) blurb.scale.set((W - 26) / blurb.width);
     this.addChild(blurb);
 
+    // Influence-dot row (v2 §9): count = grade, color = wanted-neighbor element.
+    this.buildDotRow();
+
     // Cost row: two compact chips — energy load + gold price.
     this.buildCostRow(opts.energyIcon, opts.goldIcon);
     this.buildLockOverlay();
+  }
+
+  /**
+   * A row of dots under the flavor line: one per synergy slot the card has at its
+   * grade, colored by the element it wants in that slot (its own element for
+   * support cards). Mirrors the lit dots that appear once the card is placed.
+   */
+  private buildDotRow(): void {
+    const slots = Math.min(Math.max(this.grade, 1), 3);
+    const els =
+      this.def.category === 'support'
+        ? Array.from({ length: slots }, () => this.def.element)
+        : Array.from({ length: slots }, (_, i) => this.def.slotElements[i] ?? this.def.element);
+    const g = new Graphics();
+    const r = 6;
+    const gap = 22;
+    const startX = -((els.length - 1) * gap) / 2;
+    const y = this.cardH * 0.3;
+    els.forEach((el, i) => {
+      const color = ELEMENTS[el].glow;
+      const x = startX + i * gap;
+      g.circle(x, y, r + 2).fill({ color: COLORS.black, alpha: 0.5 });
+      g.circle(x, y, r).fill({ color, alpha: 0.95 });
+      g.circle(x, y, r + 3).stroke({ width: 2, color, alpha: 0.4 });
+    });
+    this.addChild(g);
   }
 
   /**
