@@ -104,7 +104,7 @@ refundRate = 0.6   (стартовое значение под тюнинг)
   каскад вслепую.
 - **Прогрессия.** Продажа — базовая механика, доступна **с первого уровня** (это
   «отмена», а не продвинутый ход). Её НЕ нужно гейтить деревом технологий из
-  [progression-and-tech-tree.md](progression-and-tech-tree.md).
+  [progression-and-tech-tree.md](../done/progression-and-tech-tree.md).
 
 ---
 

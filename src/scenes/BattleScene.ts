@@ -23,7 +23,10 @@ import {
 import { cardLoad, getCard } from '../config/cards';
 import { FUSION_CRYSTAL_COST, fusionGoldCost, fusionResult } from '../config/fusion';
 import { WAVES } from '../config/waves';
+import { DRAW_POOL } from '../config/battleRules';
 import type { BattleStateMock, CardDef } from '../config/types';
+import { unlockedMechanicsForLevel, unlockedTowersForLevel } from '../config/progression';
+import * as progress from '../game/progress';
 import { ArenaPath } from '../game/path';
 import {
   BattleSim,
@@ -91,6 +94,13 @@ const DRAG_THRESHOLD_SQ = 12 * 12;
  */
 export class BattleScene extends Scene {
   private state: BattleStateMock = createBattleState();
+
+  /** Campaign level being played (drives unlocks + where a clear is recorded). */
+  private levelId = 'lvl_1';
+  /** Tower card ids the player may draw this battle (campaign roster, progression §7). */
+  private drawPool: string[] = DRAW_POOL;
+  /** Systemic mechanics unlocked so far (gates reroll / fusion, …). */
+  private mechanics: Set<string> = new Set();
 
   private marginBg!: SceneBackground; // dimmed backdrop that fills wide-screen margins
   private scrim = new Graphics();
@@ -204,7 +214,15 @@ export class BattleScene extends Scene {
   }
 
   override onEnter(params?: SceneParams): void {
-    if (params?.levelId) console.log(`[Battle] started level ${String(params.levelId)}`);
+    this.levelId = typeof params?.levelId === 'string' ? params.levelId : 'lvl_1';
+    // Campaign gate (progression §7): the roster is *fixed per level* (by its
+    // place in the ladder), not by global progress or Admin — so level 1 always
+    // comes up with only its starting towers. It filters the seeded board + draw pool.
+    const unlocked = unlockedTowersForLevel(this.levelId);
+    this.mechanics = unlockedMechanicsForLevel(this.levelId);
+    this.drawPool = DRAW_POOL.filter((id) => unlocked.has(id));
+    this.state = createBattleState(unlocked);
+    console.log(`[Battle] level ${this.levelId} — towers: ${[...unlocked].join(', ')}`);
     const { assets } = this.services;
 
     // Neutral full-bleed backdrop — a quiet steel/stone wall that fills the
@@ -746,7 +764,7 @@ export class BattleScene extends Scene {
     // Hand-to-hand fusion (§6.5): hovering a *different* hand card with a recipe,
     // while not over the Reactor or a grid slot. Highlight the target card.
     let fuse: { target: BattleCard; hybridId: string } | null = null;
-    if (!fieldDrag && !overReactor && !targetSlot) {
+    if (this.mechanics.has('fusion') && !fieldDrag && !overReactor && !targetSlot) {
       const other = this.handCardAtGlobal(e.global, card)?.card;
       if (other) {
         const hid = fusionResult(card.def.id, other.def.id);
@@ -907,7 +925,7 @@ export class BattleScene extends Scene {
     }
 
     // ...or fuse onto a different hand card that has a recipe (v2 §6.5).
-    if (!slot) {
+    if (!slot && this.mechanics.has('fusion')) {
       const other = this.handCardAtGlobal(e.global, card)?.card;
       if (other) {
         const hid = fusionResult(card.def.id, other.def.id);
@@ -1217,7 +1235,7 @@ export class BattleScene extends Scene {
 
   /** Recharge finished: deal a fresh card into an empty hand position. */
   private spawnIntoSlot(slot: HandSlot): void {
-    const hc = rollHandCard(this.instanceSeq++);
+    const hc = rollHandCard(this.instanceSeq++, this.drawPool);
     const def = getCard(hc.cardId);
     const card = new BattleCard(def, hc.grade, this.services.assets.get(def.iconKey), {
       energyIcon: this.services.assets.get('icon_energy'),
@@ -1427,8 +1445,14 @@ export class BattleScene extends Scene {
     return REROLL_BASE_COST + this.rerollsThisWave * REROLL_STEP;
   }
 
-  /** Update the Reroll caption (live cost) and enable it only when affordable. */
+  /** Update the Reroll caption (live cost) and enable it only when affordable.
+   *  Reroll is a campaign unlock (progression §3.Б, lvl 2) — hidden until then. */
   private refreshRerollButton(): void {
+    if (!this.mechanics.has('reroll')) {
+      this.rerollBtn.visible = false;
+      return;
+    }
+    this.rerollBtn.visible = true;
     const cost = this.rerollCost();
     this.rerollBtn.setLabel(`REROLL ${cost}`);
     this.rerollBtn.setEnabled(this.state.crystals >= cost && !this.banner);
@@ -2046,28 +2070,34 @@ export class BattleScene extends Scene {
 
   private showBanner(kind: 'victory' | 'defeat'): void {
     if (this.banner) return;
-    const opts =
-      kind === 'victory'
-        ? {
-            title: 'VICTORY',
-            subtitle: `All ${this.sim.totalWaves} waves repelled`,
-            accent: COLORS.energyOk,
-            // 1–3 stars by Core integrity left (v3 §10.Г). Defeat shows no stars.
-            stars: this.sim.starRating,
-            starTexture: this.services.assets.get('icon_star'),
-            buttons: [
-              { label: 'WORLD MAP', primary: true, onClick: () => this.services.navigate('worldmap') },
-            ],
-          }
-        : {
-            title: 'DEFEAT',
-            subtitle: 'The core was overrun',
-            accent: COLORS.energyDanger,
-            buttons: [
-              { label: 'RETRY', primary: true, onClick: () => this.services.navigate('battle') },
-              { label: 'MAP', onClick: () => this.services.navigate('worldmap') },
-            ],
-          };
+    let opts;
+    if (kind === 'victory') {
+      // Record the clear: unlocks the next level + grants this level's stars (§4).
+      // The returned star count is the single source — it also drives the banner's
+      // star row, so what's saved and what's shown can never diverge.
+      const stars = progress.recordClear(this.levelId, this.sim.coreHp, CORE_MAX);
+      opts = {
+        title: 'VICTORY',
+        subtitle: `Core ${this.sim.coreHp}/${CORE_MAX}`,
+        accent: COLORS.energyOk,
+        // 1–3★ shown as a star row (icon_star sprite) — see BattleBanner.
+        stars,
+        starTexture: this.services.assets.get('icon_star'),
+        buttons: [
+          { label: 'WORLD MAP', primary: true, onClick: () => this.services.navigate('worldmap') },
+        ],
+      };
+    } else {
+      opts = {
+        title: 'DEFEAT',
+        subtitle: 'The core was overrun',
+        accent: COLORS.energyDanger,
+        buttons: [
+          { label: 'RETRY', primary: true, onClick: () => this.services.navigate('battle', { levelId: this.levelId }) },
+          { label: 'MAP', onClick: () => this.services.navigate('worldmap') },
+        ],
+      };
+    }
     this.banner = new BattleBanner(opts);
     this.banner.alpha = 0;
     this.addChild(this.banner);

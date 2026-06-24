@@ -20,7 +20,6 @@ import {
   RAILGUN_BEAM_HALF_WIDTH_FRAC,
   SHRAPNEL_AOE_MULT,
   SLOW_REFRESH_SEC,
-  STAR_TWO_CORE_FRAC,
   STEAM_DOT_DPS,
   STEAM_DOT_SEC,
   STEAM_SLOW,
@@ -243,18 +242,6 @@ export class BattleSim {
 
   get totalWaves(): number {
     return this.waves.length;
-  }
-
-  /**
-   * End-of-level star rating 0..3 (v3 §10.Г), from Core integrity at the result:
-   * ★ cleared, ★★ Core ≥ STAR_TWO_CORE_FRAC of max, ★★★ Core untouched. Anything
-   * but a victory (defeat / still running) is 0. The result banner reads this.
-   */
-  get starRating(): number {
-    if (this.status !== 'victory' || this.coreHp <= 0) return 0;
-    if (this.coreHp >= this.coreMax) return 3;
-    if (this.coreHp >= this.coreMax * STAR_TWO_CORE_FRAC) return 2;
-    return 1;
   }
 
   /** 1-based number of the wave that the current countdown will start next. */

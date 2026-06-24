@@ -2,7 +2,7 @@
 
 Дев-документ. Три полноценных боевых уровня, идущих **после обучающего кластера**
 (уровни, где игрок осваивал установку → мердж → резонанс — см.
-[progression-and-tech-tree.md](progression-and-tech-tree.md)). Опирается на баланс
+[progression-and-tech-tree.md](../done/progression-and-tech-tree.md)). Опирается на баланс
 из [enemy-balance.md](../working/enemy-balance.md). Каждый уровень дан готовым скриптом волн в
 формате `WaveDef` ([types.ts](../../src/config/types.ts)) — копируется в код почти как есть.
 
