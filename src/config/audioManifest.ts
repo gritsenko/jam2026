@@ -5,19 +5,24 @@
  * so the whole shell is fully playable before any audio exists.
  *
  * `prompt` is the English description fed to a text-to-audio model
- * (ElevenLabs Sound Effects / Stable Audio for SFX, Suno/Udio/Stable Audio for
- * music). It doubles as living documentation of what each sound should feel like.
+ * (ElevenLabs Sound Effects). It doubles as living documentation of what each
+ * sound should feel like. Prompts lean on "soft / smooth / clean / warm" wording
+ * on purpose — the raw model skews harsh, so we steer it toward polished,
+ * meaning-fitting results rather than literal noise.
  *
- * Authoring guidance for whoever generates these:
- *   - SFX: short (<0.6s for combat, <0.3s for UI), punchy, mono. Export mp3.
- *     Trim silence. Keep peaks consistent so nothing is jarringly loud.
- *   - Music: seamless LOOP, no intro/outro tail, no vocals, mono is fine for a
- *     jam (halves the size). 64–96 kbps mp3.
+ * `kind` routes the clip to a mixer bus with its own volume slider:
+ *   - 'music' → looping background tracks (one at a time, crossfaded)
+ *   - 'sfx'   → gameplay effects (towers, enemies, cards, stingers)
+ *   - 'ui'    → system/interface effects (clicks, reroll, menu)
+ *
+ * Authoring guidance for whoever regenerates these:
+ *   - SFX: short and punchy, mono. Export mp3. Trim silence.
+ *   - Music: seamless LOOP, no vocals (the engine loops the clip).
  * Drop the resulting files into assets/audio/ and restart the dev server
  * (the glob in AudioBus resolves at startup, same as sprites).
  */
 
-export type AudioKind = 'music' | 'sfx';
+export type AudioKind = 'music' | 'sfx' | 'ui';
 
 export interface AudioSpec {
   readonly key: string;
@@ -35,150 +40,164 @@ export const AUDIO: AudioSpec[] = [
     kind: 'music',
     volume: 0.55,
     prompt:
-      'calm cyberpunk synthwave main menu loop, slow warm analog pads, gentle arpeggio, hopeful and clean, no drums or light soft kick only, no vocals, seamless loop, 80 bpm',
+      'calm cyberpunk synthwave music loop, warm analog pad chords with a gentle hopeful arpeggio, soft and atmospheric, clean, instrumental, around 80 bpm',
   },
   {
     key: 'music_map',
     kind: 'music',
     volume: 0.5,
     prompt:
-      'light exploratory ambient electronic loop for a level-select world map, curious and airy, soft plucks and pads, subtle pulse, optimistic, no vocals, seamless loop, 90 bpm',
+      'light airy ambient electronic music loop, soft plucks and warm pads with a subtle gentle pulse, curious and optimistic, instrumental, around 90 bpm',
   },
   {
     key: 'music_battle',
     kind: 'music',
     volume: 0.45,
     prompt:
-      'driving dark synth tower-defense battle loop, pulsing bass arpeggio, tense but groovy, industrial cyber energy, steady percussion, rising urgency, no vocals, seamless loop, 120 bpm',
+      'driving dark synth music loop, pulsing bass arpeggio with steady punchy electronic percussion, tense industrial cyberpunk energy, instrumental, around 120 bpm',
   },
 
-  // ---- Combat SFX ----------------------------------------------------------
+  // ---- Gameplay SFX: cards / placement -------------------------------------
   {
-    key: 'sfx_shoot',
+    key: 'sfx_pickup',
     kind: 'sfx',
     volume: 0.5,
     prompt:
-      'short sci-fi energy bolt firing zap, synthetic plasma pew with a quick electric snap, bright and light, 0.2 seconds',
-  },
-  {
-    key: 'sfx_hit',
-    kind: 'sfx',
-    volume: 0.55,
-    prompt:
-      'short energy projectile impact, soft electric thud with a faint metallic sparkle, 0.2 seconds',
-  },
-  {
-    key: 'sfx_crit',
-    kind: 'sfx',
-    volume: 0.7,
-    prompt:
-      'satisfying critical hit, wet electric crackle with a heavier punchy impact and bright sparkle tail, 0.3 seconds',
-  },
-  {
-    key: 'sfx_enemy_die',
-    kind: 'sfx',
-    volume: 0.6,
-    prompt:
-      'small robotic enemy destroyed, crunchy digital pop with a short downward glitch fizzle, 0.3 seconds',
-  },
-  {
-    key: 'sfx_leak',
-    kind: 'sfx',
-    volume: 0.75,
-    prompt:
-      'alarming core breach warning, low ominous synth hit with a brief distorted buzz, conveys taking damage, 0.4 seconds',
-  },
-  {
-    key: 'sfx_disrupt',
-    kind: 'sfx',
-    volume: 0.55,
-    prompt:
-      'tower jammed by signal disruptor, glitchy digital stutter and static burst, malfunction, 0.3 seconds',
-  },
-  {
-    key: 'sfx_barrier',
-    kind: 'sfx',
-    volume: 0.5,
-    prompt:
-      'force shield engaging, short shimmering energy bubble whoosh with a soft hum, 0.3 seconds',
-  },
-
-  // ---- UI / card SFX -------------------------------------------------------
-  {
-    key: 'sfx_click',
-    kind: 'sfx',
-    volume: 0.5,
-    prompt:
-      'crisp futuristic UI button click, clean soft synthetic tick with a tiny digital blip, 0.1 seconds',
+      'picking up a holographic card, soft airy lift swish with a gentle digital shimmer, light and tactile, smooth, 0.3 seconds',
   },
   {
     key: 'sfx_place',
     kind: 'sfx',
     volume: 0.6,
     prompt:
-      'placing a turret card onto a grid slot, solid mechanical clunk with a soft electronic confirm chime, 0.25 seconds',
+      'placing a turret onto a board slot, soft satisfying click-thunk with a warm electronic confirm shimmer, clean and tactile, not harsh, 0.4 seconds',
   },
   {
     key: 'sfx_merge',
     kind: 'sfx',
-    volume: 0.7,
+    volume: 0.65,
     prompt:
-      'cards merging and upgrading, rising magical-tech power-up swell with a bright confirming sparkle, 0.5 seconds',
+      'two pieces merging and upgrading, smooth rising harmonic shimmer resolving to a warm bright chime, magical and satisfying, 0.7 seconds',
   },
   {
     key: 'sfx_fusion',
     kind: 'sfx',
-    volume: 0.7,
+    volume: 0.65,
     prompt:
-      'two cards fusing into a hybrid, energetic alchemical fusion whoosh with a glittering resolve, 0.6 seconds',
+      'magical fusion crafting, swirling energetic shimmer rising into a sparkling resolve, smooth and alchemical, 0.9 seconds',
   },
   {
     key: 'sfx_burn',
     kind: 'sfx',
-    volume: 0.65,
+    volume: 0.6,
     prompt:
-      'card sacrificed into a reactor for an overdrive surge, fiery electric burn whoosh with a deep energy charge-up, 0.5 seconds',
+      'feeding a card into an energy reactor, smooth deep whoosh with a soft warm fiery surge and a rising power charge, satisfying and natural, not harsh or noisy, 0.8 seconds',
+  },
+
+  // ---- Gameplay SFX: combat ------------------------------------------------
+  {
+    key: 'sfx_shoot',
+    kind: 'sfx',
+    volume: 0.45,
+    prompt:
+      'soft sci-fi energy bolt, smooth synthetic laser pew, light and clean, gentle not piercing, 0.25 seconds',
   },
   {
-    key: 'sfx_reroll',
+    key: 'sfx_hit',
+    kind: 'sfx',
+    volume: 0.5,
+    prompt:
+      'soft energy projectile impact, gentle electric tick with a subtle warm thump, 0.2 seconds',
+  },
+  {
+    key: 'sfx_crit',
+    kind: 'sfx',
+    volume: 0.65,
+    prompt:
+      'powerful critical energy strike, deep satisfying impact with a bright crystalline sparkle tail, punchy but smooth, 0.5 seconds',
+  },
+  {
+    key: 'sfx_enemy_die',
     kind: 'sfx',
     volume: 0.55,
     prompt:
-      'rerolling the hand, quick shuffling digital flurry of cards with a light synthetic sweep, 0.4 seconds',
+      'small sci-fi drone dissolving, soft digital poof with a gentle descending shimmer, satisfying not crunchy, 0.5 seconds',
+  },
+  {
+    key: 'sfx_leak',
+    kind: 'sfx',
+    volume: 0.85,
+    prompt:
+      'enemy breaches the core and deals damage, strong clear impact hit with a deep heavy boom and a short alarming distorted synth blare, punchy and very noticeable, urgent warning, not muffled, 1 second',
+  },
+  {
+    key: 'sfx_disrupt',
+    kind: 'sfx',
+    volume: 0.55,
+    prompt:
+      'electronic interference jamming a tower, smooth glitchy modulated warble, eerie and wobbly, not harsh static, 0.5 seconds',
+  },
+  {
+    key: 'sfx_barrier',
+    kind: 'sfx',
+    volume: 0.5,
+    prompt:
+      'energy shield forming, soft shimmering whoosh with a warm protective hum, magical and gentle, 0.5 seconds',
   },
 
-  // ---- Stingers ------------------------------------------------------------
+  // ---- Gameplay SFX: stingers ----------------------------------------------
   {
     key: 'sfx_wave_start',
     kind: 'sfx',
     volume: 0.6,
     prompt:
-      'wave incoming alert, short rising sci-fi siren swell signaling enemies approaching, tense, 0.6 seconds',
+      'wave incoming, smooth rising tense synth swell with a soft warning pulse, cinematic, 0.9 seconds',
   },
   {
     key: 'sfx_wave_clear',
     kind: 'sfx',
     volume: 0.6,
     prompt:
-      'wave cleared confirmation, bright positive two-note synth chime, relieving and rewarding, 0.5 seconds',
+      'wave cleared, gentle uplifting two-note synth chime, warm and rewarding, 0.6 seconds',
   },
   {
     key: 'sfx_victory',
     kind: 'sfx',
-    volume: 0.75,
+    volume: 0.7,
     prompt:
-      'victory fanfare stinger, triumphant uplifting synth chord progression with a shimmering finish, 1.5 seconds',
+      'victory fanfare, warm triumphant uplifting synth chord swell with a shimmering bright resolve, 2.5 seconds',
   },
   {
     key: 'sfx_defeat',
     kind: 'sfx',
-    volume: 0.75,
+    volume: 0.7,
     prompt:
-      'defeat stinger, somber descending synth chord with a low power-down hum, the core failed, 1.5 seconds',
+      'defeat, soft somber descending synth pad with a deep low power-down hum, melancholic, 2.5 seconds',
+  },
+
+  // ---- UI / system effects -------------------------------------------------
+  {
+    key: 'sfx_click',
+    kind: 'ui',
+    volume: 0.45,
+    prompt:
+      'minimal clean UI tap, soft subtle digital tick, gentle and crisp, 0.15 seconds',
+  },
+  {
+    key: 'sfx_reroll',
+    kind: 'ui',
+    volume: 0.5,
+    prompt:
+      'UI card shuffle, light quick digital riffle with a soft airy sweep, clean, 0.5 seconds',
   },
 ];
 
-/** Quick lookup of per-clip volume by key (1 if unknown). */
+/** Per-clip volume by key (1 if unknown). */
 export const AUDIO_VOLUME: Record<string, number> = Object.fromEntries(
   AUDIO.map((a) => [a.key, a.volume]),
+);
+
+/** Which mixer bus each key routes to (defaults to 'sfx' if unknown). */
+export const AUDIO_KIND: Record<string, AudioKind> = Object.fromEntries(
+  AUDIO.map((a) => [a.key, a.kind]),
 );
