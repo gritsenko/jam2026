@@ -2,8 +2,8 @@
 
 Дополнение к [synergy-grid-td-v3.md](synergy-grid-td-v3.md). Описывает снос
 установленной на сетку 3×3 башни с частичным возвратом золота. Числа привязаны к
-реальным ценам из [cards.ts](../src/config/cards.ts) и правилам нагрузки/реролла из
-[battleRules.ts](../src/config/battleRules.ts).
+реальным ценам из [cards.ts](../../src/config/cards.ts) и правилам нагрузки/реролла из
+[battleRules.ts](../../src/config/battleRules.ts).
 
 ---
 
@@ -65,7 +65,7 @@ refundRate = 0.6   (стартовое значение под тюнинг)
 **`ВложеноЗолота`** — сумма всего золота, реально потраченного, чтобы эта башня
 оказалась на поле в текущем грейде. Поскольку мердж требует поставить две карты
 Грейда I (каждая стоит золото), вложение удваивается с грейдом — ровно как нагрузка
-([cards.ts](../src/config/cards.ts) `cardLoad`):
+([cards.ts](../../src/config/cards.ts) `cardLoad`):
 
 ```
 ВложеноЗолота(грейд) = costGold × 2^(грейд − 1)
@@ -128,7 +128,7 @@ refundRate = 0.6   (стартовое значение под тюнинг)
 
 ### Точка входа — панель башни, а не отдельная зона
 
-Снос install-башни вешаем на уже существующую [TowerInfoPanel](../src/ui/TowerInfoPanel.ts),
+Снос install-башни вешаем на уже существующую [TowerInfoPanel](../../src/ui/TowerInfoPanel.ts),
 которая и так открывается по тапу на установленную башню. Внизу панели — кнопка
 **`SELL +Xg`**, где `X` — точная сумма возврата, посчитанная заранее. Игрок видит цену
 отката ещё до нажатия.
@@ -177,7 +177,7 @@ refundRate = 0.6   (стартовое значение под тюнинг)
 
 ## 7. Стартовые числа (возврат при 60%)
 
-Возврат = `floor(costGold × 2^(грейд−1) × 0.6)`. Цены — из [cards.ts](../src/config/cards.ts).
+Возврат = `floor(costGold × 2^(грейд−1) × 0.6)`. Цены — из [cards.ts](../../src/config/cards.ts).
 
 | Башня | Цена (costGold) | Возврат GI | Возврат GII | Возврат GIII |
 | --- | --- | --- | --- | --- |
@@ -218,11 +218,11 @@ refundRate = 0.6   (стартовое значение под тюнинг)
 
 ## 9. Первый шаг сборки
 
-1. Завести `SELL_REFUND_RATE = 0.6` в [battleRules.ts](../src/config/battleRules.ts)
+1. Завести `SELL_REFUND_RATE = 0.6` в [battleRules.ts](../../src/config/battleRules.ts)
    рядом с `REROLL_*`.
-2. Добавить в [BattleSim](../src/game/BattleSim.ts) метод `sellTower(slotIndex)`:
+2. Добавить в [BattleSim](../../src/game/BattleSim.ts) метод `sellTower(slotIndex)`:
    вернуть `floor(вложено × rate)` золота, снять нагрузку, очистить слот.
-3. В [TowerInfoPanel](../src/ui/TowerInfoPanel.ts) добавить кнопку `SELL +Xg` (hold),
+3. В [TowerInfoPanel](../../src/ui/TowerInfoPanel.ts) добавить кнопку `SELL +Xg` (hold),
    считающую сумму из грейда/цены выбранной башни и зовущую `sellTower`.
 
 **Первый конкретный шаг:** добавить `SELL_REFUND_RATE` в конфиг и метод

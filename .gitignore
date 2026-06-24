@@ -17,3 +17,4 @@ assets/raw/
 tools/.venv/
 __pycache__/
 *.pyc
+.DS_Store

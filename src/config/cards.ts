@@ -1,7 +1,7 @@
 import type { CardDef } from './types';
 
 /**
- * Card catalog (v2 model — see docs/synergy-grid-td-v2.md §5/§6/§9).
+ * Card catalog (v2 model — see docs/backlog/synergy-grid-td-v2.md §5/§6/§9).
  *
  * Synergy is positional: every card broadcasts its buff to all orthogonal
  * neighbors (Grade I–II) and additionally to diagonals at Grade III. The grade
