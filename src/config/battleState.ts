@@ -14,7 +14,7 @@ export function createBattleState(): BattleStateMock {
     gold: 320,
     crystals: 24,
     energyLoad: 6, // = sum of the seeded towers' baseLoad (2 + 1 + 1 + 2)
-    energyCapacity: 6, // v2 §3.А: starting platform capacity
+    energyCapacity: 8, // v3 §3.А: starts above the seeded load so the player has a 1–2 cell buffer (green is the norm)
     energyMax: 15,
     overdrive: false,
     slots: [

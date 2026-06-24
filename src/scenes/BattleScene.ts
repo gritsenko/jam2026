@@ -4,24 +4,33 @@ import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
 import { createBattleState } from '../config/battleState';
-import { HAND_RESPAWN_SEC, HAND_SIZE, OVERDRIVE_SEC, rollHandCard } from '../config/battleRules';
 import {
+  HAND_RESPAWN_SEC,
+  HAND_SIZE,
+  OVERDRIVE_SEC,
+  REROLL_BASE_COST,
+  REROLL_STEP,
+  rollHandCard,
+} from '../config/battleRules';
+import {
+  CAPACITY_PER_WAVE,
   CORE_MAX,
   ENEMY_PATH,
-  GRADE_CAPACITY_SCALE,
   OVERDRIVE_CAPACITY_BONUS,
   PERFECT_CLEAR_CRYSTALS,
   WAVE_CLEAR_BONUS,
 } from '../config/combatRules';
-import { getCard } from '../config/cards';
+import { cardLoad, getCard } from '../config/cards';
+import { FUSION_CRYSTAL_COST, fusionGoldCost, fusionResult } from '../config/fusion';
 import { WAVES } from '../config/waves';
 import type { BattleStateMock, CardDef } from '../config/types';
 import { ArenaPath } from '../game/path';
 import {
   BattleSim,
   buildTowerSpec,
-  fireRateFromEnergy,
   isTower,
+  overloadAmount,
+  towerOverloadPenalty,
   towerStats,
   type SimEnemy,
   type TowerSpec,
@@ -108,6 +117,11 @@ export class BattleScene extends Scene {
   private avatar!: HeroAvatar;
   private avatarR = 72;
   private backBtn!: Button;
+  private rerollBtn!: Button;
+  /** 1-based number of the wave in progress; drives the §3.В wave-capacity growth. */
+  private currentWave = 1;
+  /** Hand rerolls used in the current wave; resets each wave (§8.Б cost escalation). */
+  private rerollsThisWave = 0;
   private resonanceLabel = makeText('', 'label', { fontSize: 26, fill: hex(COLORS.energyOverdrive) });
   /** Resolved positional synergy per slot (v2 model), recomputed on every change. */
   private synergy: (SlotSynergy | null)[] = [];
@@ -165,6 +179,8 @@ export class BattleScene extends Scene {
   private pressSlot: SlotView | null = null;
   /** Hand card whose description plaque is currently shown (tap-to-inspect). */
   private inspectedCard: BattleCard | null = null;
+  /** Hand card currently highlighted as a fusion target under the dragged card (§6.5). */
+  private fusionTarget: BattleCard | null = null;
   /** Slot currently showing a build preview (ghost) under the dragged card. */
   private previewSlot: SlotView | null = null;
   /** Whether the dragged card is faded out (because a slot preview is showing). */
@@ -241,7 +257,7 @@ export class BattleScene extends Scene {
         onProjectileHit: (x, y, element) => this.burst(x, y, ELEMENTS[element].glow, this.arenaW * 0.03),
         onBeam: (x1, y1, x2, y2, element) => this.beam(x1, y1, x2, y2, ELEMENTS[element].glow),
         onBarrier: (x, y) => this.burst(x, y, COLORS.brassLight, this.arenaW * 0.05),
-        onWaveStart: (n) => this.waveBadge.setWave(n, this.sim.totalWaves),
+        onWaveStart: (n) => this.onWaveBegan(n),
         onWaveCleared: (_n, perfect) => this.onWaveCleared(perfect),
         onVictory: () => this.showBanner('victory'),
         onDefeat: () => this.showBanner('defeat'),
@@ -302,6 +318,15 @@ export class BattleScene extends Scene {
       onClick: () => this.services.navigate('worldmap'),
     });
 
+    this.rerollBtn = new Button({
+      label: `REROLL ${REROLL_BASE_COST}`,
+      width: 230,
+      height: 64,
+      preset: 'label',
+      labelColor: hex(COLORS.crystal),
+      onClick: () => this.doReroll(),
+    });
+
     this.hint.anchor.set(0.5);
     this.hint.alpha = 0.7;
 
@@ -320,11 +345,13 @@ export class BattleScene extends Scene {
       this.avatar,
       this.gauge,
       this.backBtn,
+      this.rerollBtn,
       this.hint,
       this.moveCost,
       this.waveToast,
       this.infoPanel,
     );
+    this.refreshRerollButton();
   }
 
   private buildHand(): void {
@@ -664,9 +691,23 @@ export class BattleScene extends Scene {
       this.grid.setHover(emptySlot, true);
     }
 
+    // Hand-to-hand fusion (§6.5): hovering a *different* hand card with a recipe,
+    // while not over the Reactor or a grid slot. Highlight the target card.
+    let fuse: { target: BattleCard; hybridId: string } | null = null;
+    if (!fieldDrag && !overReactor && !targetSlot) {
+      const other = this.handCardAtGlobal(e.global, card)?.card;
+      if (other) {
+        const hid = fusionResult(card.def.id, other.def.id);
+        if (hid) fuse = { target: other, hybridId: hid };
+      }
+    }
+    this.setFusionTarget(fuse?.target ?? null);
+
     // Cost of the pending action, signed, in the sand under the base (§9). No
     // target → fall back to the generic drag hint.
-    const parts = this.moveCostParts(card, fieldDrag, overReactor, emptySlot, mergeSlot, previewGrade);
+    const parts = fuse
+      ? this.fusionCostParts(card, fuse.target, fuse.hybridId)
+      : this.moveCostParts(card, fieldDrag, overReactor, emptySlot, mergeSlot, previewGrade);
     if (parts) {
       this.moveCost.show(parts);
       this.moveCost.position.set(this.moveCostPos.x, this.moveCostPos.y);
@@ -697,7 +738,6 @@ export class BattleScene extends Scene {
   ): CostPart[] | null {
     const energyIcon = this.services.assets.get('icon_energy');
     const goldIcon = this.services.assets.get('icon_gold');
-    const base = card.def.baseLoad;
 
     if (overReactor) {
       return [
@@ -706,12 +746,15 @@ export class BattleScene extends Scene {
       ];
     }
     if (emptySlot) {
-      return [this.energyPart(energyIcon, base * card.grade), this.goldPart(goldIcon, card.def.costGold)];
+      return [this.energyPart(energyIcon, cardLoad(card.def, card.grade)), this.goldPart(goldIcon, card.def.costGold)];
     }
     if (mergeSlot) {
-      // Place adds load; a merge replaces two grade-g towers (field) or one (hand)
-      // with a single grade-(g+1) — so the net load shift can be 0 or negative.
-      const dE = fieldDrag ? base * (1 - card.grade) : base;
+      // Net load shift: a hand merge grows the target one grade; a field merge
+      // fuses two grade-g towers into one grade-(g+1), freeing a slot. With load
+      // doubling per grade (§3.А) a field merge of consumers is energy-neutral (0).
+      const dE = fieldDrag
+        ? cardLoad(card.def, previewGrade) - 2 * cardLoad(card.def, card.grade)
+        : cardLoad(card.def, previewGrade) - cardLoad(card.def, card.grade);
       return [
         { text: `→ Lv${previewGrade}`, color: COLORS.energyOverdrive },
         this.energyPart(energyIcon, dE),
@@ -771,6 +814,7 @@ export class BattleScene extends Scene {
     this.previewSlot = null;
     this.cardGhosted = false;
     this.gauge.setCharging(false);
+    this.setFusionTarget(null);
     this.grid.clearHighlights();
     this.grid.clearInspect(); // drop any drag-time buff preview overlay
     this.hideRangePreview();
@@ -806,6 +850,18 @@ export class BattleScene extends Scene {
     if (slot && this.canMerge(card.def.id, card.grade, slot.index)) {
       this.mergeCard(card, slot);
       return;
+    }
+
+    // ...or fuse onto a different hand card that has a recipe (v2 §6.5).
+    if (!slot) {
+      const other = this.handCardAtGlobal(e.global, card)?.card;
+      if (other) {
+        const hid = fusionResult(card.def.id, other.def.id);
+        if (hid && this.canAffordFusion(card, other)) {
+          this.fuseCards(card, other, hid);
+          return;
+        }
+      }
     }
     this.returnCardHome(card);
   }
@@ -961,48 +1017,136 @@ export class BattleScene extends Scene {
     this.animateBurn(card);
   }
 
+  // --- Fusion in hand (v2 §6.5) --------------------------------------------
+
+  /** The hand slot whose card sits under `global` (skipping `exclude` / the dragged card). */
+  private handCardAtGlobal(global: PointData, exclude: BattleCard | null): HandSlot | null {
+    const p = this.handLayer.toLocal(global);
+    for (const slot of this.hand) {
+      const c = slot.card;
+      if (!c || c === exclude || c === this.dragging || c.destroyed) continue;
+      if (Math.abs(p.x - slot.home.x) <= c.cardW / 2 && Math.abs(p.y - slot.home.y) <= c.cardH / 2) return slot;
+    }
+    return null;
+  }
+
+  /** Can the player pay for a fusion of these two cards (scalable gold + 1 crystal)? */
+  private canAffordFusion(a: BattleCard, b: BattleCard): boolean {
+    return this.state.gold >= fusionGoldCost(a.grade, b.grade) && this.state.crystals >= FUSION_CRYSTAL_COST;
+  }
+
+  /** Cost chips for a pending fusion: the hybrid name, scalable gold, flat 1 crystal. */
+  private fusionCostParts(a: BattleCard, b: BattleCard, hybridId: string): CostPart[] {
+    const goldIcon = this.services.assets.get('icon_gold');
+    const crystalIcon = this.services.assets.get('icon_crystal');
+    return [
+      { text: `FUSE → ${getCard(hybridId).shortName}`, color: COLORS.crystal },
+      this.goldPart(goldIcon, fusionGoldCost(a.grade, b.grade)),
+      {
+        icon: crystalIcon,
+        text: `-${FUSION_CRYSTAL_COST}`,
+        color: this.state.crystals >= FUSION_CRYSTAL_COST ? COLORS.crystal : COLORS.energyDanger,
+      },
+    ];
+  }
+
+  /** Toggle the bright ring on the hand card currently under the dragged card. */
+  private setFusionTarget(target: BattleCard | null): void {
+    if (this.fusionTarget === target) return;
+    if (this.fusionTarget && !this.fusionTarget.destroyed) this.fusionTarget.setSelected(false);
+    this.fusionTarget = target;
+    if (target && !target.destroyed) target.setSelected(true);
+  }
+
+  /**
+   * Fuse two different hand cards into a hybrid (v2 §6.5). The dragged source's
+   * hand position recharges; the target slot becomes the hybrid (Grade I) for the
+   * player to deploy. Costs scalable gold + a flat crystal.
+   */
+  private fuseCards(dragged: BattleCard, target: BattleCard, hybridId: string): void {
+    this.spendGold(fusionGoldCost(dragged.grade, target.grade));
+    this.spendCrystals(FUSION_CRYSTAL_COST);
+    this.setFusionTarget(null);
+
+    // The dragged source is consumed → its hand position recharges.
+    this.freeHandCard(dragged);
+
+    // The target slot becomes the crafted hybrid card.
+    const entry = this.hand.find((h) => h.card === target);
+    if (!entry) {
+      this.animateFuse(dragged, { x: dragged.x, y: dragged.y });
+      return;
+    }
+    const def = getCard(hybridId);
+    const hybrid = new BattleCard(def, 1, this.services.assets.get(def.iconKey), {
+      energyIcon: this.services.assets.get('icon_energy'),
+      goldIcon: this.services.assets.get('icon_gold'),
+    });
+    this.wireCard(hybrid);
+    entry.returnTween?.stop();
+    entry.returnTween = undefined;
+    if (!target.destroyed) target.destroy();
+    entry.card = hybrid;
+    entry.cooldown = 0;
+    entry.charge.visible = false;
+    hybrid.position.copyFrom(entry.home);
+    hybrid.setAffordable(this.state.gold >= def.costGold);
+    this.handLayer.addChild(hybrid);
+
+    // Fly the consumed source into the slot, then pop the new hybrid in.
+    this.animateFuse(dragged, entry.home);
+    this.animateSpawn(hybrid);
+  }
+
+  /** Fly a consumed fusion source into `dest` (hand-space), shrink/fade, destroy. */
+  private animateFuse(card: BattleCard, dest: PointData): void {
+    const start = { x: card.x, y: card.y };
+    const fromScale = card.scale.x;
+    const fromAlpha = card.alpha;
+    this.track(
+      tween({
+        duration: 0.28,
+        easing: Easings.inOutSine,
+        onUpdate: (t) => {
+          if (card.destroyed) return;
+          const tgt = this.dragLayer.toLocal(this.handLayer.toGlobal(dest));
+          card.position.set(start.x + (tgt.x - start.x) * t, start.y + (tgt.y - start.y) * t);
+          card.scale.set(fromScale + (0.3 - fromScale) * t);
+          card.alpha = fromAlpha * (1 - t);
+        },
+        onComplete: () => { if (!card.destroyed) card.destroy(); },
+      }),
+    );
+  }
+
   /**
    * Recompute network load + capacity from the current platform and push it to
-   * the gauge. Load = Σ `baseLoad × grade` over placed cards (so each grade a
-   * tower gains draws another base step; generators give back more). Capacity
-   * folds in the grade-driven growth (§3.В) and any Overdrive stacks. Call after
-   * every placement / merge / burn or Overdrive change.
+   * the gauge. Load = Σ `cardLoad(def, grade)` (consumers double per grade so a
+   * merge is energy-neutral, §3.А; generators give back more). Capacity is the
+   * wave-driven {@link effectiveCapacity}; the gauge track grows with it so the
+   * bar visibly lengthens as the platform strengthens (§9). Call after every
+   * placement / merge / burn / Overdrive change or wave start.
    */
   private refreshEnergy(): void {
     let load = 0;
     for (const placed of this.state.slots) {
-      if (placed) load += getCard(placed.cardId).baseLoad * placed.grade;
+      if (placed) load += cardLoad(getCard(placed.cardId), placed.grade);
     }
     this.state.energyLoad = Math.max(0, load);
     this.state.overdrive = this.overdriveStacks.length > 0;
-    this.gauge.setState({
-      load: this.state.energyLoad,
-      capacity: this.effectiveCapacity,
-      overdrive: this.state.overdrive,
-    });
+    const capacity = this.effectiveCapacity;
+    const max = Math.max(this.state.energyMax, Math.ceil(capacity) + 5, Math.ceil(this.state.energyLoad) + 2);
+    this.gauge.setState({ load: this.state.energyLoad, capacity, max, overdrive: this.state.overdrive });
   }
 
   /**
-   * Capacity bonus from the platform's average card grade (v2 §3.В): merging
-   * towers up automatically widens the energy budget. Capped so base+grade never
-   * exceeds `energyMax`.
+   * Effective network capacity (v2 §3.В): base capacity + wave-driven growth
+   * (+CAPACITY_PER_WAVE per wave elapsed, uncapped) + any active Overdrive burn
+   * stacks. Deliberately NOT tied to grade — stacking towers never prints energy.
    */
-  private gradeCapacityBonus(): number {
-    let sum = 0;
-    let n = 0;
-    for (const placed of this.state.slots) {
-      if (!placed) continue;
-      sum += placed.grade;
-      n++;
-    }
-    if (n === 0) return 0;
-    return Math.round((sum / n - 1) * GRADE_CAPACITY_SCALE);
-  }
-
-  /** Effective network capacity (base + grade growth, capped at max, + Overdrive stacks). */
   private get effectiveCapacity(): number {
-    const withGrade = Math.min(this.state.energyMax, this.state.energyCapacity + this.gradeCapacityBonus());
-    return withGrade + this.overdriveStacks.length * OVERDRIVE_CAPACITY_BONUS;
+    const waveBonus = (this.currentWave - 1) * CAPACITY_PER_WAVE;
+    return this.state.energyCapacity + waveBonus + this.overdriveStacks.length * OVERDRIVE_CAPACITY_BONUS;
   }
 
   /** Mark the hand position that held `card` as empty and start its recharge. */
@@ -1183,17 +1327,73 @@ export class BattleScene extends Scene {
     this.resonanceLabel.alpha = count > 0 ? 1 : 0;
   }
 
+  /**
+   * A wave began (v2 §3.В + §8.Б): track the wave number (capacity grows
+   * +CAPACITY_PER_WAVE) and reset the per-wave Reroll cost back to its base.
+   */
+  private onWaveBegan(n: number): void {
+    this.waveBadge.setWave(n, this.sim.totalWaves);
+    this.currentWave = n;
+    this.rerollsThisWave = 0;
+    this.refreshEnergy(); // capacity rose by CAPACITY_PER_WAVE this wave
+    this.refreshRerollButton();
+  }
+
   /** A wave was cleared: gold bounty + crystals on a Perfect Clear (no leak). */
   private onWaveCleared(perfect: boolean): void {
     this.addReward(WAVE_CLEAR_BONUS);
     if (perfect) this.addCrystals(PERFECT_CLEAR_CRYSTALS);
   }
 
-  /** Grant crystals (Perfect Clear) and refresh the chip. */
+  /** Grant crystals (Perfect Clear) and refresh the chip + Reroll button. */
   private addCrystals(n: number): void {
     if (!n) return;
     this.state.crystals += n;
     this.crystalChip.setValue(this.state.crystals);
+    this.refreshRerollButton();
+  }
+
+  /** Spend crystals (Reroll / fusion) and refresh the chip + Reroll button. */
+  private spendCrystals(n: number): void {
+    this.state.crystals = Math.max(0, this.state.crystals - n);
+    this.crystalChip.setValue(this.state.crystals);
+    this.refreshRerollButton();
+  }
+
+  /** Crystal cost of the next hand Reroll this wave (v2 §8.Б: base, +step each use). */
+  private rerollCost(): number {
+    return REROLL_BASE_COST + this.rerollsThisWave * REROLL_STEP;
+  }
+
+  /** Update the Reroll caption (live cost) and enable it only when affordable. */
+  private refreshRerollButton(): void {
+    const cost = this.rerollCost();
+    this.rerollBtn.setLabel(`REROLL ${cost}`);
+    this.rerollBtn.setEnabled(this.state.crystals >= cost && !this.banner);
+  }
+
+  /**
+   * Reroll the whole hand for Crystals (v2 §8.Б / §1.4): replace all three hand
+   * cards with fresh rolls. Cost climbs per use within a wave and resets each
+   * wave. No-op while dragging, on the end banner, or when unaffordable.
+   */
+  private doReroll(): void {
+    if (this.dragging || this.banner) return;
+    const cost = this.rerollCost();
+    if (this.state.crystals < cost) return;
+    this.spendCrystals(cost);
+    this.rerollsThisWave++;
+    this.clearInspect();
+    for (const slot of this.hand) {
+      slot.returnTween?.stop();
+      slot.returnTween = undefined;
+      if (slot.card && !slot.card.destroyed) slot.card.destroy();
+      slot.card = null;
+      slot.cooldown = 0;
+      slot.charge.visible = false;
+      this.spawnIntoSlot(slot);
+    }
+    this.refreshRerollButton();
   }
 
   /** A brief line FX for chain-lightning hops and Railgun pierce beams. */
@@ -1299,14 +1499,56 @@ export class BattleScene extends Scene {
     }
   }
 
-  /** Mirror each tower's firing cooldown into its corner dial + pulse its synergy dots. */
+  /**
+   * Mirror each tower's firing cooldown into its corner dial, drive its net-effect
+   * badge (v3 §9) and pulse the synergy dots.
+   */
   private syncCooldowns(dt: number): void {
+    const overload =
+      this.sim.status === 'running'
+        ? overloadAmount(this.state.energyLoad, this.effectiveCapacity)
+        : 0;
     for (let i = 0; i < this.grid.slots.length; i++) {
       const slot = this.grid.slots[i];
       if (!slot || !slot.isOccupied) continue;
       slot.setCooldown(this.sim.cooldownFrac(i));
+      this.syncTowerBadge(slot, i, overload);
       slot.tickDots(dt);
     }
+  }
+
+  /**
+   * Drive a tower's net-effect badge (v3 §9): collapse the neighbor buffs and
+   * penalties it receives plus its own overload penalty into one signed % — so a
+   * resonating tower under mild overload reads "+15%", not a misleading "−15%".
+   * The color encodes *composition*: green = only bonuses, red = only penalties,
+   * yellow = both (a fixable drop). Shown only on firing towers (the support
+   * batteries that aren't slowed by overload don't carry it).
+   */
+  private syncTowerBadge(slot: SlotView, index: number, overload: number): void {
+    const placed = this.state.slots[index];
+    const def = placed ? getCard(placed.cardId) : null;
+    // Only attacking towers — their damage/tempo/range the buffs actually scale,
+    // and they carry overload + resonance. Support batteries/barriers don't.
+    if (!placed || !def || def.category !== 'attacking') {
+      slot.setEffect(0, false, false);
+      return;
+    }
+    const syn = this.synergy[index];
+    let bonusPct = 0;
+    let penaltyPct = 0;
+    for (const b of syn?.incoming ?? []) {
+      // Armor buffs are a no-op in the sim (towers take no damage), so they'd
+      // only inflate the badge — count just the combat-affecting modifiers.
+      if (b.stat === 'defense') continue;
+      if (b.value > 0) bonusPct += b.value;
+      else if (b.value < 0) penaltyPct += -b.value;
+    }
+    penaltyPct += Math.round(towerOverloadPenalty(overload, cardLoad(def, placed.grade)) * 100);
+
+    const hasBonus = bonusPct > 0 || (syn?.reactions.length ?? 0) > 0;
+    const hasPenalty = penaltyPct > 0;
+    slot.setEffect(bonusPct - penaltyPct, hasBonus, hasPenalty);
   }
 
   /** Announce the pre-wave / intermission countdown; fade out once spawning. */
@@ -1425,6 +1667,7 @@ export class BattleScene extends Scene {
     this.banner = new BattleBanner(opts);
     this.banner.alpha = 0;
     this.addChild(this.banner);
+    this.refreshRerollButton(); // grey out Reroll once the battle is over
     this.layoutBanner(this.services.getLayout());
     this.track(
       tween({
@@ -1547,6 +1790,9 @@ export class BattleScene extends Scene {
       gaugeY - 14 - this.reactor.zoneH / 2,
     );
 
+    // Reroll button: left edge, just above the gauge (mirrors the Reactor side).
+    this.rerollBtn.position.set(safe.x + pad + 115, gaugeY - 46);
+
     this.hint.position.set(cx, gaugeY - 24);
 
     // Move-cost readout: in the sand near the bottom of the playfield, above the gauge.
@@ -1561,9 +1807,10 @@ export class BattleScene extends Scene {
     this.gauge.tick(dt);
 
     // Drive the combat simulation, then mirror it into sprites. Overload from
-    // too much energy load slows every tower's fire rate (Overdrive lifts it).
+    // too much energy load slows each tower's fire rate in proportion to its own
+    // load (Overdrive lifts the capacity that feeds this).
     if (this.sim.status === 'running') {
-      this.sim.fireRateMult = fireRateFromEnergy(this.state.energyLoad, this.effectiveCapacity);
+      this.sim.overload = overloadAmount(this.state.energyLoad, this.effectiveCapacity);
     }
     this.sim.update(dt);
     this.syncEnemies(dt);

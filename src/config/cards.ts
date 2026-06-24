@@ -134,6 +134,76 @@ export const CARDS: Record<string, CardDef> = {
     blurb: '+energy • slows neighbors',
     iconKey: 'grid_stabilizer',
   },
+  // --- Hybrids (fusion in hand, v2 §6.5) ----------------------------------
+  // Crafted from two different base cards; compact two-element kits with a
+  // boosted base stat line. They reuse a parent's art for now — real hybrid
+  // sprites are a follow-up (register in assetManifest, then gen_sprite).
+  steam_cannon: {
+    id: 'steam_cannon',
+    name: 'Паровая Пушка',
+    shortName: 'STEAM CANNON',
+    element: 'Water',
+    category: 'attacking',
+    baseLoad: 2,
+    costGold: 30,
+    cooldown: 1.1,
+    buffStat: 'range',
+    signature: 'freeze_radius', // damage + slow + Wet packed into one shot
+    hybrid: true,
+    slotElements: ['Electricity', 'Fire', 'Energy'],
+    slotEffects: ['SUPERCONDUCT', 'STEAM BURST', 'POWER'],
+    grades: [
+      { damage: 28, rangeCells: 2.4, buff: 25, sig: 40, sig2: 3 },
+      { damage: 42, rangeCells: 2.6, buff: 30, sig: 45, sig2: 4 },
+      { damage: 60, rangeCells: 2.8, buff: 30, sig: 55, sig2: 5, diagonal: true },
+    ],
+    blurb: 'Steam blast • dmg + slow',
+    iconKey: 'frost_pulse',
+  },
+  cryo_discharge: {
+    id: 'cryo_discharge',
+    name: 'Криоразряд',
+    shortName: 'CRYO-DISCHARGE',
+    element: 'Electricity',
+    category: 'attacking',
+    baseLoad: 2,
+    costGold: 30,
+    cooldown: 1.1,
+    buffStat: 'tempo',
+    signature: 'chain_targets', // chain lightning, x2 vs Wet (intrinsic to Electricity)
+    hybrid: true,
+    slotElements: ['Water', 'Energy', 'Fire'],
+    slotEffects: ['SUPERCONDUCT', 'POWER', '+DMG'],
+    grades: [
+      { damage: 22, rangeCells: 2.2, buff: 18, sig: 4 },
+      { damage: 22, rangeCells: 2.3, buff: 24, sig: 6 },
+      { damage: 22, rangeCells: 2.5, buff: 24, sig: 9, diagonal: true },
+    ],
+    blurb: 'Chain lightning • x2 vs WET',
+    iconKey: 'storm_coil',
+  },
+  ion_volley: {
+    id: 'ion_volley',
+    name: 'Ионный Залп',
+    shortName: 'ION VOLLEY',
+    element: 'Fire',
+    category: 'attacking',
+    baseLoad: 2,
+    costGold: 30,
+    cooldown: 0.4, // very high tempo
+    buffStat: 'damage',
+    signature: 'chain_targets', // each shot jumps to a 2nd target
+    hybrid: true,
+    slotElements: ['Water', 'Physical', 'Energy'],
+    slotEffects: ['STEAM BURST', 'SHRAPNEL', 'POWER'],
+    grades: [
+      { damage: 16, rangeCells: 2.1, buff: 15, sig: 2 },
+      { damage: 24, rangeCells: 2.2, buff: 20, sig: 2 },
+      { damage: 34, rangeCells: 2.4, buff: 20, sig: 3, diagonal: true },
+    ],
+    blurb: 'Rapid fire • jumps to 2nd target',
+    iconKey: 'plasma_shutter',
+  },
 };
 
 export const CARD_LIST: CardDef[] = Object.values(CARDS);
@@ -153,4 +223,16 @@ export function cardGrade(def: CardDef, grade: number): CardDef['grades'][number
 /** Number of synergy slots a card exposes at a grade (= grade; v2 §2.Б). */
 export function synergySlots(grade: number): number {
   return Math.min(Math.max(grade, 1), 3);
+}
+
+/**
+ * Network load a card draws at a grade (v2 §3.А). Consumers *double* per grade
+ * (×1/×2/×4 → 2/4/8, 3/6/12) so a field merge is energy-neutral: two Grade-I
+ * towers (2+2=4) equal one Grade-II (4), and merging up neither refunds nor
+ * charges energy. Generators (negative baseLoad) scale linearly instead, matching
+ * their §5/§6 output table (2/4/6).
+ */
+export function cardLoad(def: CardDef, grade: number): number {
+  const g = Math.min(Math.max(grade, 1), 3);
+  return def.baseLoad > 0 ? def.baseLoad * Math.pow(2, g - 1) : def.baseLoad * g;
 }

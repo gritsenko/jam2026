@@ -100,6 +100,12 @@ export interface CardDef {
   readonly blurb: string;
   /** Asset manifest key for the card art; resolves to a placeholder until generated. */
   readonly iconKey: string;
+  /**
+   * True for fusion hybrids (v2 §6.5): crafted in hand from two *different* base
+   * cards, never dealt from the draw pool. They carry a compact two-element kit
+   * but count as a single source for resonance (their `element` is the one source).
+   */
+  readonly hybrid?: boolean;
 }
 
 /** A card occupying a platform slot. */

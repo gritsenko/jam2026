@@ -29,21 +29,32 @@ export const PROJECTILE_SPEED_FRAC = 1.15;
 export const PROJECTILE_HIT_FRAC = 0.018;
 
 /**
- * Overload penalty: each unit of energy load past capacity multiplies every
- * tower's cooldown by (1 + this), i.e. slows the whole grid's fire rate.
+ * Overload penalty (v3 §3.А): the fire-rate hit is now charged *per tower, in
+ * proportion to that tower's own load* — this fraction per unit of network
+ * overload, multiplied by the tower's load. So the projectile-heavy turrets that
+ * actually strain the grid dim first, while light support (load 1) barely feels
+ * it and a generator (load ≤ 0) is immune. At 2 units over capacity: a load-1
+ * card ≈ −5%, a load-2 turret ≈ −10%, a load-3 Railgun ≈ −15%.
  */
-export const OVERLOAD_FIRE_PENALTY = 0.3;
+export const OVERLOAD_FIRE_PENALTY_PER_LOAD = 0.025;
+
+/**
+ * Floor for a tower's overload fire-rate multiplier. The per-load penalty can't
+ * drive a tower below this, so even a badly overloaded heavy turret crawls but
+ * never fully freezes.
+ */
+export const OVERLOAD_FIRE_FLOOR = 0.1;
 
 /** Reactor burn temporarily raises capacity by this much (v2 §3.Г). */
 export const OVERDRIVE_CAPACITY_BONUS = 2;
 
 /**
- * Average-grade capacity growth (v2 §3.В): the platform's capacity gains
- * `round((avgGrade - 1) * this)` from the mean grade of all placed cards, capped
- * at `energyMax`. So merging towers up automatically widens the energy budget —
- * offsetting the extra load a higher-grade tower draws.
+ * Wave-driven capacity growth (v2 §3.В): the platform's energy limit rises by
+ * this much at the start of every wave — a smooth, uncapped curve (≈6 → ~25 by
+ * wave 20). Deliberately NOT tied to grade or element count, so stacking towers
+ * never "prints" energy (the load-doubling rule in §3.А enforces neutrality).
  */
-export const GRADE_CAPACITY_SCALE = 3;
+export const CAPACITY_PER_WAVE = 1;
 
 /** Gold granted for fully clearing a wave. */
 export const WAVE_CLEAR_BONUS = 25;

@@ -1,4 +1,4 @@
-import { Container, Graphics, Rectangle } from 'pixi.js';
+import { Container, Graphics, Rectangle, type Text } from 'pixi.js';
 import { COLORS } from '../theme';
 import { tween, Easings } from '../core/tween';
 import { drawPanel, makeText, type TextPreset } from './helpers';
@@ -21,10 +21,12 @@ export interface ButtonOptions {
  */
 export class Button extends Container {
   private bg = new Graphics();
+  private labelText: Text;
   private w: number;
   private h: number;
   private primary: boolean;
   private pressed = false;
+  private enabled = true;
   private scaleTween?: { stop(): void };
 
   constructor(opts: ButtonOptions) {
@@ -36,11 +38,11 @@ export class Button extends Container {
     this.addChild(this.bg);
     // Every button reads with light cream text (over a black stroke from makeText)
     // for consistent contrast on both brass-primary and steel-secondary fills.
-    const label = makeText(opts.label, opts.preset ?? 'title', {
+    this.labelText = makeText(opts.label, opts.preset ?? 'title', {
       fill: opts.labelColor ?? COLORS.textBright,
     });
-    label.anchor.set(0.5);
-    this.addChild(label);
+    this.labelText.anchor.set(0.5);
+    this.addChild(this.labelText);
 
     this.draw();
 
@@ -61,13 +63,29 @@ export class Button extends Container {
       if (this.pressed) {
         this.pressed = false;
         this.popTo(1.04);
-        opts.onClick();
+        if (this.enabled) opts.onClick();
       }
     });
     this.on('pointerupoutside', () => {
       this.pressed = false;
       this.popTo(1);
     });
+  }
+
+  /** Replace the button caption (e.g. a Reroll button showing its live cost). */
+  setLabel(text: string): void {
+    this.labelText.text = text;
+  }
+
+  /**
+   * Enable/disable: a disabled button dims, ignores clicks and shows a blocked
+   * cursor (used to gate Reroll when the player can't afford it).
+   */
+  setEnabled(on: boolean): void {
+    if (this.enabled === on) return;
+    this.enabled = on;
+    this.alpha = on ? 1 : 0.45;
+    this.cursor = on ? 'pointer' : 'not-allowed';
   }
 
   private draw(): void {

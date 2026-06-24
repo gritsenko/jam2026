@@ -18,8 +18,16 @@ export const HAND_RESPAWN_SEC = 4;
 /** Reactor burn duration: capacity stays boosted this long (v2 §3.Г: +2 for 15s). */
 export const OVERDRIVE_SEC = 15;
 
-/** Card ids eligible to spawn into the hand. */
-export const DRAW_POOL: string[] = CARD_LIST.map((c) => c.id);
+/**
+ * Hand Reroll cost in Crystals (v2 §8.Б): the first reroll in a wave costs
+ * REROLL_BASE_COST, each further reroll in the same wave adds REROLL_STEP
+ * (10 → 15 → 20…). The counter resets at the start of every wave.
+ */
+export const REROLL_BASE_COST = 10;
+export const REROLL_STEP = 5;
+
+/** Card ids eligible to spawn into the hand (hybrids are crafted, never dealt). */
+export const DRAW_POOL: string[] = CARD_LIST.filter((c) => !c.hybrid).map((c) => c.id);
 
 /** Roll a fresh hand card (grade 1) from the draw pool. `seq` makes the instance id unique. */
 export function rollHandCard(seq: number): HandCard {

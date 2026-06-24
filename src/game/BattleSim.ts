@@ -1,14 +1,15 @@
 import type { ElementId } from '../theme';
 import type { CardDef, EnemyDef, ReactionId, WaveDef } from '../config/types';
 import { getEnemy } from '../config/enemies';
-import { cardGrade } from '../config/cards';
+import { cardGrade, cardLoad } from '../config/cards';
 import {
   AOE_SPLASH_FRAC,
   BARRIER_COOLDOWN_SEC,
   CHAIN_FALLOFF,
   CHAIN_RADIUS_FRAC,
   FIRST_WAVE_DELAY,
-  OVERLOAD_FIRE_PENALTY,
+  OVERLOAD_FIRE_FLOOR,
+  OVERLOAD_FIRE_PENALTY_PER_LOAD,
   PLASMA_SHOCKWAVE_FRAC,
   PROJECTILE_HIT_FRAC,
   PROJECTILE_SPEED_FRAC,
@@ -90,6 +91,8 @@ export interface SimTower extends HitEffects {
   pierce: boolean;
   /** Holds the lead enemy still for this many seconds, then long recharge (Shield). */
   barrierSec: number;
+  /** Network load this tower draws — scales its overload fire-rate penalty (v3 §3.А). */
+  readonly load: number;
 }
 
 /** Spec the scene feeds in for each tower (the sim tracks the cooldown). */
@@ -161,8 +164,12 @@ export class BattleSim {
   readonly coreMax: number;
   coreHp: number;
 
-  /** Global fire-rate multiplier (>1 faster, <1 slower); set by the scene from energy state. */
-  fireRateMult = 1;
+  /**
+   * Network overload — units of load past capacity; set by the scene each frame.
+   * Each firing tower's fire rate is then cut in proportion to its *own* load
+   * (v3 §3.А), so heavy turrets dim first while light support barely slows.
+   */
+  overload = 0;
 
   /** Monotonic sim clock (seconds) — status deadlines are measured against this. */
   private clock = 0;
@@ -395,7 +402,6 @@ export class BattleSim {
   // --- Firing --------------------------------------------------------------
 
   private fireTowers(dt: number): void {
-    const mult = Math.max(this.fireRateMult, 0.1);
     for (const tower of this.towers) {
       if (tower.cdLeft > 0) {
         tower.cdLeft -= dt;
@@ -406,6 +412,9 @@ export class BattleSim {
         tower.cdLeft = 0; // stay ready; fire the instant a target enters range
         continue;
       }
+
+      // Overload throttles this tower's fire rate in proportion to its own load.
+      const mult = towerFireRateMult(this.overload, tower.load);
 
       if (tower.barrierSec > 0) {
         // Shield: hold the lead enemy still, then a long recharge.
@@ -714,6 +723,7 @@ export function buildTowerSpec(
     cooldown: base.cooldown / Math.max(0.1, tempoMult),
     pierce,
     barrierSec,
+    load: cardLoad(def, grade),
     aoeRadius: aoeFrac * arenaWidth,
     splashFrac: AOE_SPLASH_FRAC,
     slowFactor,
@@ -729,11 +739,25 @@ export function buildTowerSpec(
 }
 
 /**
- * Effective global fire-rate multiplier from the current energy state. `capacity`
- * is the *effective* capacity (the scene folds in any Overdrive bonus), so every
- * unit of load past it slows the whole grid's fire rate.
+ * Network overload from the current energy state (v3 §3.А): units of load past
+ * the *effective* capacity (the scene folds in Overdrive + wave growth). 0 when
+ * the grid is at or under budget.
  */
-export function fireRateFromEnergy(load: number, capacity: number): number {
-  const overload = Math.max(0, load - capacity);
-  return 1 / (1 + OVERLOAD_FIRE_PENALTY * overload);
+export function overloadAmount(load: number, capacity: number): number {
+  return Math.max(0, load - capacity);
+}
+
+/**
+ * A single tower's overload penalty (v3 §3.А): −2.5% fire rate per unit of
+ * network overload, scaled by the tower's *own* load — so projectile-heavy
+ * turrets dim first and light support barely slows. Generators / zero-load cards
+ * (load ≤ 0) are immune. Returned as a positive fraction (0 = no penalty).
+ */
+export function towerOverloadPenalty(overload: number, towerLoad: number): number {
+  return OVERLOAD_FIRE_PENALTY_PER_LOAD * overload * Math.max(0, towerLoad);
+}
+
+/** That penalty as a fire-rate multiplier, floored so a tower never freezes solid. */
+export function towerFireRateMult(overload: number, towerLoad: number): number {
+  return Math.max(OVERLOAD_FIRE_FLOOR, 1 - towerOverloadPenalty(overload, towerLoad));
 }

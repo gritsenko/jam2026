@@ -1,7 +1,7 @@
 import { ColorMatrixFilter, Container, Graphics, Sprite, Texture } from 'pixi.js';
-import { COLORS, ELEMENTS, type ElementId } from '../theme';
+import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
 import type { SynergyDot } from '../game/synergy';
-import { fitSprite } from './helpers';
+import { fitSprite, makeText } from './helpers';
 
 export type SlotHighlight = 'none' | 'valid' | 'hover' | 'invalid' | 'merge';
 
@@ -30,13 +30,30 @@ export class SlotView extends Container {
   private cdDial = new Graphics();
   /** Element glow color the cooldown dial is drawn in (set when a tower is placed). */
   private cdColor: number = COLORS.white;
+  /**
+   * Net-effect badge (top-left): the tower's total modifier — neighbor buffs and
+   * penalties plus overload — folded into one signed % (v3 §9).
+   */
+  private effect = new Container();
+  private effectBg = new Graphics();
+  private effectLabel = makeText('', 'label', { fontSize: 22, fill: hex(COLORS.energyOk), fontWeight: '900' });
+  /** Badge state: 0 hidden · 1 green (bonus only) · 2 red (penalty only) · 3 yellow (both). */
+  private effectState = 0;
+  /** Last drawn net percent, so we only redraw the badge when something changes. */
+  private effectPct = 0;
+  /** Whether the badge pulses for attention (only when a penalty is present). */
+  private effectPulses = false;
+  private effectPulse = 0;
   private occupied = false;
 
   constructor(index: number, size: number) {
     super();
     this.index = index;
     this.size = size;
-    this.addChild(this.base, this.reso, this.content, this.dotGlow, this.hl, this.ghost, this.cdDial);
+    this.effectLabel.anchor.set(0, 0.5);
+    this.effect.addChild(this.effectBg, this.effectLabel);
+    this.effect.visible = false;
+    this.addChild(this.base, this.reso, this.content, this.dotGlow, this.hl, this.ghost, this.cdDial, this.effect);
     this.ghost.visible = false;
     this.cdDial.visible = false;
     this.drawEmpty();
@@ -53,6 +70,7 @@ export class SlotView extends Container {
     this.litDots = [];
     this.dotGlow.clear();
     this.setCooldown(0);
+    this.setEffect(0, false, false);
     this.drawEmpty();
   }
 
@@ -127,8 +145,16 @@ export class SlotView extends Container {
     this.content.addChild(g);
   }
 
-  /** Pulse the glow on the lit influence dots. Call each frame from the scene. */
+  /** Pulse the glow on the lit influence dots + the effect badge. Call each frame. */
   tickDots(dt: number): void {
+    if (this.effect.visible) {
+      if (this.effectPulses) {
+        this.effectPulse = (this.effectPulse + dt * 4) % (Math.PI * 2);
+        this.effect.alpha = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(this.effectPulse));
+      } else {
+        this.effect.alpha = 1;
+      }
+    }
     if (this.litDots.length === 0) return;
     this.dotPulse = (this.dotPulse + dt * 3.5) % (Math.PI * 2);
     const pulse = 0.5 + 0.5 * Math.sin(this.dotPulse);
@@ -210,6 +236,71 @@ export class SlotView extends Container {
     g.moveTo(cx, cy).arc(cx, cy, r, start, end).fill({ color: this.cdColor, alpha: 0.85 });
     // Rim.
     g.circle(cx, cy, r).stroke({ width: 2, color: this.cdColor, alpha: 0.9 });
+  }
+
+  /**
+   * Drive the net-effect badge in the tower's top-left corner (mirroring the
+   * cooldown dial). `netPct` is the tower's total modifier — all neighbor buffs
+   * and penalties plus overload, signed (v3 §9). The color encodes *composition*,
+   * not just sign: green = only bonuses, red = only penalties, yellow = both (a
+   * drop you can remove). With neither, the badge is hidden. Only redraws when the
+   * state or percent changes; the pulse is driven in {@link tickDots}.
+   */
+  setEffect(netPct: number, hasBonus: boolean, hasPenalty: boolean): void {
+    const state = !hasBonus && !hasPenalty ? 0 : hasBonus && hasPenalty ? 3 : hasPenalty ? 2 : 1;
+    if (state === this.effectState && netPct === this.effectPct) return;
+    this.effectState = state;
+    this.effectPct = netPct;
+    this.effectPulses = state >= 2; // red/yellow pulse for attention; green stays calm
+    if (state === 0) {
+      this.effect.visible = false;
+      this.effect.alpha = 1;
+      return;
+    }
+    this.drawEffect(netPct, state);
+    this.effect.visible = true;
+  }
+
+  /** Lay out the effect badge (dark pill + state-colored rim, net-direction arrow, signed %). */
+  private drawEffect(netPct: number, state: number): void {
+    const color = state === 3 ? COLORS.energyWarn : state === 2 ? COLORS.energyDanger : COLORS.energyOk;
+    const s = this.size;
+    const h = s * 0.22;
+    const padX = h * 0.3;
+    const arrowW = h * 0.42;
+    const gapX = h * 0.16;
+
+    this.effectLabel.text = `${netPct > 0 ? '+' : ''}${netPct}%`;
+    this.effectLabel.style.fill = hex(color);
+    const w = padX + arrowW + gapX + this.effectLabel.width + padX;
+    const x0 = -s / 2 + 6;
+    const y0 = -s / 2 + 6;
+    const cy = y0 + h / 2;
+
+    this.effectBg.clear();
+    this.effectBg.roundRect(x0, y0, w, h, h / 2).fill({ color: COLORS.black, alpha: 0.72 });
+    this.effectBg.roundRect(x0, y0, w, h, h / 2).stroke({ width: 2, color, alpha: 0.95 });
+
+    // Arrow shows net direction: up = net buff, down = net nerf, dash = exactly even.
+    const ax = x0 + padX + arrowW / 2;
+    const a = arrowW / 2;
+    if (netPct > 0) {
+      this.effectBg
+        .moveTo(ax - a, cy + a * 0.45)
+        .lineTo(ax, cy - a * 0.6)
+        .lineTo(ax + a, cy + a * 0.45)
+        .stroke({ width: 3, color, cap: 'round', join: 'round' });
+    } else if (netPct < 0) {
+      this.effectBg
+        .moveTo(ax - a, cy - a * 0.45)
+        .lineTo(ax, cy + a * 0.6)
+        .lineTo(ax + a, cy - a * 0.45)
+        .stroke({ width: 3, color, cap: 'round', join: 'round' });
+    } else {
+      this.effectBg.moveTo(ax - a, cy).lineTo(ax + a, cy).stroke({ width: 3, color, cap: 'round' });
+    }
+
+    this.effectLabel.position.set(x0 + padX + arrowW + gapX, cy);
   }
 
   setHighlight(state: SlotHighlight): void {
