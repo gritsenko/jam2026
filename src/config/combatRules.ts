@@ -37,6 +37,14 @@ export const OVERLOAD_FIRE_PENALTY = 0.3;
 /** Reactor burn temporarily raises capacity by this much (v2 §3.Г). */
 export const OVERDRIVE_CAPACITY_BONUS = 2;
 
+/**
+ * Average-grade capacity growth (v2 §3.В): the platform's capacity gains
+ * `round((avgGrade - 1) * this)` from the mean grade of all placed cards, capped
+ * at `energyMax`. So merging towers up automatically widens the energy budget —
+ * offsetting the extra load a higher-grade tower draws.
+ */
+export const GRADE_CAPACITY_SCALE = 3;
+
 /** Gold granted for fully clearing a wave. */
 export const WAVE_CLEAR_BONUS = 25;
 

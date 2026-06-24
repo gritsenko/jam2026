@@ -107,16 +107,19 @@ export class BattleCard extends Container {
         ? Array.from({ length: slots }, () => this.def.element)
         : Array.from({ length: slots }, (_, i) => this.def.slotElements[i] ?? this.def.element);
     const g = new Graphics();
-    const r = 6;
-    const gap = 22;
+    const r = 12; // 2x — matches the enlarged on-platform dots
+    const gap = r * 2.7;
     const startX = -((els.length - 1) * gap) / 2;
     const y = this.cardH * 0.3;
     els.forEach((el, i) => {
-      const color = ELEMENTS[el].glow;
+      const skin = ELEMENTS[el];
+      const color = skin.glow;
       const x = startX + i * gap;
-      g.circle(x, y, r + 2).fill({ color: COLORS.black, alpha: 0.5 });
+      // Dark element-colored socket (off-LED look) behind the bright bulb —
+      // mirrors the placed-tower dots.
+      g.circle(x, y, r + 4).fill({ color: skin.dark, alpha: 0.95 });
+      g.circle(x, y, r + 4).stroke({ width: 2, color, alpha: 0.5 });
       g.circle(x, y, r).fill({ color, alpha: 0.95 });
-      g.circle(x, y, r + 3).stroke({ width: 2, color, alpha: 0.4 });
     });
     this.addChild(g);
   }
@@ -143,7 +146,9 @@ export class BattleCard extends Container {
     const energyBg = new Graphics();
     this.paintChip(energyBg, leftCx, cy, chipW, chipH, energyColor);
     this.addChild(energyBg);
-    const energyValue = makeText(`${load > 0 ? '+' : ''}${load}`, 'value', { fontSize: 26, fill: hex(energyColor) });
+    // Magnitude only — the *signed* effect on the grid (place adds, merge can
+    // free) is shown by the under-base move-cost readout, not here.
+    const energyValue = makeText(String(Math.abs(load)), 'value', { fontSize: 26, fill: hex(energyColor) });
     this.layoutChipContent(leftCx, cy, chipW, chipH, energyIcon, energyValue);
 
     // --- Gold chip (price) ---

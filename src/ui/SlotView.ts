@@ -3,7 +3,7 @@ import { COLORS, ELEMENTS, type ElementId } from '../theme';
 import type { SynergyDot } from '../game/synergy';
 import { fitSprite } from './helpers';
 
-export type SlotHighlight = 'none' | 'valid' | 'hover' | 'invalid';
+export type SlotHighlight = 'none' | 'valid' | 'hover' | 'invalid' | 'merge';
 
 /**
  * One platform slot. Empty = a recessed rune socket; filled = tower art in an
@@ -17,6 +17,13 @@ export class SlotView extends Container {
   /** Resonance halo drawn around an actively-resonating tower. */
   private reso = new Graphics();
   private content = new Container();
+  /** Pulsing glow over the lit influence dots (animated in {@link tickDots}). */
+  private dotGlow = new Graphics();
+  /** Centers + colors of the currently-lit influence dots, for the pulse. */
+  private litDots: { x: number; y: number; color: number }[] = [];
+  private dotPulse = 0;
+  /** Influence-dot radius (kept in sync between the static draw and the glow). */
+  private static readonly DOT_R = 12;
   /** Translucent preview of the building that would land here while dragging. */
   private ghost = new Container();
   /** Mini cooldown dial in the corner of an attacking tower (a shrinking sector). */
@@ -29,7 +36,7 @@ export class SlotView extends Container {
     super();
     this.index = index;
     this.size = size;
-    this.addChild(this.base, this.reso, this.content, this.hl, this.ghost, this.cdDial);
+    this.addChild(this.base, this.reso, this.content, this.dotGlow, this.hl, this.ghost, this.cdDial);
     this.ghost.visible = false;
     this.cdDial.visible = false;
     this.drawEmpty();
@@ -43,6 +50,8 @@ export class SlotView extends Container {
     this.occupied = false;
     this.content.removeChildren().forEach((c) => c.destroy());
     this.reso.clear();
+    this.litDots = [];
+    this.dotGlow.clear();
     this.setCooldown(0);
     this.drawEmpty();
   }
@@ -80,29 +89,56 @@ export class SlotView extends Container {
     this.drawResonance(resonant, skin.glow);
   }
 
-  /** Influence dots along the bottom edge (v2 §9): grade = count, color = wanted element. */
+  /**
+   * Influence dots along the bottom edge (v2 §9): grade = count, color = wanted
+   * element. Each dot sits on a translucent backing in its own element color so it
+   * reads even unlit; a lit dot is a solid disc that also gets a pulsing glow
+   * (driven by {@link tickDots}) to flag the active synergy at a glance.
+   */
   private drawDots(dots: readonly SynergyDot[]): void {
+    this.litDots = [];
+    this.dotGlow.clear();
+    this.dotPulse = 0;
     if (dots.length === 0) return;
     const s = this.size;
     const g = new Graphics();
-    const r = 6;
-    const gap = 18;
+    const r = SlotView.DOT_R;
+    const gap = r * 2.7;
     const startX = -((dots.length - 1) * gap) / 2;
-    const y = s / 2 - 13;
+    const y = s / 2 - r - 8;
     for (let i = 0; i < dots.length; i++) {
       const d = dots[i]!;
-      const color = ELEMENTS[d.element].glow;
+      const skin = ELEMENTS[d.element];
+      const color = skin.glow;
       const x = startX + i * gap;
-      // Socket so an unlit slot still reads.
-      g.circle(x, y, r + 2).fill({ color: COLORS.black, alpha: 0.55 });
+      // Dark element-colored socket — reads like a switched-off LED of the wanted
+      // element, so the slot is legible even before its synergy lights up.
+      g.circle(x, y, r + 4).fill({ color: skin.dark, alpha: 0.95 });
+      g.circle(x, y, r + 4).stroke({ width: 2, color, alpha: 0.45 });
       if (d.lit) {
-        g.circle(x, y, r + 3).stroke({ width: 2, color, alpha: 0.5 }); // glow ring
         g.circle(x, y, r).fill({ color });
+        this.litDots.push({ x, y, color });
       } else {
-        g.circle(x, y, r).stroke({ width: 2, color, alpha: 0.55 });
+        // Unlit bulb: darker than the socket so "off" reads at a glance.
+        g.circle(x, y, r).fill({ color: COLORS.black, alpha: 0.4 });
+        g.circle(x, y, r).stroke({ width: 1.5, color, alpha: 0.5 });
       }
     }
     this.content.addChild(g);
+  }
+
+  /** Pulse the glow on the lit influence dots. Call each frame from the scene. */
+  tickDots(dt: number): void {
+    if (this.litDots.length === 0) return;
+    this.dotPulse = (this.dotPulse + dt * 3.5) % (Math.PI * 2);
+    const pulse = 0.5 + 0.5 * Math.sin(this.dotPulse);
+    const r = SlotView.DOT_R;
+    this.dotGlow.clear();
+    for (const d of this.litDots) {
+      const grow = 4 + pulse * 7;
+      this.dotGlow.circle(d.x, d.y, r + grow).fill({ color: d.color, alpha: 0.1 + 0.22 * pulse });
+      this.dotGlow.circle(d.x, d.y, r + grow * 0.5).stroke({ width: 2, color: d.color, alpha: 0.4 + 0.45 * pulse });
+    }
   }
 
   /** A soft pulsing-color halo marking an active resonance. */
@@ -181,8 +217,14 @@ export class SlotView extends Container {
     this.hl.clear();
     if (state === 'none') return;
     const color =
-      state === 'hover' ? COLORS.dropHover : state === 'invalid' ? COLORS.energyDanger : COLORS.dropValid;
-    const alpha = state === 'hover' ? 0.5 : 0.28;
+      state === 'merge'
+        ? COLORS.energyOverdrive
+        : state === 'hover'
+          ? COLORS.dropHover
+          : state === 'invalid'
+            ? COLORS.energyDanger
+            : COLORS.dropValid;
+    const alpha = state === 'hover' || state === 'merge' ? 0.5 : 0.28;
     this.hl.roundRect(-s / 2, -s / 2, s, s, 16).fill({ color, alpha });
     this.hl.roundRect(-s / 2, -s / 2, s, s, 16).stroke({ width: 4, color });
   }

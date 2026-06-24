@@ -1,4 +1,4 @@
-import { Container, type FederatedPointerEvent, Graphics, type PointData, Sprite } from 'pixi.js';
+import { Container, type FederatedPointerEvent, Graphics, type PointData, Sprite, type Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type SceneParams } from '../core/scene';
@@ -8,6 +8,7 @@ import { HAND_RESPAWN_SEC, HAND_SIZE, OVERDRIVE_SEC, rollHandCard } from '../con
 import {
   CORE_MAX,
   ENEMY_PATH,
+  GRADE_CAPACITY_SCALE,
   OVERDRIVE_CAPACITY_BONUS,
   PERFECT_CLEAR_CRYSTALS,
   WAVE_CLEAR_BONUS,
@@ -34,6 +35,7 @@ import { EnemySprite } from '../ui/EnemySprite';
 import { EnergyGauge } from '../ui/EnergyGauge';
 import { HandSlotView } from '../ui/HandSlotView';
 import { HeroAvatar } from '../ui/HeroAvatar';
+import { MoveCostReadout, type CostPart } from '../ui/MoveCostReadout';
 import { PlatformGrid } from '../ui/PlatformGrid';
 import { ProjectileView } from '../ui/Projectile';
 import { ReactorZone } from '../ui/ReactorZone';
@@ -134,6 +136,9 @@ export class BattleScene extends Scene {
   /** Info-panel geometry, recomputed each layout so re-show lands correctly. */
   private infoPanelWidth = 760;
   private infoPanelPos: PointData = { x: 0, y: 0 };
+  /** Signed cost of the pending drag action, shown in the sand under the base. */
+  private moveCost!: MoveCostReadout;
+  private moveCostPos: PointData = { x: 0, y: 0 };
 
   /**
    * Active Overdrive stacks — one per burned card, each holding its remaining
@@ -147,10 +152,17 @@ export class BattleScene extends Scene {
   // Drag state.
   private dragging: BattleCard | null = null;
   private dragOffset: PointData = { x: 0, y: 0 };
+  /**
+   * When the dragged card is a tower lifted *off the platform* (field-to-field
+   * merge, v2 §1.5), the slot index it came from; null for a normal hand-card drag.
+   */
+  private fieldDragFrom: number | null = null;
   /** Card pressed but not yet dragged — promoted to a drag once the pointer moves
    *  past a threshold, or treated as a tap (show info plaque) if released first. */
   private pressCard: BattleCard | null = null;
   private pressStart: PointData = { x: 0, y: 0 };
+  /** Occupied slot pressed but not yet lifted (tap = inspect, drag = field merge). */
+  private pressSlot: SlotView | null = null;
   /** Hand card whose description plaque is currently shown (tap-to-inspect). */
   private inspectedCard: BattleCard | null = null;
   /** Slot currently showing a build preview (ghost) under the dragged card. */
@@ -193,7 +205,7 @@ export class BattleScene extends Scene {
     this.grid.position.set(this.arenaW * 0.5, this.arenaH * 0.5);
     this.grid.setScaleSize(this.arenaW * PLATFORM_FRAC);
     this.field.addChild(this.grid);
-    this.wireSlotTaps();
+    this.wireSlots();
 
     this.resonanceLabel.anchor.set(0.5);
     this.resonanceLabel.position.set(
@@ -209,6 +221,7 @@ export class BattleScene extends Scene {
 
     this.buildHud();
     this.buildHand();
+    this.refreshEnergy(); // seed load + grade-driven capacity into the gauge
 
     // --- Combat: the ring path + headless simulation that drives waves, tower
     //     fire and the core's integrity. The scene only mirrors it to sprites. --
@@ -289,6 +302,8 @@ export class BattleScene extends Scene {
     this.hint.anchor.set(0.5);
     this.hint.alpha = 0.7;
 
+    this.moveCost = new MoveCostReadout();
+
     this.waveToast.anchor.set(0.5);
     this.waveToast.alpha = 0;
 
@@ -303,6 +318,7 @@ export class BattleScene extends Scene {
       this.gauge,
       this.backBtn,
       this.hint,
+      this.moveCost,
       this.waveToast,
       this.infoPanel,
     );
@@ -393,18 +409,59 @@ export class BattleScene extends Scene {
     this.infoPanel.position.set(this.infoPanelPos.x, this.infoPanelPos.y);
   }
 
-  private wireSlotTaps(): void {
+  /**
+   * Wire press/drag/tap on every platform slot. A press that stays put is a tap
+   * (inspect a placed tower, or dismiss); a press on an *occupied* slot that
+   * travels far enough lifts that tower off the platform for a field-to-field
+   * merge (v2 §1.5). Empty slots can only be tapped.
+   */
+  private wireSlots(): void {
     for (const slot of this.grid.slots) {
       slot.eventMode = 'static';
       slot.cursor = 'pointer';
-      slot.on('pointertap', () => {
-        if (this.dragging) return;
-        // Tap a placed tower to inspect it (range + neighbor effects); tap it
-        // again, or any empty slot, to dismiss.
-        if (slot.isOccupied) this.toggleInspect(slot.index);
-        else this.clearInspect();
-      });
+      slot.on('pointerdown', (e: FederatedPointerEvent) => this.onSlotDown(slot, e));
+      slot.on('globalpointermove', (e: FederatedPointerEvent) => this.onSlotMove(e));
+      slot.on('pointerup', (e: FederatedPointerEvent) => this.onSlotUp(slot, e));
+      slot.on('pointerupoutside', (e: FederatedPointerEvent) => this.onSlotUp(slot, e));
     }
+  }
+
+  private onSlotDown(slot: SlotView, e: FederatedPointerEvent): void {
+    if (this.dragging || this.banner) return;
+    this.pressSlot = slot;
+    this.pressStart = { x: e.global.x, y: e.global.y };
+  }
+
+  private onSlotMove(e: FederatedPointerEvent): void {
+    // While a field tower is in flight, the slots drive the shared drag move (the
+    // avatar card is non-interactive); a hand-card drag is driven by the card itself.
+    if (this.dragging) {
+      if (this.fieldDragFrom !== null) this.onDragMove(e);
+      return;
+    }
+    const slot = this.pressSlot;
+    if (!slot || !slot.isOccupied) return; // only occupied slots can be lifted
+    const dx = e.global.x - this.pressStart.x;
+    const dy = e.global.y - this.pressStart.y;
+    if (dx * dx + dy * dy < DRAG_THRESHOLD_SQ) return;
+    this.pressSlot = null;
+    this.startFieldDrag(slot, e);
+    this.onDragMove(e);
+  }
+
+  private onSlotUp(slot: SlotView, e: FederatedPointerEvent): void {
+    if (this.dragging) {
+      this.endDrag(e);
+      this.pressSlot = null;
+      return;
+    }
+    // Released without travelling = a tap. Only the originally-pressed slot acts
+    // (sibling slots also receive pointerupoutside).
+    const pressed = this.pressSlot;
+    this.pressSlot = null;
+    if (!pressed || pressed !== slot) return;
+    if (slot.isOccupied) this.toggleInspect(slot.index);
+    else this.clearInspect();
   }
 
   // --- Tap-to-inspect a placed tower ---------------------------------------
@@ -510,28 +567,75 @@ export class BattleScene extends Scene {
     this.hint.alpha = 0.95;
   }
 
+  /**
+   * Lift a placed tower off the platform for a field-to-field merge (v2 §1.5). A
+   * full-size card avatar (purely visual; the slot handlers drive the drag) flies
+   * with the pointer; only matching same-grade towers light up as merge targets.
+   * The source tower stays in place until a successful drop — a cancel just glides
+   * the avatar back.
+   */
+  private startFieldDrag(slot: SlotView, e: FederatedPointerEvent): void {
+    if (this.dragging || this.banner) return;
+    const placed = this.state.slots[slot.index];
+    if (!placed) return;
+    this.clearInspect(); // inspection and dragging are mutually exclusive modes
+
+    const def = getCard(placed.cardId);
+    const avatar = new BattleCard(def, placed.grade, this.services.assets.get(def.iconKey), {
+      energyIcon: this.services.assets.get('icon_energy'),
+      goldIcon: this.services.assets.get('icon_gold'),
+    });
+    avatar.eventMode = 'none'; // visual only; slot/card move+up handlers drive it
+    this.dragging = avatar;
+    this.fieldDragFrom = slot.index;
+
+    const gp = slot.getGlobalPosition();
+    this.dragLayer.addChild(avatar);
+    const local = this.dragLayer.toLocal(gp);
+    avatar.position.copyFrom(local);
+    const pointerLocal = this.dragLayer.toLocal(e.global);
+    this.dragOffset = { x: local.x - pointerLocal.x, y: local.y - pointerLocal.y };
+
+    this.track(tween({ duration: 0.12, onUpdate: (t) => { if (!avatar.destroyed) avatar.scale.set(1 + 0.14 * t); } }));
+    avatar.alpha = 0.97;
+    this.previewSlot = null;
+    this.cardGhosted = false;
+
+    this.grid.showMergeTargets(def.id, placed.grade, slot.index);
+    this.hint.alpha = 0.95;
+  }
+
   private onDragMove(e: FederatedPointerEvent): void {
     const card = this.dragging;
     if (!card) return;
     const p = this.dragLayer.toLocal(e.global);
     card.position.set(p.x + this.dragOffset.x, p.y + this.dragOffset.y);
 
-    const overReactor = this.reactor.visible && this.reactor.containsGlobal(e.global);
-    const slot = overReactor ? null : this.grid.slotAtGlobal(e.global);
-    const emptySlot = slot && !slot.isOccupied ? slot : null;
-    const mergeSlot = slot && slot.isOccupied && this.canMerge(card, slot.index) ? slot : null;
+    const fieldDrag = this.fieldDragFrom !== null;
+    // Reactor is only a target for hand cards (you can't burn a placed tower).
+    const overReactor = !fieldDrag && this.reactor.visible && this.reactor.containsGlobal(e.global);
+    const hit = overReactor ? null : this.grid.slotAtGlobal(e.global);
+    // A field-drag can never target its own origin slot.
+    const slot = hit && hit.index !== this.fieldDragFrom ? hit : null;
+    // A field-drag has no empty-slot drop (no relocation) — only merges.
+    const emptySlot = !fieldDrag && slot && !slot.isOccupied ? slot : null;
+    const mergeSlot =
+      slot && slot.isOccupied && this.canMerge(card.def.id, card.grade, slot.index) ? slot : null;
     const targetSlot = emptySlot ?? mergeSlot;
     // The grade the preview should reflect: a merge bumps it one up.
     const previewGrade = mergeSlot ? this.state.slots[mergeSlot.index]!.grade + 1 : card.grade;
 
     // Reactor hover charges the gauge (previewing the burn payoff); otherwise
     // the reactor sits as a plain valid target.
-    this.reactor.setHighlight(overReactor ? 'hover' : 'valid');
-    this.gauge.setCharging(overReactor);
+    if (!fieldDrag) {
+      this.reactor.setHighlight(overReactor ? 'hover' : 'valid');
+      this.gauge.setCharging(overReactor);
+    }
 
     // Over a target slot: show the tower's attack-range footprint + the buffs it
     // would feed its neighbors. An empty slot also gets a translucent build ghost
-    // (a merge keeps the existing tower art, so no ghost there).
+    // (a merge keeps the existing tower art, so no ghost there); a merge target
+    // additionally shows a "MERGE → Lvn" plaque.
     if (targetSlot !== this.previewSlot) {
       this.previewSlot?.clearGhost();
       this.previewSlot = targetSlot;
@@ -539,22 +643,98 @@ export class BattleScene extends Scene {
       if (!targetSlot) this.grid.clearInspect();
     }
     if (targetSlot) {
-      this.grid.previewBuffs(targetSlot.index, card.def, previewGrade);
+      this.grid.previewBuffs(targetSlot.index, card.def, previewGrade, mergeSlot ? previewGrade : undefined);
       this.showRangePreview(targetSlot, card.def, previewGrade);
     } else {
       this.hideRangePreview();
     }
-    if (mergeSlot) this.grid.setMergeTarget(mergeSlot);
-    else this.grid.setHover(emptySlot, true);
+
+    // Highlight the drop targets. Field-drag lights only matching towers; a hand
+    // card lights empty slots (hover/valid) plus any merge target.
+    if (fieldDrag) {
+      this.grid.showMergeTargets(card.def.id, card.grade, this.fieldDragFrom, mergeSlot);
+    } else if (mergeSlot) {
+      this.grid.setMergeTarget(mergeSlot);
+    } else {
+      this.grid.setHover(emptySlot, true);
+    }
+
+    // Cost of the pending action, signed, in the sand under the base (§9). No
+    // target → fall back to the generic drag hint.
+    const parts = this.moveCostParts(card, fieldDrag, overReactor, emptySlot, mergeSlot, previewGrade);
+    if (parts) {
+      this.moveCost.show(parts);
+      this.moveCost.position.set(this.moveCostPos.x, this.moveCostPos.y);
+      this.hint.alpha = 0;
+    } else {
+      this.moveCost.hide();
+      this.hint.alpha = 0.95;
+    }
+
     // Fade the dragged card out over an empty slot (the ghost reads); keep it
     // visible over a merge slot so the player sees what is being fed in.
     this.setCardGhosted(emptySlot !== null);
   }
 
-  /** Can the dragged card merge onto the tower at `index`? Same type, not yet maxed. */
-  private canMerge(card: BattleCard, index: number): boolean {
+  /**
+   * Compose the signed cost chips for the action currently under the pointer, or
+   * null when the drag isn't over any valid target. Energy is the *net* shift to
+   * the grid's load (a merge of higher grades can free energy), so placing reads
+   * `+n` and merging may read `0`/`-n`; gold is the price (red if unaffordable).
+   */
+  private moveCostParts(
+    card: BattleCard,
+    fieldDrag: boolean,
+    overReactor: boolean,
+    emptySlot: SlotView | null,
+    mergeSlot: SlotView | null,
+    previewGrade: number,
+  ): CostPart[] | null {
+    const energyIcon = this.services.assets.get('icon_energy');
+    const goldIcon = this.services.assets.get('icon_gold');
+    const base = card.def.baseLoad;
+
+    if (overReactor) {
+      return [
+        { text: 'BURN', color: COLORS.energyOverdrive },
+        { icon: energyIcon, text: `+${OVERDRIVE_CAPACITY_BONUS} CAP ${OVERDRIVE_SEC}s`, color: COLORS.energyOverdrive },
+      ];
+    }
+    if (emptySlot) {
+      return [this.energyPart(energyIcon, base * card.grade), this.goldPart(goldIcon, card.def.costGold)];
+    }
+    if (mergeSlot) {
+      // Place adds load; a merge replaces two grade-g towers (field) or one (hand)
+      // with a single grade-(g+1) — so the net load shift can be 0 or negative.
+      const dE = fieldDrag ? base * (1 - card.grade) : base;
+      return [
+        { text: `→ Lv${previewGrade}`, color: COLORS.energyOverdrive },
+        this.energyPart(energyIcon, dE),
+        this.goldPart(goldIcon, card.def.costGold),
+      ];
+    }
+    return null;
+  }
+
+  /** A signed energy chip: `+n` (more load → warn), `-n` (frees → ok), `0` (dim). */
+  private energyPart(icon: Texture, delta: number): CostPart {
+    const color = delta > 0 ? COLORS.energyWarn : delta < 0 ? COLORS.energyOk : COLORS.textDim;
+    return { icon, text: `${delta > 0 ? '+' : ''}${delta}`, color };
+  }
+
+  /** A gold-cost chip, red when the player can't currently afford it. */
+  private goldPart(icon: Texture, cost: number): CostPart {
+    return { icon, text: `-${cost}`, color: this.state.gold >= cost ? COLORS.gold : COLORS.energyDanger };
+  }
+
+  /**
+   * Can a card of `cardId` at `grade` merge onto the tower at `index`? Strict
+   * "2048" rule (v2 §4): same type, **same grade**, and not yet maxed. So I+I→II
+   * and II+II→III, but I never lifts a II.
+   */
+  private canMerge(cardId: string, grade: number, index: number): boolean {
     const placed = this.state.slots[index];
-    return !!placed && placed.cardId === card.def.id && placed.grade < 3;
+    return !!placed && placed.cardId === cardId && placed.grade === grade && placed.grade < 3;
   }
 
   /** Fast fade of the dragged card while a slot build-preview is showing. */
@@ -575,7 +755,9 @@ export class BattleScene extends Scene {
   private endDrag(e: FederatedPointerEvent): void {
     const card = this.dragging;
     if (!card) return;
+    const fromIndex = this.fieldDragFrom;
     this.dragging = null;
+    this.fieldDragFrom = null;
     card.cursor = 'grab';
 
     // Tear down the drag-time visuals shared by every outcome.
@@ -587,9 +769,23 @@ export class BattleScene extends Scene {
     this.grid.clearHighlights();
     this.grid.clearInspect(); // drop any drag-time buff preview overlay
     this.hideRangePreview();
+    this.moveCost.hide();
     this.hint.alpha = 0.7;
 
-    // Burn: dropped on the Reactor (grants Overdrive).
+    const slot = this.grid.slotAtGlobal(e.global);
+
+    // Field-to-field merge: a lifted tower only drops onto a matching same-grade
+    // tower (not its origin); anything else glides it back home.
+    if (fromIndex !== null) {
+      if (slot && slot.index !== fromIndex && this.canMerge(card.def.id, card.grade, slot.index)) {
+        this.mergeFieldTower(fromIndex, slot.index, card);
+      } else {
+        this.returnFieldTower(card, fromIndex);
+      }
+      return;
+    }
+
+    // Hand card: burn on the Reactor (grants Overdrive)...
     if (this.reactor.visible && this.reactor.containsGlobal(e.global)) {
       this.hideReactor();
       this.burnCard(card);
@@ -597,13 +793,12 @@ export class BattleScene extends Scene {
     }
     this.hideReactor();
 
-    // Place on a free slot, or merge onto a matching tower.
-    const slot = this.grid.slotAtGlobal(e.global);
+    // ...place on a free slot, or merge onto a matching same-grade tower.
     if (slot && !slot.isOccupied) {
       this.placeCard(card, slot);
       return;
     }
-    if (slot && this.canMerge(card, slot.index)) {
+    if (slot && this.canMerge(card.def.id, card.grade, slot.index)) {
       this.mergeCard(card, slot);
       return;
     }
@@ -622,9 +817,8 @@ export class BattleScene extends Scene {
       return;
     }
     this.state.slots[slot.index] = { cardId: def.id, grade: card.grade };
-    this.state.energyLoad = Math.max(0, this.state.energyLoad + def.baseLoad);
-    this.gauge.setState({ load: this.state.energyLoad });
     this.spendGold(def.costGold);
+    this.refreshEnergy(); // load grows by this card's base step
     this.grid.applyState(this.state); // renders the tower + redraws broadcast beams
     this.refreshSynergy(); // recompute neighbor buffs / resonance
     this.syncTowers(); // the new tower joins the firing line
@@ -637,7 +831,10 @@ export class BattleScene extends Scene {
   /**
    * Merge a hand card onto a matching tower (v2 §4): the tower grades up in place
    * (wider reach, stronger buff, next signature tier, +1 synergy slot) for the
-   * card's gold, while its load grows — over-grading risks Overload.
+   * card's gold. The strict "2048" rule ({@link canMerge}) means the card and the
+   * tower must share a grade, so a hand card (always Grade I) only ever lifts a
+   * Grade I tower to II — reaching III needs a field-to-field merge of two IIs.
+   * Load grows with the new grade (offset by the §3.В capacity growth).
    */
   private mergeCard(card: BattleCard, slot: SlotView): void {
     const def = card.def;
@@ -648,38 +845,159 @@ export class BattleScene extends Scene {
     }
     const newGrade = Math.min(3, placed.grade + 1);
     this.state.slots[slot.index] = { cardId: placed.cardId, grade: newGrade };
-    this.state.energyLoad = Math.max(0, this.state.energyLoad + def.baseLoad);
-    // TODO (v2 §3.В, Phase C): grow energyCapacity from the platform's average grade.
-    this.gauge.setState({ load: this.state.energyLoad });
     this.spendGold(def.costGold);
+    this.refreshEnergy(); // higher grade draws more load; capacity also grows (§3.В)
     this.grid.applyState(this.state);
     this.refreshSynergy();
     this.syncTowers();
 
-    this.flash(slot, COLORS.dropHover);
+    this.mergeBurst(slot, newGrade);
     this.freeHandCard(card);
     this.animatePlace(card, slot);
+  }
+
+  /**
+   * Merge one platform tower into another of the same type + grade (v2 §1.5):
+   * the dragged tower is consumed, the target grades up in place. Costs the card's
+   * gold (like any merge); load and capacity both shift to match. Unaffordable →
+   * the tower glides back home.
+   */
+  private mergeFieldTower(fromIndex: number, toIndex: number, avatar: BattleCard): void {
+    const target = this.state.slots[toIndex];
+    const source = this.state.slots[fromIndex];
+    if (!target || !source) {
+      this.returnFieldTower(avatar, fromIndex);
+      return;
+    }
+    const cost = getCard(target.cardId).costGold;
+    if (this.state.gold < cost) {
+      this.returnFieldTower(avatar, fromIndex);
+      return;
+    }
+    const newGrade = Math.min(3, target.grade + 1);
+    this.state.slots[toIndex] = { cardId: target.cardId, grade: newGrade };
+    this.state.slots[fromIndex] = null; // the consumed tower leaves the platform
+    this.spendGold(cost);
+    this.refreshEnergy();
+    this.grid.applyState(this.state);
+    this.refreshSynergy();
+    this.syncTowers();
+
+    const targetSlot = this.grid.slots[toIndex];
+    if (targetSlot) this.mergeBurst(targetSlot, newGrade);
+    if (targetSlot) this.animatePlace(avatar, targetSlot);
+    else avatar.destroy();
+  }
+
+  /** Cancelled field-drag: glide the lifted tower back into its origin slot. */
+  private returnFieldTower(avatar: BattleCard, fromIndex: number): void {
+    const slot = this.grid.slots[fromIndex];
+    if (!slot) {
+      avatar.destroy();
+      return;
+    }
+    const start = { x: avatar.x, y: avatar.y };
+    const fromScale = avatar.scale.x;
+    const fromAlpha = avatar.alpha;
+    this.track(
+      tween({
+        duration: 0.22,
+        easing: Easings.outCubic,
+        onUpdate: (t) => {
+          if (avatar.destroyed) return;
+          const tgt = this.dragLayer.toLocal(slot.getGlobalPosition());
+          avatar.position.set(start.x + (tgt.x - start.x) * t, start.y + (tgt.y - start.y) * t);
+          avatar.scale.set(fromScale + (0.3 - fromScale) * t);
+          avatar.alpha = fromAlpha * (1 - t);
+        },
+        onComplete: () => { if (!avatar.destroyed) avatar.destroy(); },
+      }),
+    );
+  }
+
+  /** A gold grade-up flourish on a just-merged slot: an expanding ring + rising "Lvn". */
+  private mergeBurst(slot: SlotView, grade: number): void {
+    const b = slot.getLocalBounds();
+    const ring = new Graphics();
+    ring.roundRect(b.x, b.y, b.width, b.height, 18).stroke({ width: 10, color: COLORS.energyOverdrive });
+    slot.addChild(ring);
+    const label = makeText(`Lv${grade}`, 'title', { fontSize: 40, fill: hex(COLORS.energyOverdrive) });
+    label.anchor.set(0.5);
+    slot.addChild(label);
+    this.track(
+      tween({
+        duration: 0.6,
+        easing: Easings.outCubic,
+        onUpdate: (t) => {
+          if (!ring.destroyed) {
+            ring.alpha = 1 - t;
+            ring.scale.set(1 + 0.3 * t);
+          }
+          if (!label.destroyed) {
+            label.alpha = 1 - t;
+            label.position.set(0, -slot.cellSize * 0.18 - 30 * t);
+            label.scale.set(0.8 + 0.5 * t);
+          }
+        },
+        onComplete: () => {
+          if (!ring.destroyed) ring.destroy();
+          if (!label.destroyed) label.destroy();
+        },
+      }),
+    );
   }
 
   /** Burn a card in the Reactor: add a stacking Overdrive window, animate it in. */
   private burnCard(card: BattleCard): void {
     this.overdriveStacks.push(OVERDRIVE_SEC);
-    this.applyOverdrive();
+    this.refreshEnergy();
     this.flash(this.reactor, COLORS.reactor);
     this.freeHandCard(card);
     this.animateBurn(card);
   }
 
-  /** Reflect the current Overdrive stacks into the effective capacity + gauge. */
-  private applyOverdrive(): void {
-    const bonus = this.overdriveStacks.length * OVERDRIVE_CAPACITY_BONUS;
-    this.state.overdrive = bonus > 0;
-    this.gauge.setState({ overdrive: bonus > 0, capacity: this.state.energyCapacity + bonus });
+  /**
+   * Recompute network load + capacity from the current platform and push it to
+   * the gauge. Load = Σ `baseLoad × grade` over placed cards (so each grade a
+   * tower gains draws another base step; generators give back more). Capacity
+   * folds in the grade-driven growth (§3.В) and any Overdrive stacks. Call after
+   * every placement / merge / burn or Overdrive change.
+   */
+  private refreshEnergy(): void {
+    let load = 0;
+    for (const placed of this.state.slots) {
+      if (placed) load += getCard(placed.cardId).baseLoad * placed.grade;
+    }
+    this.state.energyLoad = Math.max(0, load);
+    this.state.overdrive = this.overdriveStacks.length > 0;
+    this.gauge.setState({
+      load: this.state.energyLoad,
+      capacity: this.effectiveCapacity,
+      overdrive: this.state.overdrive,
+    });
   }
 
-  /** Effective network capacity (base + Overdrive stacks). */
+  /**
+   * Capacity bonus from the platform's average card grade (v2 §3.В): merging
+   * towers up automatically widens the energy budget. Capped so base+grade never
+   * exceeds `energyMax`.
+   */
+  private gradeCapacityBonus(): number {
+    let sum = 0;
+    let n = 0;
+    for (const placed of this.state.slots) {
+      if (!placed) continue;
+      sum += placed.grade;
+      n++;
+    }
+    if (n === 0) return 0;
+    return Math.round((sum / n - 1) * GRADE_CAPACITY_SCALE);
+  }
+
+  /** Effective network capacity (base + grade growth, capped at max, + Overdrive stacks). */
   private get effectiveCapacity(): number {
-    return this.state.energyCapacity + this.overdriveStacks.length * OVERDRIVE_CAPACITY_BONUS;
+    const withGrade = Math.min(this.state.energyMax, this.state.energyCapacity + this.gradeCapacityBonus());
+    return withGrade + this.overdriveStacks.length * OVERDRIVE_CAPACITY_BONUS;
   }
 
   /** Mark the hand position that held `card` as empty and start its recharge. */
@@ -976,12 +1294,13 @@ export class BattleScene extends Scene {
     }
   }
 
-  /** Mirror each attacking tower's firing cooldown into its slot's corner dial. */
-  private syncCooldowns(): void {
+  /** Mirror each tower's firing cooldown into its corner dial + pulse its synergy dots. */
+  private syncCooldowns(dt: number): void {
     for (let i = 0; i < this.grid.slots.length; i++) {
       const slot = this.grid.slots[i];
       if (!slot || !slot.isOccupied) continue;
       slot.setCooldown(this.sim.cooldownFrac(i));
+      slot.tickDots(dt);
     }
   }
 
@@ -1225,6 +1544,10 @@ export class BattleScene extends Scene {
 
     this.hint.position.set(cx, gaugeY - 24);
 
+    // Move-cost readout: in the sand near the bottom of the playfield, above the gauge.
+    this.moveCostPos = { x: cx, y: fieldBottom - 44 };
+    this.moveCost.position.set(this.moveCostPos.x, this.moveCostPos.y);
+
     // Keep the end-of-battle overlay covering the screen and centered on resize.
     this.layoutBanner(info);
   }
@@ -1240,7 +1563,7 @@ export class BattleScene extends Scene {
     this.sim.update(dt);
     this.syncEnemies(dt);
     this.syncProjectiles();
-    this.syncCooldowns();
+    this.syncCooldowns(dt);
     this.updateWaveToast(dt);
 
     // Overdrive countdown: tick each burn stack; resync capacity when one expires.
@@ -1250,7 +1573,7 @@ export class BattleScene extends Scene {
         this.overdriveStacks[i]! -= dt;
         if (this.overdriveStacks[i]! <= 0) this.overdriveStacks.splice(i, 1);
       }
-      if (this.overdriveStacks.length !== before) this.applyOverdrive();
+      if (this.overdriveStacks.length !== before) this.refreshEnergy();
     }
 
     // Hand recharge: empty positions count down, then spawn a fresh card.

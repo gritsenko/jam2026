@@ -168,11 +168,35 @@ export class PlatformGrid extends Container {
     }
   }
 
-  /** Mark a slot as a valid merge target (a same-type tower under the dragged card). */
+  /** Mark a slot as the active merge target (a matching tower under the dragged card). */
   setMergeTarget(slot: SlotView | null): void {
     for (const s of this.slots) {
-      if (s === slot) s.setHighlight('hover');
+      if (s === slot) s.setHighlight('merge');
       else if (s.isOccupied) s.setHighlight('none');
+    }
+  }
+
+  /**
+   * Light every tower that the lifted card could merge into (same id + grade, not
+   * maxed, not its own origin slot) as a valid target; the one under the pointer
+   * reads as the active 'merge' target. Used while dragging a tower off the
+   * platform (field-to-field merge, v2 §1.5) where empty slots are *not* targets.
+   */
+  showMergeTargets(
+    cardId: string,
+    grade: number,
+    exceptIndex: number | null,
+    hovered: SlotView | null = null,
+  ): void {
+    for (const slot of this.slots) {
+      const placed = this.placed[slot.index];
+      const ok =
+        !!placed &&
+        slot.index !== exceptIndex &&
+        placed.cardId === cardId &&
+        placed.grade === grade &&
+        placed.grade < 3;
+      slot.setHighlight(!ok ? 'none' : slot === hovered ? 'merge' : 'valid');
     }
   }
 
@@ -221,12 +245,32 @@ export class PlatformGrid extends Container {
   /**
    * Preview where a held card's buffs would land while it is being dragged over
    * slot `index` — the same affected-neighbor cells, arrows and effect badges as
-   * tap-to-inspect, but without the selection ring. Cleared via {@link clearInspect}.
+   * tap-to-inspect, but without the selection ring. When `mergeToGrade` is given
+   * (the drop would merge into a higher grade), a "MERGE → Lvn" plaque is stamped
+   * above the slot. Cleared via {@link clearInspect}.
    */
-  previewBuffs(index: number, def: CardDef, grade: number): void {
+  previewBuffs(index: number, def: CardDef, grade: number, mergeToGrade?: number): void {
     this.clearInspect();
     this.beams.alpha = 0.18;
     this.drawBuffLinks(index, def, grade);
+    if (mergeToGrade !== undefined) this.drawMergeBadge(index, mergeToGrade);
+  }
+
+  /** A gold "MERGE → Lvn" plaque floated above the slot being merged into (§4). */
+  private drawMergeBadge(index: number, grade: number): void {
+    const s = this.cell;
+    const origin = this.slotLocal(index);
+    const txt = makeText(`MERGE → Lv${grade}`, 'small', { fontSize: 28, fill: hex(COLORS.energyOverdrive) });
+    txt.anchor.set(0.5);
+    const w = txt.width + 26;
+    const h = txt.height + 14;
+    const y = origin.y - s / 2 - h / 2 - 8;
+    const g = new Graphics();
+    g.roundRect(origin.x - w / 2, y - h / 2, w, h, 12).fill({ color: COLORS.metalDark, alpha: 0.96 });
+    g.roundRect(origin.x - w / 2, y - h / 2, w, h, 12).stroke({ width: 3, color: COLORS.energyOverdrive, alpha: 0.95 });
+    this.inspectAbove.addChild(g);
+    txt.position.set(origin.x, y);
+    this.inspectAbove.addChild(txt);
   }
 
   /**
