@@ -1,6 +1,7 @@
 import { Application, Container } from 'pixi.js';
 import { COLORS } from '../theme';
 import { AssetLoader } from './AssetLoader';
+import { AudioBus } from './AudioBus';
 import { bootDone, bootProgress } from './boot';
 import { loadFonts } from './fonts';
 import { ResponsiveLayout } from './ResponsiveLayout';
@@ -20,6 +21,7 @@ export class Game {
   private sceneRoot = new Container();
   private overlayRoot = new Container();
   private assets!: AssetLoader;
+  private audio!: AudioBus;
   private layout!: ResponsiveLayout;
   private scenes!: SceneManager;
   private resizeHandler = () => this.handleResize();
@@ -55,10 +57,12 @@ export class Game {
 
     this.app.stage.addChild(this.sceneRoot, this.overlayRoot);
     this.layout = new ResponsiveLayout(this.sceneRoot);
+    this.audio = new AudioBus();
 
     const services: SceneServices = {
       app: this.app,
       assets: this.assets,
+      audio: this.audio,
       navigate: (route, params) => this.scenes.navigate(route, params),
       getLayout: () => this.layout.info,
     };

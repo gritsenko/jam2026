@@ -17,6 +17,7 @@ export class MainMenuScene extends Scene {
 
   override onEnter(): void {
     const { assets } = this.services;
+    this.services.audio.playMusic('music_menu');
 
     this.bg = new SceneBackground(assets.get('bg_menu'));
     this.addChild(this.bg);
@@ -59,7 +60,10 @@ export class MainMenuScene extends Scene {
       width: 420,
       height: 110,
       labelColor: hex(COLORS.textBright),
-      onClick: () => this.services.navigate('worldmap'),
+      onClick: () => {
+        this.services.audio.playSfx('sfx_click');
+        this.services.navigate('worldmap');
+      },
     });
     this.addChild(this.startBtn);
   }

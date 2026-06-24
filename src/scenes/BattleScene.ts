@@ -235,6 +235,7 @@ export class BattleScene extends Scene {
     const unlocked = unlockedTowersForLevel(this.levelId);
     this.mechanics = unlockedMechanicsForLevel(this.levelId);
     this.drawPool = DRAW_POOL.filter((id) => unlocked.has(id));
+    this.services.audio.playMusic('music_battle');
     this.state = createBattleState(unlocked);
     this.burnsThisBattle = 0; // burn price escalates per battle, fresh each entry (§3.Г)
     console.log(`[Battle] level ${this.levelId} — towers: ${[...unlocked].join(', ')}`);
@@ -299,18 +300,48 @@ export class BattleScene extends Scene {
       arenaWidth: this.arenaW,
       coreMax: CORE_MAX,
       callbacks: {
-        onEnemyKilled: (e) => this.onEnemyKilled(e),
-        onEnemyLeaked: (e) => this.onEnemyLeaked(e),
-        onEnemyDamaged: (e, amount, crit) => this.floatDamage(e.x, e.y, amount, crit),
-        onTowerInterrupted: (slot, kind, x, y) => this.onTowerInterrupted(slot, kind, x, y),
-        onTowerFired: (slotIndex) => this.onTowerFired(slotIndex),
+        onEnemyKilled: (e) => {
+          this.services.audio.playSfx('sfx_enemy_die');
+          this.onEnemyKilled(e);
+        },
+        onEnemyLeaked: (e) => {
+          this.services.audio.playSfx('sfx_leak');
+          this.onEnemyLeaked(e);
+        },
+        onEnemyDamaged: (e, amount, crit) => {
+          this.services.audio.playSfx(crit ? 'sfx_crit' : 'sfx_hit');
+          this.floatDamage(e.x, e.y, amount, crit);
+        },
+        onTowerInterrupted: (slot, kind, x, y) => {
+          this.services.audio.playSfx('sfx_disrupt');
+          this.onTowerInterrupted(slot, kind, x, y);
+        },
+        onTowerFired: (slotIndex) => {
+          this.services.audio.playSfx('sfx_shoot');
+          this.onTowerFired(slotIndex);
+        },
         onProjectileHit: (x, y, element) => this.burst(x, y, ELEMENTS[element].glow, this.arenaW * 0.03),
         onBeam: (x1, y1, x2, y2, element) => this.beam(x1, y1, x2, y2, ELEMENTS[element].glow),
-        onBarrier: (x, y) => this.burst(x, y, COLORS.brassLight, this.arenaW * 0.05),
-        onWaveStart: (n) => this.onWaveBegan(n),
-        onWaveCleared: (n, perfect) => this.onWaveCleared(n, perfect),
-        onVictory: () => this.showBanner('victory'),
-        onDefeat: () => this.showBanner('defeat'),
+        onBarrier: (x, y) => {
+          this.services.audio.playSfx('sfx_barrier');
+          this.burst(x, y, COLORS.brassLight, this.arenaW * 0.05);
+        },
+        onWaveStart: (n) => {
+          this.services.audio.playSfx('sfx_wave_start');
+          this.onWaveBegan(n);
+        },
+        onWaveCleared: (n, perfect) => {
+          this.services.audio.playSfx('sfx_wave_clear');
+          this.onWaveCleared(n, perfect);
+        },
+        onVictory: () => {
+          this.services.audio.playSfx('sfx_victory');
+          this.showBanner('victory');
+        },
+        onDefeat: () => {
+          this.services.audio.playSfx('sfx_defeat');
+          this.showBanner('defeat');
+        },
       },
     });
     this.refreshSynergy();
@@ -369,7 +400,10 @@ export class BattleScene extends Scene {
       height: 64,
       preset: 'label',
       labelColor: hex(COLORS.textBright),
-      onClick: () => this.services.navigate('worldmap'),
+      onClick: () => {
+        this.services.audio.playSfx('sfx_click');
+        this.services.navigate('worldmap');
+      },
     });
 
     this.rerollBtn = new Button({
@@ -989,6 +1023,7 @@ export class BattleScene extends Scene {
     this.refreshSynergy(); // recompute neighbor buffs / resonance
     this.syncTowers(); // the new tower joins the firing line
 
+    this.services.audio.playSfx('sfx_place');
     this.flash(slot, COLORS.dropValid);
     this.freeHandCard(card);
     this.animatePlace(card, slot);
@@ -1017,6 +1052,7 @@ export class BattleScene extends Scene {
     this.refreshSynergy();
     this.syncTowers();
 
+    this.services.audio.playSfx('sfx_merge');
     this.mergeBurst(slot, newGrade);
     this.freeHandCard(card);
     this.animatePlace(card, slot);
@@ -1049,6 +1085,7 @@ export class BattleScene extends Scene {
     this.refreshSynergy();
     this.syncTowers();
 
+    this.services.audio.playSfx('sfx_merge');
     const targetSlot = this.grid.slots[toIndex];
     if (targetSlot) this.mergeBurst(targetSlot, newGrade);
     if (targetSlot) this.animatePlace(avatar, targetSlot);
@@ -1119,6 +1156,7 @@ export class BattleScene extends Scene {
    * next one dearer.
    */
   private burnCard(card: BattleCard): void {
+    this.services.audio.playSfx('sfx_burn');
     this.spendGold(this.burnCost());
     this.burnsThisBattle++;
     this.overdriveStacks.push(OVERDRIVE_SEC);
@@ -1175,6 +1213,7 @@ export class BattleScene extends Scene {
    * player to deploy. Costs scalable gold + a flat crystal.
    */
   private fuseCards(dragged: BattleCard, target: BattleCard, hybridId: string): void {
+    this.services.audio.playSfx('sfx_fusion');
     this.spendGold(fusionGoldCost(dragged.grade, target.grade));
     this.spendCrystals(FUSION_CRYSTAL_COST);
     this.setFusionTarget(null);
@@ -1511,6 +1550,7 @@ export class BattleScene extends Scene {
     if (this.dragging || this.banner) return;
     const cost = this.rerollCost();
     if (this.state.crystals < cost) return;
+    this.services.audio.playSfx('sfx_reroll');
     this.spendCrystals(cost);
     this.rerollsThisWave++;
     this.clearInspect();

@@ -26,6 +26,7 @@ export class WorldMapScene extends Scene {
 
   override onEnter(): void {
     const { assets } = this.services;
+    this.services.audio.playMusic('music_map');
     this.bg = new SceneBackground(assets.get('bg_worldmap'));
     this.addChild(this.bg, this.path, this.nodesLayer);
 
@@ -39,7 +40,10 @@ export class WorldMapScene extends Scene {
       width: 200,
       height: 76,
       preset: 'label',
-      onClick: () => this.services.navigate('menu'),
+      onClick: () => {
+        this.services.audio.playSfx('sfx_click');
+        this.services.navigate('menu');
+      },
     });
     this.addChild(this.backBtn);
 

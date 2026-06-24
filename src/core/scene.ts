@@ -1,5 +1,6 @@
 import { Container, type Application } from 'pixi.js';
 import type { AssetLoader } from './AssetLoader';
+import type { AudioBus } from './AudioBus';
 import type { LayoutInfo } from './ResponsiveLayout';
 
 export type RouteId = 'menu' | 'worldmap' | 'battle';
@@ -10,6 +11,8 @@ export type SceneParams = Record<string, unknown>;
 export interface SceneServices {
   readonly app: Application;
   readonly assets: AssetLoader;
+  /** Music + SFX. Silent no-op until audio files are dropped into assets/audio/. */
+  readonly audio: AudioBus;
   /** Navigate to another scene (with a fade transition). */
   navigate(route: RouteId, params?: SceneParams): void;
   /** Current layout snapshot (also delivered via `layout()` on resize). */
