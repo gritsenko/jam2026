@@ -2073,11 +2073,16 @@ export class BattleScene extends Scene {
     let opts;
     if (kind === 'victory') {
       // Record the clear: unlocks the next level + grants this level's stars (§4).
+      // The returned star count is the single source — it also drives the banner's
+      // star row, so what's saved and what's shown can never diverge.
       const stars = progress.recordClear(this.levelId, this.sim.coreHp, CORE_MAX);
       opts = {
         title: 'VICTORY',
-        subtitle: `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ·  Core ${this.sim.coreHp}/${CORE_MAX}`,
+        subtitle: `Core ${this.sim.coreHp}/${CORE_MAX}`,
         accent: COLORS.energyOk,
+        // 1–3★ shown as a star row (icon_star sprite) — see BattleBanner.
+        stars,
+        starTexture: this.services.assets.get('icon_star'),
         buttons: [
           { label: 'WORLD MAP', primary: true, onClick: () => this.services.navigate('worldmap') },
         ],

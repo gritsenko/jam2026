@@ -118,6 +118,21 @@ export class AssetLoader {
       g.circle(size / 2, size / 2, r).fill({ color: spec.tint });
       g.circle(size / 2, size / 2, r).stroke({ width: 6, color: COLORS.metalDark, alpha: 0.6 });
       g.circle(size / 2, size * 0.4, r * 0.7).fill({ color: COLORS.white, alpha: 0.1 });
+    } else if (spec.shape === 'star') {
+      // Five-point star: 10 vertices alternating outer/inner radius, from the top.
+      const cx = size / 2;
+      const cy = size / 2;
+      const outer = size / 2 - 14;
+      const inner = outer * 0.42;
+      const pts: number[] = [];
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? outer : inner;
+        const a = -Math.PI / 2 + (i * Math.PI) / 5;
+        pts.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      }
+      g.poly(pts).fill({ color: spec.tint });
+      g.poly(pts).stroke({ width: 6, color: COLORS.metalDark, alpha: 0.6 });
+      g.circle(cx, cy - inner * 0.25, inner * 0.55).fill({ color: COLORS.white, alpha: 0.12 });
     } else {
       // round panel (cards, towers, props)
       g.roundRect(10, 10, size - 20, size - 20, 22).fill({ color: spec.tint });

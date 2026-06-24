@@ -24,7 +24,7 @@ export type AssetCategory =
   | 'prop';
 
 export interface PlaceholderSpec {
-  readonly shape: 'rect' | 'round' | 'disc';
+  readonly shape: 'rect' | 'round' | 'disc' | 'star';
   readonly tint: number;
   readonly label: string;
 }
@@ -156,6 +156,16 @@ export const ASSETS: AssetSpec[] = [
     size: 256,
     prompt: 'burning reactor furnace pictogram, orange flame inside a brass ring, hazard styling',
     placeholder: { shape: 'disc', tint: COLORS.reactor, label: 'CORE' },
+  },
+  {
+    // End-of-level star rating on the result banner (v3 §10.Г). Filled stars draw
+    // this texture as-is; empty stars reuse it tinted/dimmed. Until the PNG exists,
+    // the star-shaped placeholder (see AssetLoader) keeps the rating readable.
+    key: 'icon_star',
+    category: 'icon',
+    size: 256,
+    prompt: 'glowing gold five-point reward star, brass rim, clean readable game UI icon',
+    placeholder: { shape: 'star', tint: COLORS.gold, label: '' },
   },
 
   // ---- UI chrome -----------------------------------------------------------

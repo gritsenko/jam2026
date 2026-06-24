@@ -18,6 +18,7 @@
     { "key": "icon_synergy", "file": "assets/sprites/icon_synergy.png", "category": "icon", "size": 256, "prompt": "green synergy spark emblem, interlocking glowing energy rings" },
     { "key": "icon_energy", "file": "assets/sprites/icon_energy.png", "category": "icon", "size": 256, "prompt": "glowing energy bolt token, brass ring" },
     { "key": "icon_reactor", "file": "assets/sprites/icon_reactor.png", "category": "icon", "size": 256, "prompt": "burning reactor furnace pictogram, orange flame inside a brass ring, hazard styling" },
+    { "key": "icon_star", "file": "assets/sprites/icon_star.png", "category": "icon", "size": 256, "prompt": "glowing gold five-point reward star, brass rim, clean readable game UI icon" },
 
     { "key": "ui_button", "file": "assets/sprites/ui_button.png", "category": "ui", "size": 512, "prompt": "blank gold tower-defense button plate, glossy bevel, brass rim" },
     { "key": "ui_panel", "file": "assets/sprites/ui_panel.png", "category": "ui", "size": 512, "prompt": "ornate horizontal HUD panel, brass frame with lion-head crests and gem corners, stone center" },

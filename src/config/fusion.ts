@@ -1,7 +1,7 @@
 /**
  * Fusion in hand (v2 §6.5): two *different* base cards combine into a hybrid card
  * unobtainable on the field — a horizontal "craft", distinct from the vertical
- * field merge of two identical cards. Prototype subset: 3 of the 6 recipes.
+ * field merge of two identical cards.
  *
  * Data only (no Pixi): the scene reads {@link fusionResult} to detect a valid
  * drop of one hand card onto another, and the cost helpers to gate / price it.
