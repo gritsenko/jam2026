@@ -1,8 +1,17 @@
 # ГДД: Три уровня после обучения — прогрессия сложности
 
+> **Статус: MVP реализован.** Per-level волны + тир-множители (`hpScale`/`bountyScale`)
+> зашиты в код через [levelCombat.ts](../../src/config/levelCombat.ts)
+> (`combatForLevel`), сим множит `maxHp`/`bounty` per-instance при спавне. Три скрипта
+> ниже (A/B/C) подключены как уровни **lvl_4 / lvl_5 / lvl_6**; туториальные lvl_1–3 и
+> финал lvl_7 дописаны сверх этого дока под доступный на уровне ростер. **Не
+> реализованы стретчи** (§6): монстр-саппорт, уникальные модификаторы арены. Сверх
+> дока добавлено **направление входа волн** — см. [directional-entry.md](directional-entry.md).
+> Текущее поведение — в [../working/current-state.md](../working/current-state.md).
+
 Дев-документ. Три полноценных боевых уровня, идущих **после обучающего кластера**
 (уровни, где игрок осваивал установку → мердж → резонанс — см.
-[progression-and-tech-tree.md](../done/progression-and-tech-tree.md)). Опирается на баланс
+[progression-and-tech-tree.md](progression-and-tech-tree.md)). Опирается на баланс
 из [enemy-balance.md](../working/enemy-balance.md). Каждый уровень дан готовым скриптом волн в
 формате `WaveDef` ([types.ts](../../src/config/types.ts)) — копируется в код почти как есть.
 

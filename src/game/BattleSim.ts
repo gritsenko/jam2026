@@ -39,6 +39,8 @@ export interface SimEnemy {
   readonly def: EnemyDef;
   hp: number;
   readonly maxHp: number;
+  /** Gold awarded on kill — `def.bounty` already scaled by the level's tier (bountyScale). */
+  readonly bounty: number;
   /** Progress along the ring, 0..1 (1 = lap complete → breaches the core). */
   t: number;
   /** Arena-space position, refreshed each step from the path. */
@@ -163,6 +165,10 @@ export interface BattleSimOptions {
   /** Arena image width — converts the fractional combat-rule radii into pixels. */
   arenaWidth: number;
   coreMax: number;
+  /** Per-level difficulty tier: every spawned enemy's maxHp is multiplied by this (default 1). */
+  hpScale?: number;
+  /** Per-level reward tier: every spawned enemy's bounty is multiplied by this (default 1). */
+  bountyScale?: number;
   callbacks?: SimCallbacks;
 }
 
@@ -204,6 +210,9 @@ export class BattleSim {
 
   private readonly path: ArenaPath;
   private readonly waves: WaveDef[];
+  /** Per-level difficulty/reward tiers, applied per-instance at spawn (default 1). */
+  private readonly hpScale: number;
+  private readonly bountyScale: number;
   private readonly cb: SimCallbacks;
   private readonly hitRadius: number;
   private readonly projectileSpeed: number;
@@ -225,6 +234,8 @@ export class BattleSim {
   constructor(opts: BattleSimOptions) {
     this.path = opts.path;
     this.waves = opts.waves;
+    this.hpScale = opts.hpScale ?? 1;
+    this.bountyScale = opts.bountyScale ?? 1;
     this.coreMax = opts.coreMax;
     this.coreHp = opts.coreMax;
     this.cb = opts.callbacks ?? {};
@@ -375,11 +386,16 @@ export class BattleSim {
 
   private spawnEnemy(def: EnemyDef): void {
     const p = this.path.pointAt(0);
+    // Apply the level's tier multipliers per-instance — never mutate the shared
+    // frozen EnemyDef. maxHp scales difficulty; bounty travels on the instance so
+    // the kill reward (read by the scene) matches the scaled fight.
+    const maxHp = Math.round(def.maxHp * this.hpScale);
     this.enemies.push({
       id: this.enemySeq++,
       def,
-      hp: def.maxHp,
-      maxHp: def.maxHp,
+      hp: maxHp,
+      maxHp,
+      bounty: Math.round(def.bounty * this.bountyScale),
       t: 0,
       x: p.x,
       y: p.y,

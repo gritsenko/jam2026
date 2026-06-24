@@ -1,4 +1,5 @@
 import type { PointData } from 'pixi.js';
+import type { PathId } from './types';
 
 /**
  * Tunables for the battle *simulation* (waves, tower fire, projectiles, core,
@@ -138,17 +139,60 @@ export const SUPERCONDUCT_STUN_CHANCE = 0.2;
 export const SUPERCONDUCT_STUN_SEC = 0.5;
 
 /**
- * Waypoints of the enemy march, as fractions of the arena image (0..1). Enemies
- * spawn *off-screen below* (y > 1) so they are seen approaching, walk up to the
- * bottom "gate", circle the platform clockwise along the worn dirt road, and
- * breach the core when they return to the gate (t = 1).
+ * Enemy march templates, as fractions of the arena image (0..1). Each starts
+ * *off-screen* (a coord <0 or >1) so enemies are seen approaching, then runs the
+ * worn road and breaches the core at its final point (t = 1).
+ *
+ * The road band sits at 0.16/0.84 — well outside the central platform (which
+ * spans ≈0.33–0.67) and ~0.34 from the center slot (so the contact-free center
+ * stays a support seat; see BattleScene's interrupt-immunity test). Templates:
+ *
+ * - `bottom` — the original all-around ring: clockwise past every edge, gate at
+ *   bottom-center. Forgiving: any layout that rings the platform engages it.
+ * - `top` / `left` / `right` — L-sweeps concentrating the march on **two adjacent
+ *   edges**, leaving the opposite corner cold. A defense built for one of these
+ *   can't reach the next one's hot edges (finite tower range, combatRules §range),
+ *   so changing a level's direction forces the player to re-anchor their towers.
+ *   These are deliberately shorter than the full ring, so enemies cross them in
+ *   less wall-clock time (constant traversal time = 1/speed); the slower on-screen
+ *   pace gives the player a beat to re-cover the weak edge.
  */
-export const ENEMY_PATH: readonly PointData[] = [
-  { x: 0.5, y: 1.22 }, // off-screen spawn (below the visible arena)
-  { x: 0.5, y: 0.84 }, // gate (bottom-center) — enters view here
-  { x: 0.84, y: 0.84 }, // bottom-right
-  { x: 0.84, y: 0.16 }, // top-right
-  { x: 0.16, y: 0.16 }, // top-left
-  { x: 0.16, y: 0.84 }, // bottom-left
-  { x: 0.5, y: 0.84 }, // back to the gate = core breach
-];
+export const ENEMY_PATHS: Record<PathId, readonly PointData[]> = {
+  // All-around ring (the original route), gate at bottom-center.
+  bottom: [
+    { x: 0.5, y: 1.22 }, // off-screen spawn (below the visible arena)
+    { x: 0.5, y: 0.84 }, // gate (bottom-center) — enters view here
+    { x: 0.84, y: 0.84 }, // bottom-right
+    { x: 0.84, y: 0.16 }, // top-right
+    { x: 0.16, y: 0.16 }, // top-left
+    { x: 0.16, y: 0.84 }, // bottom-left
+    { x: 0.5, y: 0.84 }, // back to the gate = core breach
+  ],
+  // Enter from the top, sweep the top edge then down the right — top + right hot,
+  // bottom-left corner cold.
+  top: [
+    { x: 0.5, y: -0.22 }, // off-screen above center
+    { x: 0.16, y: 0.16 }, // top-left (enters view)
+    { x: 0.84, y: 0.16 }, // top-right
+    { x: 0.84, y: 0.84 }, // bottom-right = breach
+  ],
+  // Enter from the left, sweep up the left edge then across the top — left + top
+  // hot, bottom-right corner cold.
+  left: [
+    { x: -0.22, y: 0.5 }, // off-screen left of center
+    { x: 0.16, y: 0.84 }, // bottom-left (enters view)
+    { x: 0.16, y: 0.16 }, // top-left
+    { x: 0.84, y: 0.16 }, // top-right = breach
+  ],
+  // Enter from the right, sweep down the right edge then across the bottom —
+  // right + bottom hot, top-left corner cold.
+  right: [
+    { x: 1.22, y: 0.5 }, // off-screen right of center
+    { x: 0.84, y: 0.16 }, // top-right (enters view)
+    { x: 0.84, y: 0.84 }, // bottom-right
+    { x: 0.16, y: 0.84 }, // bottom-left = breach
+  ],
+};
+
+/** The default all-around ring (back-compat alias for {@link ENEMY_PATHS}.bottom). */
+export const ENEMY_PATH: readonly PointData[] = ENEMY_PATHS.bottom;

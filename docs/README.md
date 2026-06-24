@@ -26,13 +26,14 @@
 ### done/ — выполненные (архив реализованных спек)
 - [progression-and-tech-tree.md](done/progression-and-tech-tree.md) — мета-кампания: линейный гейт уровней, перманентные разблокировки башен/механик, звёзды на узлах, Admin mode. **MVP реализован**; стретчи (SP-дерево, трата Чертежей) — внутри как план.
 - [level-result-stars.md](done/level-result-stars.md) — оценка уровня звёздами на баннере итога (1–3★ по остатку Core, отрисовка спрайтом `icon_star`). Дополняет мета-кампанию показом звёзд в конце боя.
+- [levels-post-tutorial.md](done/levels-post-tutorial.md) — пер-левел волны + тир-множители (`hpScale`/`bountyScale`) через `levelCombat.ts`. MVP реализован (ур. 4/5/6 из дока + дописанные 1–3/7); стретчи (монстр-саппорт, модификаторы арены) — нет.
+- [directional-entry.md](done/directional-entry.md) — направление входа волн: пер-левел шаблоны путей (`bottom`/`top`/`left`/`right`) + телеграф направления + лента-дорога. Per-wave (мульти-путь) отложен как «Инкремент 3».
 
 Сюда переезжает спека из `planned/`, когда фича **реализована**: заморозь её здесь и
 отрази поведение в `working/current-state.md`.
 
 ### planned/ — планируемые
 - [synergy-grid-td-v3.md](planned/synergy-grid-td-v3.md) — актуальный концепт-манифест + дерево технологий (мастер-вижн).
-- [levels-post-tutorial.md](planned/levels-post-tutorial.md) — три уровня после обучения.
 - [enemy-roster-design.md](planned/enemy-roster-design.md) — полный ростер монстров «с нуля».
 - [sell-towers.md](planned/sell-towers.md) — продажа установленных башен.
 

@@ -153,6 +153,15 @@ export interface EnemyDef {
   readonly interruptCrit?: number;
 }
 
+/**
+ * Which arena edge a level's enemies march in from (drives the path template in
+ * combatRules.ts `ENEMY_PATHS` + the pre-wave direction telegraph). `bottom` is
+ * the all-around ring (the original route); the others concentrate the march on
+ * two adjacent edges, so a defense built for one direction has a real cold corner
+ * when the next level attacks from another (v3 "corner = best arc" made dynamic).
+ */
+export type PathId = 'bottom' | 'top' | 'left' | 'right';
+
 /** One burst of identical enemies within a wave. */
 export interface SpawnGroup {
   readonly enemyId: string;

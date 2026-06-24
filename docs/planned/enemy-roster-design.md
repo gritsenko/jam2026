@@ -3,7 +3,7 @@
 Проектный документ: ростер монстров, спроектированный «от ролей и систем», а не от
 текущего кода — но **совместимый** с ним (все 5 существующих монстров сохраняются).
 Опирается на боевую модель и принципы из [enemy-balance.md](../working/enemy-balance.md),
-поставляет монстров под уровни из [levels-post-tutorial.md](levels-post-tutorial.md) и
+поставляет монстров под уровни из [levels-post-tutorial.md](../done/levels-post-tutorial.md) и
 обучающую лестницу из [progression-and-tech-tree.md](../done/progression-and-tech-tree.md).
 Содержит **подстройку под игру** (§6) и **план миграции** (§7).
 
@@ -141,7 +141,7 @@ enemy-balance §0–§4; здесь они применяются к новым 
 ## 5. Порядок ввода (обучающая лестница)
 
 Согласовано с [progression-and-tech-tree.md](../done/progression-and-tech-tree.md) (один новый
-монстр = один новый урок) и [levels-post-tutorial.md](levels-post-tutorial.md):
+монстр = один новый урок) и [levels-post-tutorial.md](../done/levels-post-tutorial.md):
 
 | Где | Новый монстр | Какой урок «продаёт» |
 | --- | --- | --- |
@@ -217,7 +217,7 @@ export interface EnemyDef {
 - Новые монстры добавляются в `ENEMIES[]` ([enemies.ts](../../src/config/enemies.ts)) и в
   `DRAW_POOL`-аналог не попадают (это враги, не карты).
 - Включение — только через скрипты волн: Fracture → Level A, Aegis+Mote → Level C
-  ([levels-post-tutorial.md](levels-post-tutorial.md)); формат `SpawnGroup` не меняется.
+  ([levels-post-tutorial.md](../done/levels-post-tutorial.md)); формат `SpawnGroup` не меняется.
 - Осколок Shard — обычная запись в `ENEMIES[]`, на которую ссылается `splitInto.enemyId`.
 
 ### Риски и откат
@@ -239,7 +239,7 @@ export interface EnemyDef {
 | Документ | Как согласован |
 | --- | --- |
 | [enemy-balance.md](../working/enemy-balance.md) | наследует EHP=HP, `k×HP`, Core-массу; реализует рекомендацию §6 (саппорт-монстр = Resonance Mote, но переименован и дополнен Fracture/Aegis) |
-| [levels-post-tutorial.md](levels-post-tutorial.md) | Fracture → Level A (AoE-урок), Aegis+Mote → Level C; `hpScale`/`bountyScale` применяются к новым так же |
+| [levels-post-tutorial.md](../done/levels-post-tutorial.md) | Fracture → Level A (AoE-урок), Aegis+Mote → Level C; `hpScale`/`bountyScale` применяются к новым так же |
 | [progression-and-tech-tree.md](../done/progression-and-tech-tree.md) | один новый монстр = один урок; порядок ввода (§5) встроен в лестницу разблокировок |
 | [synergy-grid-td-v3.md](synergy-grid-td-v3.md) | Disruptor сохранён как в §2.Г; новые монстры создают спрос на резонанс (§2.В цель «резонанс необходим») |
 | [sell-towers.md](sell-towers.md) | продажа = способ переответить на новую угрозу (снёс капельную турель → поставил pierce под Aegis) |

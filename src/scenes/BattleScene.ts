@@ -15,14 +15,16 @@ import {
 import {
   CAPACITY_PER_WAVE,
   CORE_MAX,
-  ENEMY_PATH,
+  DISRUPTOR_JAM_RANGE_FRAC,
+  ENEMY_PATHS,
   OVERDRIVE_CAPACITY_BONUS,
   PERFECT_CLEAR_CRYSTALS,
   WAVE_CLEAR_BONUS,
 } from '../config/combatRules';
 import { cardLoad, getCard } from '../config/cards';
+import { getEnemy } from '../config/enemies';
 import { FUSION_CRYSTAL_COST, fusionGoldCost, fusionResult } from '../config/fusion';
-import { WAVES } from '../config/waves';
+import { combatForLevel, type LevelCombat } from '../config/levelCombat';
 import { DRAW_POOL } from '../config/battleRules';
 import type { BattleStateMock, CardDef } from '../config/types';
 import { towersUnlockedByClearing, unlockedMechanicsForLevel, unlockedTowersForLevel } from '../config/progression';
@@ -56,6 +58,7 @@ import { SceneBackground } from '../ui/SceneBackground';
 import type { SlotView } from '../ui/SlotView';
 import { TowerInfoPanel } from '../ui/TowerInfoPanel';
 import { WaveBadge } from '../ui/WaveBadge';
+import { WaveTelegraph } from '../ui/WaveTelegraph';
 import { fitSprite, glowCircle, makeText } from '../ui/helpers';
 
 /**
@@ -97,6 +100,8 @@ export class BattleScene extends Scene {
 
   /** Campaign level being played (drives unlocks + where a clear is recorded). */
   private levelId = 'lvl_1';
+  /** This level's wave script + difficulty tier (resolved in onEnter). */
+  private levelCombat: LevelCombat = combatForLevel('lvl_1');
   /** Tower card ids the player may draw this battle (campaign roster, progression §7). */
   private drawPool: string[] = DRAW_POOL;
   /** Systemic mechanics unlocked so far (gates reroll / fusion, …). */
@@ -107,6 +112,10 @@ export class BattleScene extends Scene {
   private field = new Container(); // the locked playfield (arena + platform + enemies)
   private fieldMask = new Graphics(); // clips the zoomed field to the play area
   private fieldFrame = new Graphics(); // viewport vignette + edge drawn over the field
+  private roadLayer = new Graphics(); // the active march route, drawn from the path polyline
+  private telegraph?: WaveTelegraph; // pre-wave source marker (enemy badge + arrow, on the field)
+  private telegraphPulse = 0; // accumulator for the telegraph's pulse animation
+  private telegraphWaveShown = -2; // upcoming-wave index whose enemy icon is currently in the badge
   private enemyLayer = new Container();
   private fxLayer = new Container(); // projectiles + impact/muzzle bursts, above enemies
   private hudLayer = new Container();
@@ -215,6 +224,8 @@ export class BattleScene extends Scene {
 
   override onEnter(params?: SceneParams): void {
     this.levelId = typeof params?.levelId === 'string' ? params.levelId : 'lvl_1';
+    // Per-level combat: this level's own wave script + difficulty tier (levelCombat.ts).
+    this.levelCombat = combatForLevel(this.levelId);
     // Campaign gate (progression §7): the roster is *fixed per level* (by its
     // place in the ladder), not by global progress or Admin — so level 1 always
     // comes up with only its starting towers. It filters the seeded board + draw pool.
@@ -244,6 +255,9 @@ export class BattleScene extends Scene {
     arena.eventMode = 'static';
     arena.on('pointertap', () => { if (!this.dragging) this.clearInspect(); });
     this.field.addChild(arena);
+    // The active march route, drawn over the arena art from the path polyline so
+    // it always matches where enemies actually walk (per-level direction).
+    this.field.addChild(this.roadLayer);
 
     this.grid = new PlatformGrid(assets, 720);
     this.grid.applyState(this.state);
@@ -270,10 +284,14 @@ export class BattleScene extends Scene {
 
     // --- Combat: the ring path + headless simulation that drives waves, tower
     //     fire and the core's integrity. The scene only mirrors it to sprites. --
-    this.path = new ArenaPath(ENEMY_PATH, this.arenaW, this.arenaH);
+    this.path = new ArenaPath(ENEMY_PATHS[this.levelCombat.pathId ?? 'bottom'], this.arenaW, this.arenaH);
+    this.drawRoad();
+    this.buildTelegraph();
     this.sim = new BattleSim({
       path: this.path,
-      waves: WAVES,
+      waves: this.levelCombat.waves,
+      hpScale: this.levelCombat.hpScale,
+      bountyScale: this.levelCombat.bountyScale,
       arenaWidth: this.arenaW,
       coreMax: CORE_MAX,
       callbacks: {
@@ -317,7 +335,7 @@ export class BattleScene extends Scene {
     const { assets } = this.services;
     const s = this.state;
 
-    this.waveBadge = new WaveBadge(1, WAVES.length);
+    this.waveBadge = new WaveBadge(1, this.levelCombat.waves.length);
     this.coreBadge = new CoreBadge(CORE_MAX, CORE_MAX);
     this.goldChip = new ResourceChip(assets.get('icon_gold'), s.gold, COLORS.gold);
     this.crystalChip = new ResourceChip(assets.get('icon_crystal'), s.crystals, COLORS.crystal);
@@ -1374,6 +1392,12 @@ export class BattleScene extends Scene {
    */
   private syncTowers(): void {
     const specs: TowerSpec[] = [];
+    // A slot a Disruptor can never reach (the road never comes within jam range)
+    // is intrinsically interrupt-immune (§2.Г). Derived from the *active* path so
+    // it stays correct under any march direction — on the all-around ring this is
+    // just the contact-free center slot, but a directional route can leave other
+    // far-from-the-road slots safe too.
+    const jamReach = DISRUPTOR_JAM_RANGE_FRAC * this.arenaW;
     this.state.slots.forEach((placed, i) => {
       if (!placed) return;
       const def = getCard(placed.cardId);
@@ -1387,9 +1411,8 @@ export class BattleScene extends Scene {
         defenseMult: syn?.defenseMult ?? 1,
         reactions: syn?.reactions ?? [],
       });
-      // The contact-free central slot is intrinsically interrupt-immune (§2.Г),
-      // on top of any Shield-buff immunity buildTowerSpec already folded in.
-      specs.push({ ...spec, slotIndex: i, interruptImmune: spec.interruptImmune || i === 4 });
+      const roadFar = this.path.nearestDistance(p.x, p.y) >= jamReach;
+      specs.push({ ...spec, slotIndex: i, interruptImmune: spec.interruptImmune || roadFar });
     });
     this.sim.setTowers(specs);
   }
@@ -1650,6 +1673,66 @@ export class BattleScene extends Scene {
     this.waveToast.alpha += (target - this.waveToast.alpha) * Math.min(1, dt * 8);
   }
 
+  /** Draw the active march route over the arena art (worn trench + warm inlay). */
+  private drawRoad(): void {
+    const pts = this.path.points;
+    const g = this.roadLayer;
+    g.clear();
+    if (pts.length < 2) return;
+    const trace = (): void => {
+      g.moveTo(pts[0]!.x, pts[0]!.y);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i]!.x, pts[i]!.y);
+    };
+    trace();
+    g.stroke({ color: COLORS.black, width: this.arenaW * 0.05, alpha: 0.28, cap: 'round', join: 'round' });
+    trace();
+    g.stroke({ color: COLORS.brass, width: this.arenaW * 0.03, alpha: 0.5, cap: 'round', join: 'round' });
+  }
+
+  /** Park the pre-wave pin at the entry, spike pointing back at the off-screen source. */
+  private buildTelegraph(): void {
+    const pts = this.path.points;
+    const entry = pts[1] ?? pts[0]!; // where the wave enters view
+    const src = pts[0] ?? entry; // off-screen spawn the wave comes IN from
+    // Head sits at the entry (nudged toward the platform so the pin reads inside the
+    // frame); the spike then points outward, back toward the off-screen source.
+    const mx = entry.x + (this.arenaW * 0.5 - entry.x) * 0.16;
+    const my = entry.y + (this.arenaH * 0.5 - entry.y) * 0.16;
+    this.telegraph = new WaveTelegraph(this.arenaW * 0.16);
+    this.telegraph.position.set(mx, my);
+    this.telegraph.setHeading(Math.atan2(src.y - entry.y, src.x - entry.x));
+    this.telegraph.alpha = 0;
+    this.telegraphWaveShown = -2;
+    this.field.addChild(this.telegraph);
+  }
+
+  /** Fade/pulse the source marker during the pre-wave countdown; show the next enemy. */
+  private updateTelegraph(dt: number): void {
+    if (!this.telegraph) return;
+    const active = this.sim.status === 'running' && this.sim.wavePhase === 'countdown';
+    if (active) {
+      const upcoming = this.sim.nextWaveNumber - 1; // 0-based index of the wave about to start
+      if (upcoming !== this.telegraphWaveShown) {
+        this.telegraphWaveShown = upcoming;
+        this.telegraph.setEnemyIcon(this.upcomingLeadEnemyTexture(upcoming));
+      }
+      this.telegraphPulse += dt;
+      this.telegraph.scale.set(1 + 0.1 * Math.sin(this.telegraphPulse * 5));
+    }
+    this.telegraph.alpha += ((active ? 0.95 : 0) - this.telegraph.alpha) * Math.min(1, dt * 8);
+  }
+
+  /** Texture of the lead enemy of wave `idx` (0-based), or null if none/out of range. */
+  private upcomingLeadEnemyTexture(idx: number): Texture | null {
+    const enemyId = this.levelCombat.waves[idx]?.groups[0]?.enemyId;
+    if (!enemyId) return null;
+    try {
+      return this.services.assets.get(getEnemy(enemyId).iconKey);
+    } catch {
+      return null;
+    }
+  }
+
   /** A short element-colored energy burst (muzzle flash / projectile impact). */
   private burst(x: number, y: number, color: number, size: number): void {
     const g = glowCircle(size, color, 0.85);
@@ -1678,8 +1761,8 @@ export class BattleScene extends Scene {
   }
 
   private onEnemyKilled(e: SimEnemy): void {
-    this.addReward(e.def.bounty);
-    this.spawnGoldCoins(e.x, e.y, e.def.bounty); // coins burst, then stream to the gold chip (§3)
+    this.addReward(e.bounty);
+    this.spawnGoldCoins(e.x, e.y, e.bounty); // coins burst, then stream to the gold chip (§3)
     const view = this.detachEnemyView(e.id);
     if (!view) return;
     this.burst(view.x, view.y, ELEMENTS[e.def.element].glow, this.arenaW * 0.045);
@@ -2262,6 +2345,7 @@ export class BattleScene extends Scene {
     this.syncProjectiles();
     this.syncCooldowns(dt);
     this.updateWaveToast(dt);
+    this.updateTelegraph(dt);
     this.chaseChips(dt); // gold/crystal counters ease toward their true totals (§3/§4)
 
     // Keep the inspected tower's overload readout in step with load/capacity.
