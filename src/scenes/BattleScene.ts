@@ -1824,6 +1824,13 @@ export class BattleScene extends Scene {
   private onEnemyKilled(e: SimEnemy): void {
     this.addReward(e.bounty);
     this.spawnGoldCoins(e.x, e.y, e.bounty); // coins burst, then stream to the gold chip (§3)
+    // Elite crystal drop (v3 §8.В): a second crystal source besides Perfect Clear.
+    // The chip display chases state.crystals each frame, so it ticks up on its own.
+    const crystals = e.def.crystalBounty ?? 0;
+    if (crystals > 0) {
+      this.addCrystals(crystals);
+      this.crystalChip.pulse();
+    }
     const view = this.detachEnemyView(e.id);
     if (!view) return;
     this.burst(view.x, view.y, ELEMENTS[e.def.element].glow, this.arenaW * 0.045);

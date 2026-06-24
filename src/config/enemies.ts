@@ -19,6 +19,8 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'iron_husk', name: 'Iron Husk', element: 'Physical', iconKey: 'enemy_iron_husk', maxHp: 240, speed: 0.035, bounty: 16, coreDamage: 3 },
   // Saboteur (v3 §2.Г): doesn't lean on the core — it jams nearby towers, glitching
   // their shots or stunning them on a crit. Shield-buffed and central towers shrug it off.
+  // Doubles as the prototype's "elite" (v3 §8.В): drops crystals on kill until the
+  // dedicated elite roster lands (docs/planned/enemy-roster-design.md).
   {
     id: 'signal_disruptor',
     name: 'Signal Disruptor',
@@ -32,6 +34,7 @@ export const ENEMIES: EnemyDef[] = [
     interruptInterval: 1.6,
     interruptChance: 0.6,
     interruptCrit: 0.25,
+    crystalBounty: 2,
   },
 ];
 

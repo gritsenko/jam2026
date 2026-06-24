@@ -24,10 +24,11 @@
 > Старая v1-спека карт лежит в `backlog/cards.md`.
 
 ### done/ — выполненные (архив реализованных спек)
-- [progression-and-tech-tree.md](done/progression-and-tech-tree.md) — мета-кампания: линейный гейт уровней, перманентные разблокировки башен/механик, звёзды на узлах, Admin mode. **MVP реализован**; стретчи (SP-дерево, трата Чертежей) описаны внутри, но **вырезаны для джема** (см. [planned/v3-alignment.md](planned/v3-alignment.md)).
+- [progression-and-tech-tree.md](done/progression-and-tech-tree.md) — мета-кампания: линейный гейт уровней, перманентные разблокировки башен/механик, звёзды на узлах, Admin mode. **MVP реализован**; стретчи (SP-дерево, трата Чертежей) описаны внутри, но **вырезаны для джема** (см. [done/v3-alignment.md](done/v3-alignment.md)).
 - [level-result-stars.md](done/level-result-stars.md) — оценка уровня звёздами на баннере итога (1–3★ по остатку Core, отрисовка спрайтом `icon_star`). Дополняет мета-кампанию показом звёзд в конце боя.
 - [levels-post-tutorial.md](done/levels-post-tutorial.md) — пер-левел волны + тир-множители (`hpScale`/`bountyScale`) через `levelCombat.ts`. MVP реализован (ур. 4/5/6 из дока + дописанные 1–3/7); стретчи (монстр-саппорт, модификаторы арены) — нет.
 - [directional-entry.md](done/directional-entry.md) — направление входа волн: пер-левел шаблоны путей (`bottom`/`top`/`left`/`right`) + телеграф направления + лента-дорога. Per-wave (мульти-путь) отложен как «Инкремент 3».
+- [v3-alignment.md](done/v3-alignment.md) — триаж расхождений v3 ↔ код: реализованы градуированная защита в Прерывании (§2.Г) и кристаллы с элит (§8.В), поправлен док по гейту фьюжна (§6.5/§10); per-wave направление оставлено стретчем.
 
 Сюда переезжает спека из `planned/`, когда фича **реализована**: заморозь её здесь и
 отрази поведение в `working/current-state.md`.
@@ -37,7 +38,6 @@
 - [enemy-roster-design.md](planned/enemy-roster-design.md) — полный ростер монстров «с нуля».
 - [sell-towers.md](planned/sell-towers.md) — продажа установленных башен.
 - [modernization-cards.md](planned/modernization-cards.md) — карты глобальной модернизации (Изоляционный Контур / Элементальный Фокус / Экстренный Овердрайв) за флагом `mod_cards`.
-- [v3-alignment.md](planned/v3-alignment.md) — триаж расхождений v3 ↔ код: что реализовать (защита в Прерывании, кристаллы с элит), что поправить в доке (гейт фьюжна), что вырезано/уже спланировано.
 
 ### backlog/ — беклог
 - [concept.md](backlog/concept.md) — исходный концепт-манифест (v1, заменён v2/v3).

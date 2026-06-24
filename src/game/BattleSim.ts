@@ -106,7 +106,17 @@ export interface SimTower extends HitEffects {
   barrierSec: number;
   /** Network load this tower draws — scales its overload fire-rate penalty (v3 §3.А). */
   readonly load: number;
-  /** Immune to Disruptor interrupts (central slot, or a Shield-buffed neighbor; v3 §2.Г). */
+  /**
+   * Graduated interrupt resistance from neighboring Shields (v3 §2.Г): 0 = none,
+   * approaching 1 = full. It scales *down* both the chance a Disruptor's interrupt
+   * lands and the chance a landed one crits into a stun (vs. a mere glitch). At ≥ 1
+   * the tower is fully immune ({@link interruptImmune} is set).
+   */
+  defense: number;
+  /**
+   * Fully immune to Disruptor interrupts: either positionally (central / road-far
+   * slot the saboteur can never reach) or from stacked Shield defense (≥ 1; v3 §2.Г).
+   */
   interruptImmune: boolean;
   /** Sim-clock deadline this tower is locked (stunned) until; 0 = free to fire. */
   disabledUntil: number;
@@ -537,9 +547,14 @@ export class BattleSim {
 
       const tower = this.nearestJammableTower(e.x, e.y);
       if (!tower) continue;
-      if (!this.roll(e.def.interruptChance ?? 0.6, e)) continue; // tower shrugged it off
+      // Two-layer interrupt (v3 §2.Г): a tower's Shield-fed `defense` first grants a
+      // graduated chance to ignore the jam outright (full defense ≥ 1 was already
+      // filtered out as interrupt-immune), and additionally softens the crit — so a
+      // half-defended tower takes interrupts at ~half rate and stuns less often.
+      const resist = 1 - Math.min(1, Math.max(0, tower.defense));
+      if (!this.roll((e.def.interruptChance ?? 0.6) * resist, e)) continue; // tower shrugged it off
 
-      if (this.roll(e.def.interruptCrit ?? 0.25, e)) {
+      if (this.roll((e.def.interruptCrit ?? 0.25) * resist, e)) {
         // Crit → short stun (and reset the in-progress shot).
         tower.disabledUntil = Math.max(tower.disabledUntil, this.clock + INTERRUPT_STUN_SEC);
         tower.cdLeft = tower.cooldown;
@@ -773,7 +788,11 @@ export interface SynergyMods {
   damageMult: number;
   rangeMult: number;
   tempoMult: number;
-  /** > 1 when a Shield neighbor is buffing defense → interrupt immunity (v3 §2.Г). */
+  /**
+   * > 1 when a Shield neighbor buffs defense. Drives graduated interrupt resistance
+   * (the tower's `defense` = defenseMult − 1): one Shield (1.5) → partial resist,
+   * two (≥ 2.0) → full immunity. v3 §2.Г.
+   */
   defenseMult: number;
   reactions: readonly ReactionId[];
 }
@@ -871,6 +890,11 @@ export function buildTowerSpec(
   // Storm doubles damage to Wet targets (intrinsic, §6).
   const vsWetMult = def.element === 'Electricity' ? WET_DAMAGE_MULT : 1;
 
+  // Interrupt resistance from Shield neighbors (v3 §2.Г), derived from the defense
+  // synergy: defenseMult 1.5 (one Shield) → 0.5; 2.0 (two Shields) → 1.0 = full
+  // immunity. A partial value just scales the interrupt land/crit chances in the sim.
+  const defense = Math.max(0, mods.defenseMult - 1);
+
   return {
     slotIndex: -1, // set by the caller
     element: def.element,
@@ -883,9 +907,11 @@ export function buildTowerSpec(
     slowProjectile,
     barrierSec,
     load: cardLoad(def, grade),
-    // A Shield neighbor (defense buff) confers interrupt immunity (v3 §2.Г); the
-    // caller additionally marks the contact-free central slot immune.
-    interruptImmune: mods.defenseMult > 1,
+    defense,
+    // Full Shield defense (≥ 1, i.e. two Shield neighbors) confers outright interrupt
+    // immunity (v3 §2.Г); a single Shield only resists. The caller additionally ORs in
+    // positional immunity (the contact-free central / road-far slots).
+    interruptImmune: defense >= 1,
     aoeRadius: aoeFrac * arenaWidth,
     splashFrac: AOE_SPLASH_FRAC,
     freezeRadius,

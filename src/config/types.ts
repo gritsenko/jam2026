@@ -151,6 +151,13 @@ export interface EnemyDef {
   readonly interruptChance?: number;
   /** Disruptor only: chance a landed interrupt crits into a short stun rather than a glitch. */
   readonly interruptCrit?: number;
+  /**
+   * Elite drop (v3 §8.В): crystals awarded on kill, *on top of* gold — the second
+   * crystal source besides a Perfect Clear. Flat (not scaled by the level's
+   * bountyScale, since crystals are the cross-battle tactical currency). Omitted /
+   * 0 for ordinary enemies.
+   */
+  readonly crystalBounty?: number;
 }
 
 /**
