@@ -174,7 +174,6 @@ export interface LevelNode {
   /** Position on the world map, normalized 0..1 in the portrait design space. */
   readonly nx: number;
   readonly ny: number;
-  readonly state: LevelState;
 }
 
 /** Mock snapshot of the battle HUD state — drives the UI, no simulation. */

@@ -1,6 +1,15 @@
 # Глобальная прогрессия и Дерево технологий — «Synergy Grid TD»
 
-Дополнение к [synergy-grid-td-v3.md](synergy-grid-td-v3.md), раздел 10. Тот документ
+> **Статус: MVP реализован** (раздел 7 «Скоуп», ветка MVP). В коде:
+> [progression.ts](../../src/config/progression.ts) (лестница `LEVEL_UNLOCKS`,
+> звёзды), [progress.ts](../../src/game/progress.ts) (персистентный прогресс +
+> Admin mode), фильтр ростера в [battleState.ts](../../src/config/battleState.ts)
+> и [BattleScene](../../src/scenes/BattleScene.ts), гейт карты/звёзды в
+> [WorldMapScene](../../src/scenes/WorldMapScene.ts). **Не реализованы стретчи:**
+> SP-дерево (раздел 6), трата Чертежей, ветвление — остаются как план ниже.
+> Текущее поведение в коде — в [../working/current-state.md](../working/current-state.md).
+
+Дополнение к [synergy-grid-td-v3.md](../planned/synergy-grid-td-v3.md), раздел 10. Тот документ
 описывает дерево технологий «сверху», начиная с фьюжна как заголовка. Здесь —
 **порядок разблокировок снизу вверх**: с чего реально начинать игроку и что
 открывается в какой момент. Фьюжн в этой модели — не вход в прогрессию, а её

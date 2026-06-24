@@ -21,12 +21,10 @@
 - [cards.md](working/cards.md) — статы и стихии карт (привязаны к `cards.ts`/`cards.json`). ⚠️ Разделы про синергии/мердж — пока проектные, не в коде.
 
 ### done/ — выполненные (архив реализованных спек)
-Пока пусто. Сюда переезжает спека из `planned/`, когда фича **полностью реализована**:
-заморозь её здесь и отрази поведение в `working/current-state.md`.
+- [progression-and-tech-tree.md](done/progression-and-tech-tree.md) — мета-кампания: линейный гейт уровней, перманентные разблокировки башен/механик, звёзды, Admin mode. **MVP реализован**; стретчи (SP-дерево, трата Чертежей) — внутри как план.
 
 ### planned/ — планируемые
 - [synergy-grid-td-v3.md](planned/synergy-grid-td-v3.md) — актуальный концепт-манифест + дерево технологий (мастер-вижн).
-- [progression-and-tech-tree.md](planned/progression-and-tech-tree.md) — порядок разблокировок и мета-прогрессия.
 - [levels-post-tutorial.md](planned/levels-post-tutorial.md) — три уровня после обучения.
 - [enemy-roster-design.md](planned/enemy-roster-design.md) — полный ростер монстров «с нуля».
 - [sell-towers.md](planned/sell-towers.md) — продажа установленных башен.

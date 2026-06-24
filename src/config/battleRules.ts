@@ -29,8 +29,13 @@ export const REROLL_STEP = 5;
 /** Card ids eligible to spawn into the hand (hybrids are crafted, never dealt). */
 export const DRAW_POOL: string[] = CARD_LIST.filter((c) => !c.hybrid).map((c) => c.id);
 
-/** Roll a fresh hand card (grade 1) from the draw pool. `seq` makes the instance id unique. */
-export function rollHandCard(seq: number): HandCard {
-  const cardId = DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)] ?? DRAW_POOL[0]!;
+/**
+ * Roll a fresh hand card (grade 1) from the draw pool. `seq` makes the instance
+ * id unique. `pool` restricts the draw to the campaign's unlocked towers
+ * (progression §7); it falls back to the full {@link DRAW_POOL} if empty/omitted.
+ */
+export function rollHandCard(seq: number, pool: readonly string[] = DRAW_POOL): HandCard {
+  const from = pool.length > 0 ? pool : DRAW_POOL;
+  const cardId = from[Math.floor(Math.random() * from.length)] ?? from[0]!;
   return { instanceId: `spawn-${seq}`, cardId, grade: 1 };
 }
