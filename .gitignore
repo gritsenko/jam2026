@@ -6,6 +6,7 @@ tools/.gemini_key
 
 # --- node ---
 node_modules/
+dist/
 
 # --- generated / intermediate sprites ---
 # Raw 1K-2K generations before post-processing. Final sprites in
