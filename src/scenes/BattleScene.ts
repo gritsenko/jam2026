@@ -45,6 +45,8 @@ import { computeSynergy, type SlotSynergy } from '../game/synergy';
 import { BattleBanner } from '../ui/BattleBanner';
 import { BattleCard } from '../ui/BattleCard';
 import { Button } from '../ui/Button';
+import { GearButton } from '../ui/GearButton';
+import { SettingsPanel } from '../ui/SettingsPanel';
 import { CoreBadge } from '../ui/CoreBadge';
 import { EnemySprite } from '../ui/EnemySprite';
 import { EnergyGauge } from '../ui/EnergyGauge';
@@ -146,6 +148,8 @@ export class BattleScene extends Scene {
   private avatarR = 72;
   private backBtn!: Button;
   private rerollBtn!: Button;
+  private gearBtn!: GearButton;
+  private settings: SettingsPanel | null = null;
   /** 1-based number of the wave in progress; drives the §3.В wave-capacity growth. */
   private currentWave = 1;
   /** Hand rerolls used in the current wave; resets each wave (§8.Б cost escalation). */
@@ -406,6 +410,8 @@ export class BattleScene extends Scene {
       },
     });
 
+    this.gearBtn = new GearButton(64, () => this.openSettings());
+
     this.rerollBtn = new Button({
       label: `REROLL ${REROLL_BASE_COST}`,
       width: 230,
@@ -433,6 +439,7 @@ export class BattleScene extends Scene {
       this.avatar,
       this.gauge,
       this.backBtn,
+      this.gearBtn,
       this.rerollBtn,
       this.hint,
       this.moveCost,
@@ -682,6 +689,7 @@ export class BattleScene extends Scene {
 
   private startDrag(card: BattleCard, e: FederatedPointerEvent): void {
     if (this.dragging || !card.affordable) return;
+    this.services.audio.playSfx('sfx_pickup');
     this.clearInspect(); // inspection and dragging are mutually exclusive modes
     const entry = this.hand.find((h) => h.card === card);
     entry?.returnTween?.stop();
@@ -2297,6 +2305,9 @@ export class BattleScene extends Scene {
     // --- Top bar: MAP + WAVE (left); gold + crystals + avatar (right) -------
     const topY = safe.y + pad;
     this.backBtn.position.set(safe.x + pad + 75, topY + 32);
+    // Gear sits just under the MAP button, left column.
+    this.gearBtn.position.set(safe.x + pad + 75, topY + 64 + 12 + 32);
+    this.settings?.layout(info);
     this.waveBadge.position.set(safe.x + pad + 160, topY);
     this.coreBadge.position.set(safe.x + pad + 160, topY + this.waveBadge.badgeH + 8);
 
@@ -2442,9 +2453,24 @@ export class BattleScene extends Scene {
     if (this.tweens.length > 48) this.tweens = this.tweens.filter((t) => !t.done);
   }
 
+  /** Open the modal audio-settings overlay (gear button), once. */
+  private openSettings(): void {
+    if (this.settings) return;
+    this.services.audio.playSfx('sfx_click');
+    this.settings = new SettingsPanel(this.services.audio, () => this.closeSettings());
+    this.addChild(this.settings); // top-most, above the drag layer
+    this.settings.layout(this.services.getLayout());
+  }
+
+  private closeSettings(): void {
+    this.settings?.destroy({ children: true });
+    this.settings = null;
+  }
+
   override onExit(): void {
     for (const t of this.tweens) t.stop();
     this.tweens.length = 0;
+    this.closeSettings();
     this.rewardLayer.removeChildren().forEach((c) => c.destroy());
     this.enemyViews.clear();
     this.enemyHpSeen.clear();
