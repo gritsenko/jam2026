@@ -19,6 +19,22 @@ export const HAND_RESPAWN_SEC = 4;
 export const OVERDRIVE_SEC = 15;
 
 /**
+ * Reactor burn (Overdrive) gold cost (v3 §3.Г). Burning a card is no longer
+ * free: the first burn of a battle costs {@link OVERDRIVE_BASE_COST} gold and
+ * each further burn adds {@link OVERDRIVE_STEP} (20 → 40 → 60 → 80 …). The
+ * counter is **per-battle cumulative** — it keeps climbing all battle and does
+ * NOT reset per wave (unlike the hand Reroll, §8.Б) — so the panic capacity
+ * boost is a deliberately escalating gold sink rather than a free spam button.
+ */
+export const OVERDRIVE_BASE_COST = 20;
+export const OVERDRIVE_STEP = 20;
+
+/** Gold cost of the next burn given how many cards were already burned this battle. */
+export function overdriveCost(burnsDone: number): number {
+  return OVERDRIVE_BASE_COST + burnsDone * OVERDRIVE_STEP;
+}
+
+/**
  * Hand Reroll cost in Crystals (v2 §8.Б): the first reroll in a wave costs
  * REROLL_BASE_COST, each further reroll in the same wave adds REROLL_STEP
  * (10 → 15 → 20…). The counter resets at the start of every wave.

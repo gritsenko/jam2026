@@ -8,6 +8,7 @@ import {
   HAND_RESPAWN_SEC,
   HAND_SIZE,
   OVERDRIVE_SEC,
+  overdriveCost,
   REROLL_BASE_COST,
   REROLL_STEP,
   rollHandCard,
@@ -149,6 +150,8 @@ export class BattleScene extends Scene {
   private currentWave = 1;
   /** Hand rerolls used in the current wave; resets each wave (§8.Б cost escalation). */
   private rerollsThisWave = 0;
+  /** Cards burned in the Reactor this battle; drives the escalating burn cost (§3.Г). */
+  private burnsThisBattle = 0;
   private resonanceLabel = makeText('', 'label', { fontSize: 26, fill: hex(COLORS.energyOverdrive) });
   /** Resolved positional synergy per slot (v2 model), recomputed on every change. */
   private synergy: (SlotSynergy | null)[] = [];
@@ -233,6 +236,7 @@ export class BattleScene extends Scene {
     this.mechanics = unlockedMechanicsForLevel(this.levelId);
     this.drawPool = DRAW_POOL.filter((id) => unlocked.has(id));
     this.state = createBattleState(unlocked);
+    this.burnsThisBattle = 0; // burn price escalates per battle, fresh each entry (§3.Г)
     console.log(`[Battle] level ${this.levelId} — towers: ${[...unlocked].join(', ')}`);
     const { assets } = this.services;
 
@@ -614,9 +618,17 @@ export class BattleScene extends Scene {
 
   // --- Drag & drop ---------------------------------------------------------
 
+  /** Gold price of the next Reactor burn this battle (base + step per burn, §3.Г). */
+  private burnCost(): number {
+    return overdriveCost(this.burnsThisBattle);
+  }
+
   private showReactor(): void {
     this.reactorTween?.stop();
     this.reactor.visible = true;
+    // Push the current (escalating) burn price + affordability onto the slot.
+    const cost = this.burnCost();
+    this.reactor.setCost(cost, this.state.gold >= cost);
     this.reactorTween = this.track(
       tween({ duration: 0.18, onUpdate: (t) => { if (!this.reactor.destroyed) this.reactor.alpha = t; } }),
     );
@@ -832,6 +844,7 @@ export class BattleScene extends Scene {
       return [
         { text: 'BURN', color: COLORS.energyOverdrive },
         { icon: energyIcon, text: `+${OVERDRIVE_CAPACITY_BONUS} CAP ${OVERDRIVE_SEC}s`, color: COLORS.energyOverdrive },
+        this.goldPart(goldIcon, this.burnCost()),
       ];
     }
     if (emptySlot) {
@@ -924,10 +937,12 @@ export class BattleScene extends Scene {
       return;
     }
 
-    // Hand card: burn on the Reactor (grants Overdrive)...
+    // Hand card: burn on the Reactor (grants Overdrive) — only if the player can
+    // afford the escalating burn price (§3.Г); otherwise it glides back home.
     if (this.reactor.visible && this.reactor.containsGlobal(e.global)) {
       this.hideReactor();
-      this.burnCard(card);
+      if (this.state.gold >= this.burnCost()) this.burnCard(card);
+      else this.returnCardHome(card);
       return;
     }
     this.hideReactor();
@@ -1098,8 +1113,14 @@ export class BattleScene extends Scene {
     );
   }
 
-  /** Burn a card in the Reactor: add a stacking Overdrive window, animate it in. */
+  /**
+   * Burn a card in the Reactor: pay the escalating gold price (§3.Г), add a
+   * stacking Overdrive window, animate it in. Each burn this battle makes the
+   * next one dearer.
+   */
   private burnCard(card: BattleCard): void {
+    this.spendGold(this.burnCost());
+    this.burnsThisBattle++;
     this.overdriveStacks.push(OVERDRIVE_SEC);
     this.refreshEnergy();
     this.flash(this.reactor, COLORS.reactor);

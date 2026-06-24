@@ -1,16 +1,19 @@
-import { Container, Graphics, type PointData, Sprite } from 'pixi.js';
+import { Container, Graphics, type PointData, Sprite, type Text } from 'pixi.js';
 import { COLORS, hex } from '../theme';
 import type { AssetLoader } from '../core/AssetLoader';
 import { drawPanel, fitSprite, glowCircle, makeText } from './helpers';
 import type { SlotHighlight } from './SlotView';
 
 /**
- * The Reactor: a right-edge drop zone for burning cards (mock). Origin center.
- * Highlights when a drag is in progress and reports global hit-testing.
+ * The Reactor: a right-edge drop zone for burning cards. Origin center.
+ * Highlights when a drag is in progress and reports global hit-testing. The
+ * burn carries an escalating gold price ({@link setCost}, v3 §3.Г) shown live
+ * on the slot.
  */
 export class ReactorZone extends Container {
   private bg = new Graphics();
   private hl = new Graphics();
+  private costText: Text;
   private w: number;
   private h: number;
 
@@ -55,15 +58,33 @@ export class ReactorZone extends Container {
 
     const burn = makeText('BURN', 'title', { fontSize: 34, fill: hex(COLORS.reactor) });
     burn.anchor.set(0.5);
-    burn.position.set(0, H / 2 - 78);
+    burn.position.set(0, H / 2 - 90);
     this.addChild(burn);
 
     const sub = makeText('+2 ENERGY 15s', 'micro', { fontSize: 18, fill: hex(COLORS.energyOverdrive) });
     sub.anchor.set(0.5);
-    sub.position.set(0, H / 2 - 44);
+    sub.position.set(0, H / 2 - 58);
     this.addChild(sub);
 
+    // Escalating gold price of the burn — kept live by the scene via setCost().
+    const costRow = new Container();
+    costRow.position.set(0, H / 2 - 26);
+    const costIcon = new Sprite(assets.get('icon_gold'));
+    fitSprite(costIcon, 26, 26);
+    costIcon.position.set(-22, 0);
+    this.costText = makeText('-20', 'label', { fontSize: 24, fill: hex(COLORS.gold) });
+    this.costText.anchor.set(0, 0.5);
+    this.costText.position.set(-4, 0);
+    costRow.addChild(costIcon, this.costText);
+    this.addChild(costRow);
+
     this.addChild(this.hl);
+  }
+
+  /** Update the live burn price (escalates per burn) and colour it by affordability. */
+  setCost(cost: number, affordable: boolean): void {
+    this.costText.text = `-${cost}`;
+    this.costText.style.fill = hex(affordable ? COLORS.gold : COLORS.energyDanger);
   }
 
   setHighlight(state: SlotHighlight): void {
