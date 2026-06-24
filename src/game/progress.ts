@@ -72,6 +72,11 @@ export function starsFor(levelId: string): number {
   return state.stars[levelId] ?? 0;
 }
 
+/** Whether a level has ever been cleared (independent of Admin mode). */
+export function isCleared(levelId: string): boolean {
+  return state.cleared.includes(levelId);
+}
+
 /**
  * Display state of a level node. Admin opens everything; otherwise the first
  * level is always available and each further level unlocks once the previous is

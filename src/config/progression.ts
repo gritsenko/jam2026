@@ -68,6 +68,21 @@ export function unlockedMechanicsForLevel(levelId: string): Set<string> {
 }
 
 /**
+ * Tower ids that *become available on the next level* as a direct result of
+ * clearing `levelId` — the roster gained from this level to the next. Computed
+ * as the difference between the two levels' fixed rosters, so it stays correct
+ * however unlocks are modeled. Empty for the last level (no "next") and for
+ * levels that grant only mechanics. Drives the "Tech unlocked" banner reveal.
+ */
+export function towersUnlockedByClearing(levelId: string): string[] {
+  const idx = LEVEL_ORDER.indexOf(levelId);
+  const next = idx < 0 ? undefined : LEVEL_ORDER[idx + 1];
+  if (!next) return [];
+  const before = unlockedTowersForLevel(levelId);
+  return [...unlockedTowersForLevel(next)].filter((t) => !before.has(t));
+}
+
+/**
  * Stars earned for a clear, by remaining Core integrity (§4): 1★ just cleared,
  * 2★ Core ≥ 50%, 3★ Core untouched (full).
  */

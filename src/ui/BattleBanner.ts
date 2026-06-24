@@ -1,5 +1,5 @@
 import { Container, Graphics, Sprite, type Text, type Texture } from 'pixi.js';
-import { COLORS, hex } from '../theme';
+import { COLORS, ELEMENTS, type ElementId, hex } from '../theme';
 import { Button } from './Button';
 import { drawPanel, fitSprite, glowCircle, makeText } from './helpers';
 
@@ -10,6 +10,16 @@ export interface BannerButton {
   label: string;
   onClick: () => void;
   primary?: boolean;
+}
+
+/** A newly unlocked tower card to celebrate under the stars ("Tech unlocked"). */
+export interface UnlockedCardView {
+  /** Short display name (e.g. card's shortName). */
+  name: string;
+  /** Element, used to color the mini-card frame and glow. */
+  element: ElementId;
+  /** Card art texture (resolved by the scene from the card's iconKey). */
+  icon?: Texture;
 }
 
 export interface BattleBannerOptions {
@@ -26,6 +36,12 @@ export interface BattleBannerOptions {
   stars?: number;
   /** Star icon texture: filled stars draw it as-is, empty stars draw it dimmed. */
   starTexture?: Texture;
+  /**
+   * Tower cards this clear unlocked for the next level. When non-empty (and the
+   * star row is shown) a "TECH UNLOCKED" section is drawn below the stars; the
+   * panel grows to fit. Empty/absent leaves the victory layout unchanged.
+   */
+  unlockedCards?: UnlockedCardView[];
 }
 
 /**
@@ -45,14 +61,20 @@ export class BattleBanner extends Container {
     this.addChild(this.scrim);
     this.addChild(this.panel);
 
-    // The star row needs a taller panel and pushes the title/subtitle up to make
-    // room above the buttons; without stars the layout is unchanged (defeat banner).
+    // Three stacked layouts, each just grows the panel and pushes content out:
+    //   plain  — defeat (no stars);
+    //   stars  — victory with a 3-star rating row;
+    //   unlock — victory that also unlocked tech, adding a card section below.
+    // Without stars the layout is unchanged (defeat banner).
     const showStars = opts.stars !== undefined && opts.starTexture !== undefined;
-    const panelH = showStars ? 524 : this.panelH;
-    const titleY = showStars ? -160 : -110;
-    const glowY = showStars ? -130 : -60;
-    const subY = showStars ? -76 : -20;
-    const buttonsY = showStars ? 152 : 110;
+    const unlocked = opts.unlockedCards ?? [];
+    const showUnlock = showStars && unlocked.length > 0;
+    const panelH = showUnlock ? 800 : showStars ? 524 : this.panelH;
+    const titleY = showUnlock ? -320 : showStars ? -160 : -110;
+    const glowY = showUnlock ? -290 : showStars ? -130 : -60;
+    const subY = showUnlock ? -234 : showStars ? -76 : -20;
+    const starsY = showUnlock ? -150 : 22; // star-row center (only when showStars)
+    const buttonsY = showUnlock ? 320 : showStars ? 152 : 110;
 
     const bg = new Graphics();
     drawPanel(bg, -this.panelW / 2, -panelH / 2, this.panelW, panelH, {
@@ -83,8 +105,14 @@ export class BattleBanner extends Container {
 
     if (showStars && opts.starTexture) {
       const row = this.buildStars(opts.stars ?? 0, opts.starTexture);
-      row.position.set(0, 22);
+      row.position.set(0, starsY);
       this.panel.addChild(row);
+    }
+
+    if (showUnlock) {
+      const section = this.buildUnlockSection(unlocked);
+      section.position.set(0, 52);
+      this.panel.addChild(section);
     }
 
     const btnW = 300;
@@ -135,6 +163,75 @@ export class BattleBanner extends Container {
       row.addChild(star);
     }
     return row;
+  }
+
+  /**
+   * The "TECH UNLOCKED" reveal: a gold header over a centered row of mini-cards,
+   * one per tower this clear unlocked for the next level. Origin-centered so the
+   * panel can drop it in like the star row.
+   */
+  private buildUnlockSection(cards: UnlockedCardView[]): Container {
+    const section = new Container();
+
+    const header = makeText('TECH UNLOCKED', 'label', { fontSize: 30, fill: hex(COLORS.gold), letterSpacing: 3 });
+    header.anchor.set(0.5);
+    header.position.set(0, -78);
+    section.addChild(header);
+
+    const cardW = 132;
+    const cardH = 168;
+    const gap = 24;
+    const totalW = cards.length * cardW + (cards.length - 1) * gap;
+    let x = -totalW / 2 + cardW / 2;
+    for (const c of cards) {
+      const mini = this.buildUnlockCard(c, cardW, cardH);
+      mini.position.set(x, 36);
+      section.addChild(mini);
+      x += cardW + gap;
+    }
+    return section;
+  }
+
+  /** A compact element-framed card portrait: glow, art and a name banner. */
+  private buildUnlockCard(c: UnlockedCardView, W: number, H: number): Container {
+    const card = new Container();
+    const skin = ELEMENTS[c.element];
+
+    const glow = glowCircle(W * 0.52, skin.glow, 0.4);
+    glow.position.set(0, -H * 0.08);
+    card.addChild(glow);
+
+    const bg = new Graphics();
+    drawPanel(bg, -W / 2, -H / 2, W, H, {
+      radius: 16,
+      fill: COLORS.metalDark,
+      fillAlpha: 0.98,
+      edge: skin.base,
+      edgeWidth: 4,
+      bevel: true,
+    });
+    // Element wash behind the art (mirrors the hand card's top panel).
+    bg.roundRect(-W / 2 + 6, -H / 2 + 6, W - 12, H * 0.62, 12).fill({ color: skin.dark, alpha: 0.5 });
+    card.addChild(bg);
+
+    if (c.icon) {
+      const art = new Sprite(c.icon);
+      fitSprite(art, W - 24, H * 0.56);
+      art.position.set(0, -H * 0.14);
+      card.addChild(art);
+    }
+
+    const nameY = H * 0.32;
+    const nameBg = new Graphics();
+    nameBg.roundRect(-W / 2 + 8, nameY - 18, W - 16, 34, 8).fill({ color: COLORS.black, alpha: 0.45 });
+    card.addChild(nameBg);
+    const name = makeText(c.name, 'label', { fontSize: 20, fill: hex(skin.glow) });
+    name.anchor.set(0.5);
+    name.position.set(0, nameY - 1);
+    if (name.width > W - 16) name.scale.set((W - 16) / name.width);
+    card.addChild(name);
+
+    return card;
   }
 
   /** Draw the dimming scrim over the given full-screen rect. */

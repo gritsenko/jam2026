@@ -25,7 +25,7 @@ import { FUSION_CRYSTAL_COST, fusionGoldCost, fusionResult } from '../config/fus
 import { WAVES } from '../config/waves';
 import { DRAW_POOL } from '../config/battleRules';
 import type { BattleStateMock, CardDef } from '../config/types';
-import { unlockedMechanicsForLevel, unlockedTowersForLevel } from '../config/progression';
+import { towersUnlockedByClearing, unlockedMechanicsForLevel, unlockedTowersForLevel } from '../config/progression';
 import * as progress from '../game/progress';
 import { ArenaPath } from '../game/path';
 import {
@@ -2075,7 +2075,16 @@ export class BattleScene extends Scene {
       // Record the clear: unlocks the next level + grants this level's stars (§4).
       // The returned star count is the single source — it also drives the banner's
       // star row, so what's saved and what's shown can never diverge.
+      // Capture first-clear *before* recording: only a genuinely new clear should
+      // tout "Tech unlocked" (replays already own the tower).
+      const firstClear = !progress.isCleared(this.levelId);
       const stars = progress.recordClear(this.levelId, this.sim.coreHp, CORE_MAX);
+      const unlockedCards = firstClear
+        ? towersUnlockedByClearing(this.levelId).map((id) => {
+            const def = getCard(id);
+            return { name: def.shortName, element: def.element, icon: this.services.assets.get(def.iconKey) };
+          })
+        : [];
       opts = {
         title: 'VICTORY',
         subtitle: `Core ${this.sim.coreHp}/${CORE_MAX}`,
@@ -2083,6 +2092,8 @@ export class BattleScene extends Scene {
         // 1–3★ shown as a star row (icon_star sprite) — see BattleBanner.
         stars,
         starTexture: this.services.assets.get('icon_star'),
+        // Cards this clear opens up on the next level → "TECH UNLOCKED" reveal.
+        unlockedCards,
         buttons: [
           { label: 'WORLD MAP', primary: true, onClick: () => this.services.navigate('worldmap') },
         ],
