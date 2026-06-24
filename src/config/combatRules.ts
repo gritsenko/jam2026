@@ -9,6 +9,15 @@ import type { PointData } from 'pixi.js';
 /** Core integrity at the start of a battle. Each leaked enemy subtracts its `coreDamage`. */
 export const CORE_MAX = 20;
 
+/**
+ * End-of-level star rating threshold (v3 §10.Г). The result banner shows 1–3 stars
+ * by how much Core integrity is left at *victory*: ★ = level cleared, ★★ = Core ≥
+ * this fraction of CORE_MAX, ★★★ = Core untouched (coreHp === CORE_MAX). Defeat = 0.
+ * The metric is the Core *remainder*, not the leak count — enemies deal different
+ * `coreDamage`, so "half the monsters" ≠ "half the Core". See BattleSim.starRating.
+ */
+export const STAR_TWO_CORE_FRAC = 0.5;
+
 /** Seconds of calm before the very first wave spawns. */
 export const FIRST_WAVE_DELAY = 4;
 

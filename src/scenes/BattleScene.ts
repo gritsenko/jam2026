@@ -2052,6 +2052,9 @@ export class BattleScene extends Scene {
             title: 'VICTORY',
             subtitle: `All ${this.sim.totalWaves} waves repelled`,
             accent: COLORS.energyOk,
+            // 1–3 stars by Core integrity left (v3 §10.Г). Defeat shows no stars.
+            stars: this.sim.starRating,
+            starTexture: this.services.assets.get('icon_star'),
             buttons: [
               { label: 'WORLD MAP', primary: true, onClick: () => this.services.navigate('worldmap') },
             ],
