@@ -42,6 +42,12 @@ export class EnergyGauge extends Container {
   private pulse = 0;
   /** 1 right after a load change, decaying to 0 — drives the flash alpha. */
   private flash = 0;
+  /**
+   * Hypothetical load previewed while a card is dragged over a slot (v3 §9): the
+   * gauge shows the would-be fill so the player sees "becomes 8/9 — yellow" before
+   * committing. null = show the real load.
+   */
+  private previewLoad: number | null = null;
   /** Current animated x of the capacity divider; <0 = uninitialized (snap on first draw). */
   private dividerX = -1;
   /** Bar geometry cached from the last redraw so the divider can position itself. */
@@ -81,6 +87,21 @@ export class EnergyGauge extends Container {
   }
 
   /**
+   * Preview a hypothetical load while dragging (v3 §9), or pass null to drop back
+   * to the real load. Doesn't flash — it's a "what-if", not a committed change.
+   */
+  setPreviewLoad(load: number | null): void {
+    if (this.previewLoad === load) return;
+    this.previewLoad = load;
+    this.redraw();
+  }
+
+  /** Load to display: the drag preview if active, else the real load. */
+  private get shownLoad(): number {
+    return this.previewLoad ?? this.state.load;
+  }
+
+  /**
    * Toggle the Reactor "charge preview": while a card is held over the Reactor,
    * the gauge lights up its Overdrive cap and rim to telegraph the +Overdrive
    * the burn would grant. Pulsed in {@link tick}.
@@ -108,7 +129,8 @@ export class EnergyGauge extends Container {
     }
 
     // Overload alarm: pulse a red wash + rim while load exceeds capacity (§9).
-    const overloaded = this.state.load > this.state.capacity;
+    // Honors the drag preview so a would-be overload telegraphs before committing.
+    const overloaded = this.shownLoad > this.state.capacity;
     this.overloadG.alpha = overloaded ? 0.3 + 0.3 * (0.5 + 0.5 * Math.sin(this.pulse * 2)) : 0;
 
     // Slide the capacity ("optimal") divider toward its target x, then redraw it
@@ -122,7 +144,7 @@ export class EnergyGauge extends Container {
   private segColor(index: number): number {
     const { capacity } = this.state;
     if (index >= capacity) return COLORS.energyDanger; // overload zone
-    if (index >= capacity * 0.7) return COLORS.energyWarn;
+    if (index >= capacity - 2) return COLORS.energyWarn; // §9: yellow within 1–2 of the limit
     return COLORS.energyOk;
   }
 
@@ -156,14 +178,21 @@ export class EnergyGauge extends Container {
     const gap = 4;
     const segW = (barW - gap * (count - 1)) / count;
     this.barGeom = { barX, barY, barW, barH, segW, gap, count };
+    const shown = this.shownLoad;
     for (let i = 0; i < count; i++) {
       const x = barX + i * (segW + gap);
-      const filled = i < load;
+      const filledReal = i < load;
+      const filledPreview = !filledReal && i < shown; // would-fill if the drag is committed
       const inOverload = i >= capacity;
-      if (filled) {
+      if (filledReal) {
         const color = this.segColor(i);
         this.segs.roundRect(x, barY, segW, barH, 4).fill({ color });
         this.segs.roundRect(x, barY, segW, barH * 0.45, 4).fill({ color: COLORS.white, alpha: 0.22 });
+      } else if (filledPreview) {
+        // Hollow, dashed-feel preview fill in the would-be segment color (§9).
+        const color = this.segColor(i);
+        this.segs.roundRect(x, barY, segW, barH, 4).fill({ color, alpha: 0.32 });
+        this.segs.roundRect(x, barY, segW, barH, 4).stroke({ width: 2, color, alpha: 0.85 });
       } else {
         this.segs
           .roundRect(x, barY, segW, barH, 4)
@@ -181,7 +210,7 @@ export class EnergyGauge extends Container {
     this.flashG.alpha = 0;
 
     // Numeric readout lives in the HUD label; keep the bar itself clean.
-    this.readout.text = `${load} / ${capacity}`;
+    this.readout.text = `${shown} / ${capacity}`;
     this.readout.visible = false;
 
     // Overdrive cap on the right.
@@ -221,7 +250,8 @@ export class EnergyGauge extends Container {
     const bot = barY + barH + 8;
     const h = bot - top;
 
-    const { load, capacity } = this.state;
+    const { capacity } = this.state;
+    const load = this.shownLoad;
     let color: number = COLORS.energyOk;
     if (load > capacity) color = COLORS.energyDanger;
     else if (load >= capacity - 1.5) color = COLORS.energyWarn;

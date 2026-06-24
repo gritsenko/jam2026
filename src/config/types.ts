@@ -122,6 +122,14 @@ export interface HandCard {
   readonly grade: number;
 }
 
+/**
+ * Combat archetype (v3 §2.Г). `standard` enemies just walk the ring and breach
+ * the core. A `disruptor` (Нарушитель) instead rushes the platform and *interrupts*
+ * tower attacks — glitching a shot or, on a crit, briefly stunning the tower —
+ * which is what finally gives the Shield's +DEF / interrupt-immunity a purpose.
+ */
+export type EnemyArchetype = 'standard' | 'disruptor';
+
 export interface EnemyDef {
   readonly id: string;
   readonly name: string;
@@ -135,6 +143,14 @@ export interface EnemyDef {
   readonly bounty: number;
   /** Core integrity lost if this enemy completes the lap and breaches the core. */
   readonly coreDamage: number;
+  /** Combat archetype (defaults to `standard`). */
+  readonly archetype?: EnemyArchetype;
+  /** Disruptor only: seconds between interrupt attempts while it skirts the platform. */
+  readonly interruptInterval?: number;
+  /** Disruptor only: base chance an interrupt lands on a non-immune tower (0..1, v3 §2.Г). */
+  readonly interruptChance?: number;
+  /** Disruptor only: chance a landed interrupt crits into a short stun rather than a glitch. */
+  readonly interruptCrit?: number;
 }
 
 /** One burst of identical enemies within a wave. */

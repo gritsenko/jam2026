@@ -261,6 +261,14 @@ export const ASSETS: AssetSpec[] = [
     prompt: 'hulking scrap-metal husk golem, riveted plates, lumbering walk',
     placeholder: { shape: 'disc', tint: P, label: 'HUSK' },
   },
+  {
+    key: 'enemy_disruptor',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'menacing signal-jammer saboteur drone creature, bristling with broadcast antenna spikes, glitching red and violet disruptive energy arcs crackling around it, fast aggressive low crawling pose',
+    placeholder: { shape: 'disc', tint: E, label: 'JAMMER' },
+  },
 
   // ---- World map -----------------------------------------------------------
   {

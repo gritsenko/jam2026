@@ -24,18 +24,20 @@ export const WAVES: WaveDef[] = [
       { enemyId: 'magma_brute', count: 5, gap: 1.4 },
     ],
   },
-  // 4 — mixed pressure from all three light types.
+  // 4 — mixed pressure, now with saboteurs probing the towers (§2.Г).
   {
     groups: [
       { enemyId: 'volt_crawler', count: 6, gap: 0.7 },
+      { enemyId: 'signal_disruptor', count: 2, gap: 2.5 },
       { enemyId: 'magma_brute', count: 4, gap: 1.2 },
       { enemyId: 'frost_wisp', count: 6, gap: 0.5 },
     ],
   },
-  // 5 — finale: armored husks escorted by a swarm.
+  // 5 — finale: armored husks escorted by a swarm and a disruptor pack.
   {
     groups: [
       { enemyId: 'volt_crawler', count: 8, gap: 0.5 },
+      { enemyId: 'signal_disruptor', count: 3, gap: 1.8 },
       { enemyId: 'magma_brute', count: 6, gap: 0.9 },
       { enemyId: 'iron_husk', count: 2, gap: 4.0 },
     ],

@@ -35,6 +35,7 @@
     { "key": "enemy_frost_wisp", "file": "assets/sprites/enemy_frost_wisp.png", "category": "enemy", "size": 512, "prompt": "floating frost wisp spirit, translucent icy body, trailing cold mist" },
     { "key": "enemy_volt_crawler", "file": "assets/sprites/enemy_volt_crawler.png", "category": "enemy", "size": 512, "prompt": "electric crawler insectoid, crackling blue-violet energy along its carapace" },
     { "key": "enemy_iron_husk", "file": "assets/sprites/enemy_iron_husk.png", "category": "enemy", "size": 512, "prompt": "hulking scrap-metal husk golem, riveted plates, lumbering walk" },
+    { "key": "enemy_disruptor", "file": "assets/sprites/enemy_disruptor.png", "category": "enemy", "size": 512, "prompt": "menacing signal-jammer saboteur drone creature, bristling with broadcast antenna spikes, glitching red and violet disruptive energy arcs crackling around it, fast aggressive low crawling pose" },
 
     { "key": "map_node", "file": "assets/sprites/map_node.png", "category": "icon", "size": 256, "prompt": "glowing brass map node marker with a bright energy gem at its center, available" },
     { "key": "map_node_locked", "file": "assets/sprites/map_node_locked.png", "category": "icon", "size": 256, "prompt": "dim cold map node marker with an iron padlock, deactivated" }

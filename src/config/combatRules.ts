@@ -81,11 +81,46 @@ export const CHAIN_FALLOFF = 0.72;
 /** Splash radius (fraction of arena width) of a Plasma III shockwave shot. */
 export const PLASMA_SHOCKWAVE_FRAC = 0.05;
 
+/**
+ * Plasma's special shockwave mode (v3 §5): once it opens (Grade III, or via the
+ * Fire+Physical "Shrapnel" reaction) the bolt is no longer homing — it is a
+ * *slow* round lobbed at the point where the target stood, detonating there in an
+ * area. This is its travel-speed multiplier vs. a normal homing bolt (slower, so
+ * the player must "lead" fast singles but it shreds dense, predictable groups).
+ */
+export const PLASMA_SLOW_PROJECTILE_MULT = 0.55;
+
 /** Resonance "Shrapnel" widens any splash by this factor (v2 §7: blast radius +40%). */
 export const SHRAPNEL_AOE_MULT = 1.4;
 
 /** Fraction of the direct hit dealt to other enemies caught in a splash. */
 export const AOE_SPLASH_FRAC = 0.6;
+
+/**
+ * Frost's signature is its *freeze radius* (v3 §5): slow + Wet land not just on the
+ * struck enemy but on everyone within this radius of the impact (fraction of the
+ * arena width), and the radius widens with grade (small → medium → large).
+ */
+export const FROST_FREEZE_RADIUS_FRAC: readonly number[] = [0.06, 0.085, 0.12];
+
+/**
+ * Railgun fires a piercing *line* (v3 §6), not a circular blast: it hits every
+ * enemy within this perpendicular half-width (fraction of arena width) of the ray
+ * from the turret through its lead target, out to its range (the line length is
+ * the signature stat). So aiming down a straight stretch of the spiral matters.
+ */
+export const RAILGUN_BEAM_HALF_WIDTH_FRAC = 0.05;
+
+// --- Interrupt / Disruptor (v3 §2.Г) ---------------------------------------
+
+/**
+ * Reach (fraction of arena width) within which a Disruptor jams a tower. It picks
+ * the nearest non-immune turret inside this radius on each interrupt tick.
+ */
+export const DISRUPTOR_JAM_RANGE_FRAC = 0.34;
+
+/** A crit interrupt locks the tower (can't fire) for this long; a normal one just glitches the current shot. */
+export const INTERRUPT_STUN_SEC = 1.2;
 
 /** Seconds a Shield barrier holds the lead enemy still; recharge after. */
 export const BARRIER_COOLDOWN_SEC = 12;

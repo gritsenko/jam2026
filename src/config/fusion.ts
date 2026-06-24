@@ -5,6 +5,9 @@
  *
  * Data only (no Pixi): the scene reads {@link fusionResult} to detect a valid
  * drop of one hand card onto another, and the cost helpers to gate / price it.
+ *
+ * All 6 recipes from the v3 §6.5 table are implemented; the three Railgun hybrids
+ * are the heavy "+3 load" crafts.
  */
 
 /** Unordered key for a pair of card ids (Plasma+Frost === Frost+Plasma). */
@@ -16,6 +19,9 @@ const RECIPES: Record<string, string> = {
   [pairKey('plasma_shutter', 'frost_pulse')]: 'steam_cannon',
   [pairKey('frost_pulse', 'storm_coil')]: 'cryo_discharge',
   [pairKey('plasma_shutter', 'storm_coil')]: 'ion_volley',
+  [pairKey('plasma_shutter', 'railgun')]: 'thermo_spear',
+  [pairKey('frost_pulse', 'railgun')]: 'icebreaker',
+  [pairKey('storm_coil', 'railgun')]: 'gauss_coil',
 };
 
 /** The hybrid id two card ids fuse into, or null if there is no recipe. */

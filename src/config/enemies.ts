@@ -17,6 +17,22 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'magma_brute', name: 'Magma Brute', element: 'Fire', iconKey: 'enemy_magma_brute', maxHp: 90, speed: 0.05, bounty: 9, coreDamage: 2 },
   // Very slow tank — punishes thin defenses.
   { id: 'iron_husk', name: 'Iron Husk', element: 'Physical', iconKey: 'enemy_iron_husk', maxHp: 240, speed: 0.035, bounty: 16, coreDamage: 3 },
+  // Saboteur (v3 §2.Г): doesn't lean on the core — it jams nearby towers, glitching
+  // their shots or stunning them on a crit. Shield-buffed and central towers shrug it off.
+  {
+    id: 'signal_disruptor',
+    name: 'Signal Disruptor',
+    element: 'Electricity',
+    iconKey: 'enemy_disruptor',
+    maxHp: 80,
+    speed: 0.062,
+    bounty: 12,
+    coreDamage: 1,
+    archetype: 'disruptor',
+    interruptInterval: 1.6,
+    interruptChance: 0.6,
+    interruptCrit: 0.25,
+  },
 ];
 
 export const ENEMY_BY_ID: Record<string, EnemyDef> = Object.fromEntries(

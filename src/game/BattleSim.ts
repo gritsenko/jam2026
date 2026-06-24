@@ -7,12 +7,17 @@ import {
   BARRIER_COOLDOWN_SEC,
   CHAIN_FALLOFF,
   CHAIN_RADIUS_FRAC,
+  DISRUPTOR_JAM_RANGE_FRAC,
   FIRST_WAVE_DELAY,
+  FROST_FREEZE_RADIUS_FRAC,
+  INTERRUPT_STUN_SEC,
   OVERLOAD_FIRE_FLOOR,
   OVERLOAD_FIRE_PENALTY_PER_LOAD,
   PLASMA_SHOCKWAVE_FRAC,
+  PLASMA_SLOW_PROJECTILE_MULT,
   PROJECTILE_HIT_FRAC,
   PROJECTILE_SPEED_FRAC,
+  RAILGUN_BEAM_HALF_WIDTH_FRAC,
   SHRAPNEL_AOE_MULT,
   SLOW_REFRESH_SEC,
   STEAM_DOT_DPS,
@@ -54,12 +59,16 @@ export interface SimEnemy {
   /** Damage-over-time (Steam) until this time. */
   dotUntil: number;
   dotDps: number;
+  /** Disruptor only (v3 §2.Г): seconds until its next interrupt attempt. */
+  interruptCd: number;
 }
 
 /** On-hit payload a tower stamps onto its shots / strikes. */
 export interface HitEffects {
   aoeRadius: number; // px (0 = single target)
   splashFrac: number;
+  /** Frost freeze radius in px (v3 §5): slow/Wet land on everyone within this of the impact (0 = struck target only). */
+  freezeRadius: number;
   slowFactor: number; // 0 = none
   slowSec: number;
   wetSec: number;
@@ -87,23 +96,38 @@ export interface SimTower extends HitEffects {
   cdLeft: number;
   /** Duration the current cooldown was started with (for the HUD dial); 0 = ready. */
   cdMax: number;
-  /** Hits every enemy in range at once (Railgun line). */
+  /** Strikes every enemy along a pierced line through the lead target (Railgun, v3 §6). */
   pierce: boolean;
+  /** Plasma shockwave mode (v3 §5): a slow, non-homing round detonating at the aim point. */
+  slowProjectile: boolean;
   /** Holds the lead enemy still for this many seconds, then long recharge (Shield). */
   barrierSec: number;
   /** Network load this tower draws — scales its overload fire-rate penalty (v3 §3.А). */
   readonly load: number;
+  /** Immune to Disruptor interrupts (central slot, or a Shield-buffed neighbor; v3 §2.Г). */
+  interruptImmune: boolean;
+  /** Sim-clock deadline this tower is locked (stunned) until; 0 = free to fire. */
+  disabledUntil: number;
 }
 
-/** Spec the scene feeds in for each tower (the sim tracks the cooldown). */
-export type TowerSpec = Omit<SimTower, 'cdLeft' | 'cdMax'>;
+/**
+ * Spec the scene feeds in for each tower; the sim owns the per-frame runtime
+ * state (cooldown + interrupt-stun), so those are filled in by {@link BattleSim.setTowers}.
+ */
+export type TowerSpec = Omit<SimTower, 'cdLeft' | 'cdMax' | 'disabledUntil'>;
 
-/** An in-flight projectile homing on its target enemy, carrying its on-hit effects. */
+/**
+ * An in-flight projectile, carrying its on-hit effects. Homes on its target enemy
+ * unless {@link firePos} is set (Plasma shockwave mode), in which case it travels
+ * to that fixed point and detonates there regardless of where the target went.
+ */
 export interface SimProjectile extends HitEffects {
   readonly id: number;
   x: number;
   y: number;
   readonly target: SimEnemy;
+  /** Fixed aim point for a non-homing shockwave shot; undefined = homing. */
+  readonly firePos?: { x: number; y: number };
   readonly speed: number;
   readonly damage: number;
   readonly element: ElementId;
@@ -116,6 +140,10 @@ export type WavePhase = 'countdown' | 'spawning' | 'active';
 export interface SimCallbacks {
   onEnemyKilled?(enemy: SimEnemy): void;
   onEnemyLeaked?(enemy: SimEnemy): void;
+  /** An enemy took a discrete hit — `amount` already folds in the Wet bonus; `crit` = a Wet x2 strike. */
+  onEnemyDamaged?(enemy: SimEnemy, amount: number, crit: boolean): void;
+  /** A Disruptor jammed a tower (v3 §2.Г): `stun` = locked for a beat, else a glitched shot. */
+  onTowerInterrupted?(slotIndex: number, kind: 'glitch' | 'stun', x: number, y: number): void;
   onTowerFired?(slotIndex: number, target: SimEnemy): void;
   /** A projectile actually connected (vs. fizzling on an already-dead target). */
   onProjectileHit?(x: number, y: number, element: ElementId): void;
@@ -180,6 +208,10 @@ export class BattleSim {
   private readonly hitRadius: number;
   private readonly projectileSpeed: number;
   private readonly chainRadius: number;
+  /** Perpendicular half-width of a Railgun pierce line, in px. */
+  private readonly railgunBand: number;
+  /** Reach within which a Disruptor jams a tower, in px. */
+  private readonly jamRange: number;
 
   /** Zero-based index of the wave being fought; -1 before the first one. */
   private waveIndex = -1;
@@ -199,6 +231,8 @@ export class BattleSim {
     this.hitRadius = PROJECTILE_HIT_FRAC * opts.arenaWidth;
     this.projectileSpeed = PROJECTILE_SPEED_FRAC * opts.arenaWidth;
     this.chainRadius = CHAIN_RADIUS_FRAC * opts.arenaWidth;
+    this.railgunBand = RAILGUN_BEAM_HALF_WIDTH_FRAC * opts.arenaWidth;
+    this.jamRange = DISRUPTOR_JAM_RANGE_FRAC * opts.arenaWidth;
   }
 
   /** 1-based number of the current/next wave for the HUD. */
@@ -232,7 +266,7 @@ export class BattleSim {
     const prev = new Map(this.towers.map((t) => [t.slotIndex, t]));
     this.towers = specs.map((s) => {
       const p = prev.get(s.slotIndex);
-      return { ...s, cdLeft: p?.cdLeft ?? 0, cdMax: p?.cdMax ?? 0 };
+      return { ...s, cdLeft: p?.cdLeft ?? 0, cdMax: p?.cdMax ?? 0, disabledUntil: p?.disabledUntil ?? 0 };
     });
   }
 
@@ -254,6 +288,7 @@ export class BattleSim {
     this.tickWaveSpawning(dt);
     this.moveEnemies(dt);
     this.tickStatuses(dt);
+    this.tickInterrupts(dt);
     this.fireTowers(dt);
     this.moveProjectiles(dt);
 
@@ -356,6 +391,7 @@ export class BattleSim {
       stunUntil: 0,
       dotUntil: 0,
       dotDps: 0,
+      interruptCd: def.interruptInterval ?? 0,
     });
   }
 
@@ -403,6 +439,10 @@ export class BattleSim {
 
   private fireTowers(dt: number): void {
     for (const tower of this.towers) {
+      // Interrupt stun (v3 §2.Г): the tower is locked — its cooldown is frozen
+      // until the stun lapses, then it resumes from where it was.
+      if (tower.disabledUntil > this.clock) continue;
+
       if (tower.cdLeft > 0) {
         tower.cdLeft -= dt;
         if (tower.cdLeft > 0) continue;
@@ -427,13 +467,7 @@ export class BattleSim {
       }
 
       if (tower.pierce) {
-        // Railgun: strike every enemy in range at once (a pierced line).
-        for (const e of this.enemies) {
-          if (!e.alive) continue;
-          if (this.dist2(e.x, e.y, tower.x, tower.y) > tower.range * tower.range) continue;
-          this.applyHit(e, tower.damage, tower);
-          this.cb.onBeam?.(tower.x, tower.y, e.x, e.y, tower.element);
-        }
+        this.firePierceLine(tower, target);
         this.cb.onTowerFired?.(tower.slotIndex, target);
       } else {
         this.fireProjectile(tower, target);
@@ -442,6 +476,81 @@ export class BattleSim {
       tower.cdLeft = tower.cooldown / mult;
       tower.cdMax = tower.cdLeft;
     }
+  }
+
+  /**
+   * Railgun pierce (v3 §6): a straight beam from the turret through its lead
+   * target, striking every enemy within {@link railgunBand} of that ray, out to
+   * the tower's range (= the signature line length). One beam is drawn for the
+   * whole line rather than a spoke to each enemy.
+   */
+  private firePierceLine(tower: SimTower, lead: SimEnemy): void {
+    const ang = Math.atan2(lead.y - tower.y, lead.x - tower.x);
+    const dx = Math.cos(ang);
+    const dy = Math.sin(ang);
+    const len = tower.range;
+    const band = this.railgunBand;
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const rx = e.x - tower.x;
+      const ry = e.y - tower.y;
+      const along = rx * dx + ry * dy; // distance along the beam
+      if (along < -band || along > len) continue;
+      const perp = Math.abs(rx * dy - ry * dx); // perpendicular distance from the beam
+      if (perp > band) continue;
+      this.applyHit(e, tower.damage, tower);
+    }
+    this.cb.onBeam?.(tower.x, tower.y, tower.x + dx * len, tower.y + dy * len, tower.element);
+  }
+
+  /**
+   * Disruptor interrupts (v3 §2.Г): a saboteur skirting the platform jams the
+   * nearest non-immune turret on a timer — glitching its current shot, or (on a
+   * crit) stunning it for a beat. Central and Shield-buffed towers are immune.
+   */
+  private tickInterrupts(dt: number): void {
+    if (this.towers.length === 0) return;
+    for (const e of this.enemies) {
+      if (!e.alive || e.def.archetype !== 'disruptor') continue;
+      // Only while it is actually on the road skirting the platform (not the
+      // off-screen approach or the instant it breaches).
+      if (e.t < 0.05 || e.t > 0.97) continue;
+      e.interruptCd -= dt;
+      if (e.interruptCd > 0) continue;
+      e.interruptCd = e.def.interruptInterval ?? 1.6;
+
+      const tower = this.nearestJammableTower(e.x, e.y);
+      if (!tower) continue;
+      if (!this.roll(e.def.interruptChance ?? 0.6, e)) continue; // tower shrugged it off
+
+      if (this.roll(e.def.interruptCrit ?? 0.25, e)) {
+        // Crit → short stun (and reset the in-progress shot).
+        tower.disabledUntil = Math.max(tower.disabledUntil, this.clock + INTERRUPT_STUN_SEC);
+        tower.cdLeft = tower.cooldown;
+        tower.cdMax = tower.cooldown;
+        this.cb.onTowerInterrupted?.(tower.slotIndex, 'stun', tower.x, tower.y);
+      } else {
+        // Glitch → the current shot is scrubbed and recharges.
+        tower.cdLeft = tower.cooldown;
+        tower.cdMax = tower.cooldown;
+        this.cb.onTowerInterrupted?.(tower.slotIndex, 'glitch', tower.x, tower.y);
+      }
+    }
+  }
+
+  /** Nearest non-immune, not-already-stunned tower within jam range of a point. */
+  private nearestJammableTower(x: number, y: number): SimTower | null {
+    let best: SimTower | null = null;
+    let bestD = this.jamRange * this.jamRange;
+    for (const t of this.towers) {
+      if (t.interruptImmune || t.disabledUntil > this.clock) continue;
+      const d = this.dist2(x, y, t.x, t.y);
+      if (d <= bestD) {
+        bestD = d;
+        best = t;
+      }
+    }
+    return best;
   }
 
   /** The enemy furthest along the ring that is within the tower's range. */
@@ -457,17 +566,22 @@ export class BattleSim {
   }
 
   private fireProjectile(tower: SimTower, target: SimEnemy): void {
+    // Plasma shockwave mode (v3 §5): a slow, non-homing round lobbed at where the
+    // target stands now, detonating there in an area even if it has since moved.
+    const slow = tower.slowProjectile;
     this.projectiles.push({
       id: this.projSeq++,
       x: tower.x,
       y: tower.y,
       target,
-      speed: this.projectileSpeed,
+      firePos: slow ? { x: target.x, y: target.y } : undefined,
+      speed: slow ? this.projectileSpeed * PLASMA_SLOW_PROJECTILE_MULT : this.projectileSpeed,
       damage: tower.damage,
       element: tower.element,
       alive: true,
       aoeRadius: tower.aoeRadius,
       splashFrac: tower.splashFrac,
+      freezeRadius: tower.freezeRadius,
       slowFactor: tower.slowFactor,
       slowSec: tower.slowSec,
       wetSec: tower.wetSec,
@@ -481,19 +595,23 @@ export class BattleSim {
   }
 
   private moveProjectiles(dt: number): void {
-    const step = this.projectileSpeed * dt;
     for (const p of this.projectiles) {
       if (!p.alive) continue;
-      if (!p.target.alive) {
-        p.alive = false; // target already gone — fizzle
+      const homing = !p.firePos;
+      // Homing bolts fizzle if their target dies; a shockwave shot flies to its
+      // fixed aim point and detonates there regardless.
+      if (homing && !p.target.alive) {
+        p.alive = false;
         continue;
       }
-      const dx = p.target.x - p.x;
-      const dy = p.target.y - p.y;
+      const dest = p.firePos ?? p.target;
+      const step = p.speed * dt;
+      const dx = dest.x - p.x;
+      const dy = dest.y - p.y;
       const d = Math.hypot(dx, dy);
       if (d <= this.hitRadius || d <= step) {
-        p.x = p.target.x;
-        p.y = p.target.y;
+        p.x = dest.x;
+        p.y = dest.y;
         p.alive = false;
         this.cb.onProjectileHit?.(p.x, p.y, p.element);
         this.resolveProjectileHit(p);
@@ -516,6 +634,17 @@ export class BattleSim {
         if (!e.alive || e === primary) continue;
         if (this.dist2(e.x, e.y, p.x, p.y) > r2) continue;
         this.applyHit(e, p.damage * p.splashFrac, p);
+      }
+    }
+
+    // Frost freeze radius (v3 §5): slow + Wet wash over every enemy near the
+    // impact (status only — no extra damage), widening with the tower's grade.
+    if (p.freezeRadius > 0) {
+      const fr2 = p.freezeRadius * p.freezeRadius;
+      for (const e of this.enemies) {
+        if (!e.alive || e === primary) continue;
+        if (this.dist2(e.x, e.y, p.x, p.y) > fr2) continue;
+        this.applyHit(e, 0, p);
       }
     }
 
@@ -556,6 +685,8 @@ export class BattleSim {
     if (!e.alive) return;
     const wet = e.wetUntil > this.clock;
     const dmg = baseDamage * (wet ? fx.vsWetMult : 1);
+    // Floating damage number (skips status-only applications like the freeze wash).
+    if (dmg > 0) this.cb.onEnemyDamaged?.(e, Math.round(dmg), wet && fx.vsWetMult > 1);
     this.damageEnemy(e, dmg);
     if (!e.alive) return;
 
@@ -626,6 +757,8 @@ export interface SynergyMods {
   damageMult: number;
   rangeMult: number;
   tempoMult: number;
+  /** > 1 when a Shield neighbor is buffing defense → interrupt immunity (v3 §2.Г). */
+  defenseMult: number;
   reactions: readonly ReactionId[];
 }
 
@@ -691,6 +824,15 @@ export function buildTowerSpec(
 
   let aoeFrac = def.signature === 'projectile_power' && g.diagonal ? PLASMA_SHOCKWAVE_FRAC : 0;
   if (has('shrapnel')) aoeFrac = (aoeFrac || PLASMA_SHOCKWAVE_FRAC) * SHRAPNEL_AOE_MULT;
+  // Plasma's shockwave mode opens once it gains an area blast (Grade III or the
+  // Fire+Physical Shrapnel reaction): the bolt goes slow + non-homing (v3 §5).
+  const slowProjectile = def.signature === 'projectile_power' && aoeFrac > 0;
+
+  // Frost's signature freeze *radius* (v3 §5): slow + Wet land in an area that
+  // widens with grade. Hybrids that inherit freeze_radius get it too.
+  const gi = Math.min(Math.max(grade, 1), 3) - 1;
+  const freezeRadius =
+    def.signature === 'freeze_radius' ? (FROST_FREEZE_RADIUS_FRAC[gi] ?? 0) * arenaWidth : 0;
 
   // Slow / Wet from Frost's signature; Steam reaction adds slow + DoT.
   let slowFactor = def.signature === 'freeze_radius' ? g.sig / 100 : 0;
@@ -722,10 +864,15 @@ export function buildTowerSpec(
     damage: Math.round(base.damage * mods.damageMult),
     cooldown: base.cooldown / Math.max(0.1, tempoMult),
     pierce,
+    slowProjectile,
     barrierSec,
     load: cardLoad(def, grade),
+    // A Shield neighbor (defense buff) confers interrupt immunity (v3 §2.Г); the
+    // caller additionally marks the contact-free central slot immune.
+    interruptImmune: mods.defenseMult > 1,
     aoeRadius: aoeFrac * arenaWidth,
     splashFrac: AOE_SPLASH_FRAC,
+    freezeRadius,
     slowFactor,
     slowSec,
     wetSec,

@@ -53,7 +53,7 @@ import { SceneBackground } from '../ui/SceneBackground';
 import type { SlotView } from '../ui/SlotView';
 import { TowerInfoPanel } from '../ui/TowerInfoPanel';
 import { WaveBadge } from '../ui/WaveBadge';
-import { glowCircle, makeText } from '../ui/helpers';
+import { fitSprite, glowCircle, makeText } from '../ui/helpers';
 
 /**
  * One fixed hand position. Holds a card, or sits empty and recharges (`charge`
@@ -101,6 +101,8 @@ export class BattleScene extends Scene {
   private fxLayer = new Container(); // projectiles + impact/muzzle bursts, above enemies
   private hudLayer = new Container();
   private handLayer = new Container();
+  /** Coins / crystals streaming to the HUD + the wave-clear plaque (screen space, above the HUD). */
+  private rewardLayer = new Container();
   private dragLayer = new Container();
 
   private arenaW = 1;
@@ -114,6 +116,12 @@ export class BattleScene extends Scene {
   private coreBadge!: CoreBadge;
   private goldChip!: ResourceChip;
   private crystalChip!: ResourceChip;
+  /** Displayed (animated) chip values — they chase the true state so the counter
+   *  ticks up as coins/crystals land rather than snapping (tasks §3/§4). */
+  private goldDisplayed = 0;
+  private crystalDisplayed = 0;
+  /** Rolling counter so stacked floating damage numbers fan out instead of overlapping. */
+  private dmgSeq = 0;
   private avatar!: HeroAvatar;
   private avatarR = 72;
   private backBtn!: Button;
@@ -126,7 +134,7 @@ export class BattleScene extends Scene {
   /** Resolved positional synergy per slot (v2 model), recomputed on every change. */
   private synergy: (SlotSynergy | null)[] = [];
   private hint = makeText('Drag a card onto a slot or the Reactor', 'micro', { fontSize: 20 });
-  private waveToast = makeText('', 'title', { fontSize: 40, fill: hex(COLORS.gold) });
+  private waveToast = makeText('', 'title', { fontSize: 80, fill: hex(COLORS.white) });
 
   private hand: HandSlot[] = [];
 
@@ -253,12 +261,14 @@ export class BattleScene extends Scene {
       callbacks: {
         onEnemyKilled: (e) => this.onEnemyKilled(e),
         onEnemyLeaked: (e) => this.onEnemyLeaked(e),
+        onEnemyDamaged: (e, amount, crit) => this.floatDamage(e.x, e.y, amount, crit),
+        onTowerInterrupted: (slot, kind, x, y) => this.onTowerInterrupted(slot, kind, x, y),
         onTowerFired: (slotIndex) => this.onTowerFired(slotIndex),
         onProjectileHit: (x, y, element) => this.burst(x, y, ELEMENTS[element].glow, this.arenaW * 0.03),
         onBeam: (x1, y1, x2, y2, element) => this.beam(x1, y1, x2, y2, ELEMENTS[element].glow),
         onBarrier: (x, y) => this.burst(x, y, COLORS.brassLight, this.arenaW * 0.05),
         onWaveStart: (n) => this.onWaveBegan(n),
-        onWaveCleared: (_n, perfect) => this.onWaveCleared(perfect),
+        onWaveCleared: (n, perfect) => this.onWaveCleared(n, perfect),
         onVictory: () => this.showBanner('victory'),
         onDefeat: () => this.showBanner('defeat'),
       },
@@ -275,6 +285,8 @@ export class BattleScene extends Scene {
       this.fieldMask,
       this.hudLayer,
       this.handLayer,
+      this.rewardLayer,
+      this.waveToast, // above the wave-cleared dim (rewardLayer scrim) so the countdown stays legible
       this.dragLayer,
     );
     // Clip the zoomed playfield to its viewport (rect set in layout()).
@@ -291,6 +303,8 @@ export class BattleScene extends Scene {
     this.coreBadge = new CoreBadge(CORE_MAX, CORE_MAX);
     this.goldChip = new ResourceChip(assets.get('icon_gold'), s.gold, COLORS.gold);
     this.crystalChip = new ResourceChip(assets.get('icon_crystal'), s.crystals, COLORS.crystal);
+    this.goldDisplayed = s.gold;
+    this.crystalDisplayed = s.crystals;
     this.avatar = new HeroAvatar(
       assets.get('hero_avatar'),
       this.avatarR,
@@ -348,7 +362,6 @@ export class BattleScene extends Scene {
       this.rerollBtn,
       this.hint,
       this.moveCost,
-      this.waveToast,
       this.infoPanel,
     );
     this.refreshRerollButton();
@@ -696,6 +709,30 @@ export class BattleScene extends Scene {
       this.hideRangePreview();
     }
 
+    // Live gauge preview (§9): show the would-be network load so an impending
+    // yellow / overload reads before the drop (over the Reactor it's a capacity
+    // boost instead, already telegraphed via setCharging).
+    if (overReactor || !targetSlot) {
+      this.gauge.setPreviewLoad(null);
+    } else if (emptySlot) {
+      this.gauge.setPreviewLoad(this.state.energyLoad + cardLoad(card.def, card.grade));
+    } else if (mergeSlot) {
+      const dE = fieldDrag
+        ? cardLoad(card.def, previewGrade) - 2 * cardLoad(card.def, card.grade)
+        : cardLoad(card.def, previewGrade) - cardLoad(card.def, card.grade);
+      this.gauge.setPreviewLoad(Math.max(0, this.state.energyLoad + dE));
+    }
+
+    // Would this placement / merge close a resonance (§9)? Evaluated on a
+    // hypothetical board so the player sees it before committing.
+    let resonates = false;
+    if (targetSlot) {
+      const temp = this.state.slots.slice();
+      if (fieldDrag && this.fieldDragFrom !== null) temp[this.fieldDragFrom] = null;
+      temp[targetSlot.index] = { cardId: card.def.id, grade: previewGrade };
+      resonates = computeSynergy(temp)[targetSlot.index]?.resonant ?? false;
+    }
+
     // Highlight the drop targets. Field-drag lights only matching towers; a hand
     // card lights empty slots (hover/valid) plus any merge target.
     if (fieldDrag) {
@@ -723,6 +760,7 @@ export class BattleScene extends Scene {
     const parts = fuse
       ? this.fusionCostParts(card, fuse.target, fuse.hybridId)
       : this.moveCostParts(card, fieldDrag, overReactor, emptySlot, mergeSlot, previewGrade);
+    if (parts && resonates) parts.push({ text: 'RESONANCE', color: COLORS.synergy });
     if (parts) {
       this.moveCost.show(parts);
       this.moveCost.position.set(this.moveCostPos.x, this.moveCostPos.y);
@@ -829,6 +867,7 @@ export class BattleScene extends Scene {
     this.previewSlot = null;
     this.cardGhosted = false;
     this.gauge.setCharging(false);
+    this.gauge.setPreviewLoad(null); // drop the §9 drag load preview
     this.setFusionTarget(null);
     this.grid.clearHighlights();
     this.grid.clearInspect(); // drop any drag-time buff preview overlay
@@ -1327,9 +1366,12 @@ export class BattleScene extends Scene {
         damageMult: syn?.damageMult ?? 1,
         rangeMult: syn?.rangeMult ?? 1,
         tempoMult: syn?.tempoMult ?? 1,
+        defenseMult: syn?.defenseMult ?? 1,
         reactions: syn?.reactions ?? [],
       });
-      specs.push({ ...spec, slotIndex: i });
+      // The contact-free central slot is intrinsically interrupt-immune (§2.Г),
+      // on top of any Shield-buff immunity buildTowerSpec already folded in.
+      specs.push({ ...spec, slotIndex: i, interruptImmune: spec.interruptImmune || i === 4 });
     });
     this.sim.setTowers(specs);
   }
@@ -1354,24 +1396,29 @@ export class BattleScene extends Scene {
     this.refreshRerollButton();
   }
 
-  /** A wave was cleared: gold bounty + crystals on a Perfect Clear (no leak). */
-  private onWaveCleared(perfect: boolean): void {
+  /**
+   * A wave was cleared (§4): grant the gold bounty (pulsing the chip) and, on a
+   * Perfect Clear, the crystal reward — then play the "WAVE REPELLED" plaque with
+   * the animated seconds→crystals conversion that streams into the crystal chip.
+   */
+  private onWaveCleared(n: number, perfect: boolean): void {
     this.addReward(WAVE_CLEAR_BONUS);
-    if (perfect) this.addCrystals(PERFECT_CLEAR_CRYSTALS);
+    this.goldChip.pulse();
+    const crystals = perfect ? PERFECT_CLEAR_CRYSTALS : 0;
+    if (crystals > 0) this.addCrystals(crystals);
+    this.playWaveClearedSequence(n, perfect, crystals);
   }
 
-  /** Grant crystals (Perfect Clear) and refresh the chip + Reroll button. */
+  /** Grant crystals (Perfect Clear) and refresh the Reroll button (display chases). */
   private addCrystals(n: number): void {
     if (!n) return;
     this.state.crystals += n;
-    this.crystalChip.setValue(this.state.crystals);
     this.refreshRerollButton();
   }
 
-  /** Spend crystals (Reroll / fusion) and refresh the chip + Reroll button. */
+  /** Spend crystals (Reroll / fusion) and refresh the Reroll button (display chases). */
   private spendCrystals(n: number): void {
     this.state.crystals = Math.max(0, this.state.crystals - n);
-    this.crystalChip.setValue(this.state.crystals);
     this.refreshRerollButton();
   }
 
@@ -1427,18 +1474,20 @@ export class BattleScene extends Scene {
     );
   }
 
-  /** Award gold (on a kill or a wave clear) and refresh the chip + hand locks. */
+  /**
+   * Award gold (on a kill or a wave clear) and refresh the hand locks. The chip
+   * *display* isn't set here — it chases `state.gold` each frame ({@link chaseChips})
+   * so the counter visibly ticks up as the coins land (task §3).
+   */
   private addReward(gold: number): void {
     if (!gold) return;
     this.state.gold += gold;
-    this.goldChip.setValue(this.state.gold);
     this.refreshHandAffordability();
   }
 
-  /** Spend gold (placing a card) and refresh the chip + hand locks. */
+  /** Spend gold (placing a card) and refresh the hand locks (display chases). */
   private spendGold(gold: number): void {
     this.state.gold = Math.max(0, this.state.gold - gold);
-    this.goldChip.setValue(this.state.gold);
     this.refreshHandAffordability();
   }
 
@@ -1606,6 +1655,7 @@ export class BattleScene extends Scene {
 
   private onEnemyKilled(e: SimEnemy): void {
     this.addReward(e.def.bounty);
+    this.spawnGoldCoins(e.x, e.y, e.def.bounty); // coins burst, then stream to the gold chip (§3)
     const view = this.detachEnemyView(e.id);
     if (!view) return;
     this.burst(view.x, view.y, ELEMENTS[e.def.element].glow, this.arenaW * 0.045);
@@ -1656,6 +1706,342 @@ export class BattleScene extends Scene {
         onComplete: () => { if (!view.destroyed) view.destroy(); },
       }),
     );
+  }
+
+  // --- Floating numbers / coins / wave-clear sequence (tasks §2 / §3 / §4) ---
+
+  /**
+   * A rising damage number over a struck enemy (task §2). Lives in the field's fx
+   * layer (arena coords) so it scales with the zoomed playfield; a Wet x2 "crit"
+   * reads bigger and gold. A deterministic x-jitter keeps stacked hits legible.
+   */
+  private floatDamage(x: number, y: number, amount: number, crit: boolean): void {
+    if (amount <= 0) return;
+    const jitter = ((this.dmgSeq++ % 5) - 2) * this.arenaW * 0.012;
+    const size = (crit ? 0.072 : 0.05) * this.arenaW;
+    const t = makeText(crit ? `${amount}!` : `${amount}`, 'value', {
+      fontSize: size,
+      fill: hex(crit ? COLORS.energyOverdrive : COLORS.white),
+      stroke: { color: hex(COLORS.black), width: Math.max(2, size * 0.16), alpha: 0.9 },
+    });
+    t.anchor.set(0.5);
+    const sx = x + jitter;
+    const startY = y - this.arenaW * 0.045;
+    t.position.set(sx, startY);
+    this.fxLayer.addChild(t);
+    const rise = this.arenaW * (crit ? 0.12 : 0.08);
+    this.track(
+      tween({
+        duration: crit ? 0.85 : 0.62,
+        easing: Easings.outCubic,
+        onUpdate: (p) => {
+          if (t.destroyed) return;
+          t.position.set(sx, startY - rise * p);
+          t.alpha = p < 0.22 ? p / 0.22 : 1 - (p - 0.22) / 0.78;
+          if (crit) t.scale.set(1 + 0.3 * Math.sin(Math.min(1, p * 3) * Math.PI));
+        },
+        onComplete: () => { if (!t.destroyed) t.destroy(); },
+      }),
+    );
+  }
+
+  /** Convert a sim/arena point to scene space (where the reward layer + HUD live). */
+  private fieldToScene(x: number, y: number): PointData {
+    return { x: this.field.x + x * this.field.scale.x, y: this.field.y + y * this.field.scale.y };
+  }
+
+  /** Center of a HUD chip in scene / reward-layer space. */
+  private chipCenter(chip: ResourceChip): PointData {
+    return { x: chip.x + chip.chipW / 2, y: chip.y + chip.chipH / 2 };
+  }
+
+  /**
+   * Coins burst from a dead enemy and, after a ~200ms beat, stream to the gold
+   * chip; each landing pulses it while the counter ticks up (task §3).
+   */
+  private spawnGoldCoins(arenaX: number, arenaY: number, amount: number): void {
+    if (amount <= 0) return;
+    // Coins are sized ~1/3 of the enemy's on-screen size and spawn just under it.
+    const enemyScreen = this.enemySize * this.field.scale.x;
+    const from = this.fieldToScene(arenaX, arenaY);
+    from.y += enemyScreen * 0.28;
+    const count = Math.min(7, Math.max(3, Math.round(amount / 2)));
+    this.streamReward(from, this.goldChip, this.services.assets.get('icon_gold'), count, {
+      size: enemyScreen * 0.33,
+      flyDelay: 0.4,
+      grow: true,
+    });
+  }
+
+  /**
+   * Fly `count` reward tokens from `from` (scene space) into a HUD chip: each pops
+   * out small with a little scatter, holds, then arcs into the chip — coins *grow*
+   * on the way (quadratic) so they read as they approach the counter — and pulses
+   * it on arrival. Shared by kill-gold coins (§3) and wave-clear crystals (§4).
+   * `opts.size` is the rest size (scene px); the chip target is recomputed each
+   * frame so tokens still home if the HUD relays out mid-flight.
+   */
+  private streamReward(
+    from: PointData,
+    chip: ResourceChip,
+    tex: Texture,
+    count: number,
+    opts: { size: number; flyDelay: number; grow?: boolean },
+  ): void {
+    const { size, flyDelay } = opts;
+    const grow = opts.grow ?? false;
+    const baseScale = size / (tex.width || size);
+    for (let i = 0; i < count; i++) {
+      const coin = new Sprite(tex);
+      coin.anchor.set(0.5);
+      coin.scale.set(baseScale * 0.3);
+      coin.position.set(from.x, from.y);
+      coin.alpha = 0;
+      this.rewardLayer.addChild(coin);
+      const ang = (i / count) * Math.PI * 2 + i * 1.3;
+      const spread = size * (0.5 + (i % 3) * 0.35);
+      const scatterX = from.x + Math.cos(ang) * spread;
+      const scatterY = from.y + Math.sin(ang) * spread;
+
+      // Pop in + scatter, up to rest size.
+      this.track(
+        tween({
+          duration: 0.18,
+          easing: Easings.outBack,
+          onUpdate: (p) => {
+            if (coin.destroyed) return;
+            coin.alpha = Math.min(1, p * 1.6);
+            coin.position.set(from.x + (scatterX - from.x) * p, from.y + (scatterY - from.y) * p);
+            coin.scale.set(baseScale * (0.3 + 0.7 * p));
+          },
+        }),
+      );
+      // Hold, then stream into the chip; coins swell on the way via a quadratic ramp.
+      this.track(
+        tween({
+          duration: 0.5,
+          delay: flyDelay + i * 0.05,
+          easing: Easings.inOutSine,
+          onUpdate: (p) => {
+            if (coin.destroyed) return;
+            const tgt = this.chipCenter(chip);
+            coin.position.set(scatterX + (tgt.x - scatterX) * p, scatterY + (tgt.y - scatterY) * p);
+            const swell = grow ? 1 + 0.9 * (p * p) : 1 - 0.25 * p;
+            coin.scale.set(baseScale * swell);
+            coin.alpha = p > 0.85 ? 1 - (p - 0.85) / 0.15 : 1;
+          },
+          onComplete: () => {
+            if (!coin.destroyed) coin.destroy();
+            if (!chip.destroyed) chip.pulse();
+          },
+        }),
+      );
+    }
+  }
+
+  /**
+   * A Disruptor jammed a tower (§2.Г): a glitchy burst + a floating tag at the
+   * turret, plus a slot flash. A crit "STUN" reads heavier than a glancing "JAMMED".
+   */
+  private onTowerInterrupted(slotIndex: number, kind: 'glitch' | 'stun', x: number, y: number): void {
+    const color = kind === 'stun' ? COLORS.energyDanger : ELEMENTS.Electricity.glow;
+    this.burst(x, y, color, this.arenaW * (kind === 'stun' ? 0.06 : 0.04));
+    const label = makeText(kind === 'stun' ? 'STUN!' : 'JAMMED', 'label', {
+      fontSize: this.arenaW * 0.038,
+      fill: hex(color),
+    });
+    label.anchor.set(0.5);
+    const startY = y - this.arenaW * 0.05;
+    label.position.set(x, startY);
+    this.fxLayer.addChild(label);
+    this.track(
+      tween({
+        duration: 0.7,
+        easing: Easings.outCubic,
+        onUpdate: (p) => {
+          if (label.destroyed) return;
+          label.position.set(x, startY - this.arenaW * 0.05 * p);
+          label.alpha = 1 - p;
+        },
+        onComplete: () => { if (!label.destroyed) label.destroy(); },
+      }),
+    );
+    const slot = this.grid.slots[slotIndex];
+    if (slot) this.flash(slot, color);
+  }
+
+  /**
+   * Wave-clear celebration (task §4): a "WAVE REPELLED" plaque, then — on a Perfect
+   * Clear — the survived seconds animate-recompute into crystals ("Ns → N gems")
+   * which stream into the crystal chip and pulse it.
+   */
+  private playWaveClearedSequence(n: number, _perfect: boolean, crystals: number): void {
+    const { safe, full } = this.services.getLayout();
+    const cx = safe.x + safe.width / 2;
+    const cy = safe.y + safe.height * 0.32; // raised so the banner clears the crystal readout
+    const DIM = 0.5; // background darkening while the bonus message is up
+
+    // Dim the field behind the message.
+    const scrim = new Graphics();
+    scrim.rect(full.x, full.y, full.width, full.height).fill({ color: COLORS.black, alpha: 1 });
+    scrim.alpha = 0;
+    this.rewardLayer.addChild(scrim);
+
+    const root = new Container();
+    root.position.set(cx, cy);
+    root.alpha = 0;
+    this.rewardLayer.addChild(root);
+
+    const title = makeText('WAVE REPELLED', 'display', { fontSize: 64, fill: hex(COLORS.energyOk) });
+    title.anchor.set(0.5);
+    const sub = makeText(`WAVE ${n} CLEARED`, 'label', { fontSize: 28, fill: hex(COLORS.textBright) });
+    sub.anchor.set(0.5);
+    sub.position.set(0, 56);
+    root.addChild(title, sub);
+
+    // Fade the plaque + dim out together, then destroy.
+    const fadeOut = (delay: number) =>
+      this.track(
+        tween({
+          duration: 0.45,
+          delay,
+          easing: Easings.inOutSine,
+          onUpdate: (p) => {
+            if (!root.destroyed) root.alpha = 1 - p;
+            if (!scrim.destroyed) scrim.alpha = DIM * (1 - p);
+          },
+          onComplete: () => {
+            if (!root.destroyed) root.destroy();
+            if (!scrim.destroyed) scrim.destroy();
+          },
+        }),
+      );
+
+    // Pop the banner + dim in.
+    this.track(
+      tween({
+        duration: 0.4,
+        easing: Easings.outBack,
+        onUpdate: (p) => {
+          if (!root.destroyed) {
+            root.alpha = Math.min(1, p * 1.6);
+            title.scale.set(0.6 + 0.4 * p);
+          }
+          if (!scrim.destroyed) scrim.alpha = DIM * Math.min(1, p);
+        },
+      }),
+    );
+
+    if (crystals <= 0) {
+      fadeOut(1.1);
+      return;
+    }
+
+    // Crystal readout, well below the banner so they never overlap.
+    const ROW_Y = 196;
+    const reason = makeText('PERFECT CLEAR', 'label', { fontSize: 26, fill: hex(COLORS.crystal) });
+    reason.anchor.set(0.5);
+    reason.position.set(0, 134);
+    reason.alpha = 0;
+    const amount = makeText('0s', 'display', { fontSize: 56, fill: hex(COLORS.crystal) });
+    amount.anchor.set(0.5);
+    amount.position.set(0, ROW_Y);
+    amount.alpha = 0;
+    const gem = new Sprite(this.services.assets.get('icon_crystal'));
+    fitSprite(gem, 56, 56);
+    const gemBase = gem.scale.x;
+    gem.alpha = 0;
+    gem.position.set(0, ROW_Y);
+    // Pulsing glow behind the crystals, shown while they hold before flying.
+    const glow = glowCircle(72, COLORS.crystal, 0.6);
+    glow.position.set(0, ROW_Y);
+    glow.alpha = 0;
+    root.addChild(glow, reason, amount, gem);
+
+    // Phase 1: count "0s" → "Ns" (the survived time crystallizing).
+    this.track(
+      tween({
+        duration: 0.7,
+        delay: 0.5,
+        easing: Easings.outCubic,
+        onUpdate: (p) => {
+          if (root.destroyed) return;
+          reason.alpha = Math.min(1, p * 2);
+          amount.alpha = 1;
+          amount.text = `${Math.round(crystals * p)}s`;
+          amount.position.set(0, ROW_Y);
+        },
+        onComplete: () => {
+          if (root.destroyed) return;
+          // Phase 2: morph "Ns" → "N" + a crystal icon sliding in beside it.
+          amount.text = `${crystals}`;
+          amount.position.set(-amount.width * 0.45, ROW_Y);
+          this.track(
+            tween({
+              duration: 0.3,
+              easing: Easings.outBack,
+              onUpdate: (p) => {
+                if (gem.destroyed) return;
+                gem.alpha = p;
+                gem.scale.set(gemBase * (0.4 + 0.8 * p));
+                gem.position.set(amount.x + amount.width / 2 + 34, ROW_Y);
+              },
+              onComplete: () => {
+                if (gem.destroyed) return;
+                const gemX = gem.x;
+                glow.position.set(gemX, ROW_Y);
+                // Phase 3: pulse the glow for a beat, *then* stream the crystals.
+                this.track(
+                  tween({
+                    duration: 0.75,
+                    easing: Easings.linear,
+                    onUpdate: (p) => {
+                      if (glow.destroyed) return;
+                      const pulse = 0.5 + 0.5 * Math.sin(p * Math.PI * 4);
+                      glow.alpha = 0.35 + 0.45 * pulse;
+                      glow.scale.set(0.85 + 0.3 * pulse);
+                    },
+                    onComplete: () => {
+                      const fromScene = { x: cx + gemX, y: cy + ROW_Y };
+                      this.streamReward(
+                        fromScene,
+                        this.crystalChip,
+                        this.services.assets.get('icon_crystal'),
+                        Math.min(7, crystals),
+                        { size: 42, flyDelay: 0.06, grow: true },
+                      );
+                      this.track(
+                        tween({
+                          duration: 0.3,
+                          onUpdate: (p) => { if (!glow.destroyed) glow.alpha = 0.8 * (1 - p); },
+                        }),
+                      );
+                      fadeOut(0.5);
+                    },
+                  }),
+                );
+              },
+            }),
+          );
+        },
+      }),
+    );
+  }
+
+  /** Tick the displayed chip values toward the true state so the counters animate (not snap). */
+  private chaseChips(dt: number): void {
+    this.goldDisplayed = this.chaseValue(this.goldDisplayed, this.state.gold, dt, this.goldChip);
+    this.crystalDisplayed = this.chaseValue(this.crystalDisplayed, this.state.crystals, dt, this.crystalChip);
+  }
+
+  private chaseValue(displayed: number, target: number, dt: number, chip: ResourceChip): number {
+    if (displayed === target) return displayed;
+    const diff = target - displayed;
+    const step = Math.sign(diff) * Math.max(1, Math.ceil(Math.abs(diff) * dt * 5));
+    let next = displayed + step;
+    if ((diff > 0 && next > target) || (diff < 0 && next < target)) next = target;
+    chip.setValue(next);
+    return next;
   }
 
   private showBanner(kind: 'victory' | 'defeat'): void {
@@ -1832,6 +2218,7 @@ export class BattleScene extends Scene {
     this.syncProjectiles();
     this.syncCooldowns(dt);
     this.updateWaveToast(dt);
+    this.chaseChips(dt); // gold/crystal counters ease toward their true totals (§3/§4)
 
     // Keep the inspected tower's overload readout in step with load/capacity.
     if (this.inspectedIndex !== null) this.infoPanel.setOverload(this.towerOverloadPct(this.inspectedIndex));
@@ -1862,6 +2249,7 @@ export class BattleScene extends Scene {
   override onExit(): void {
     for (const t of this.tweens) t.stop();
     this.tweens.length = 0;
+    this.rewardLayer.removeChildren().forEach((c) => c.destroy());
     this.enemyViews.clear();
     this.enemyHpSeen.clear();
     this.projViews.clear();

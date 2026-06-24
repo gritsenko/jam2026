@@ -204,6 +204,75 @@ export const CARDS: Record<string, CardDef> = {
     blurb: 'Rapid fire • jumps to 2nd target',
     iconKey: 'plasma_shutter',
   },
+  // Heavy Railgun hybrids (v3 §6.5): each is a piercing line themed by its non-
+  // Railgun parent. They cost the "+3 load" the doc charges for cramming a Railgun
+  // into a hybrid. They reuse the Railgun art for now (real hybrid sprites later).
+  thermo_spear: {
+    id: 'thermo_spear',
+    name: 'Термокопьё',
+    shortName: 'THERMO SPEAR',
+    element: 'Fire',
+    category: 'attacking',
+    baseLoad: 3,
+    costGold: 35,
+    cooldown: 2.6,
+    buffStat: 'damage',
+    signature: 'pierce_length', // a fiery pierce line (Shrapnel-friendly: Fire+Physical)
+    hybrid: true,
+    slotElements: ['Physical', 'Water', 'Energy'],
+    slotEffects: ['SHRAPNEL', 'STEAM BURST', 'POWER'],
+    grades: [
+      { damage: 150, rangeCells: 3.0, buff: 18, sig: 3.0 },
+      { damage: 250, rangeCells: 3.8, buff: 24, sig: 3.8 },
+      { damage: 420, rangeCells: 4.8, buff: 24, sig: 4.8, diagonal: true },
+    ],
+    blurb: 'Pierces a line • detonates Fire',
+    iconKey: 'railgun',
+  },
+  icebreaker: {
+    id: 'icebreaker',
+    name: 'Ледобой',
+    shortName: 'ICEBREAKER',
+    element: 'Water',
+    category: 'attacking',
+    baseLoad: 3,
+    costGold: 35,
+    cooldown: 2.6,
+    buffStat: 'range',
+    signature: 'pierce_length', // pierce line that also chills the lane it cuts
+    hybrid: true,
+    slotElements: ['Electricity', 'Fire', 'Energy'],
+    slotEffects: ['SUPERCONDUCT', 'STEAM BURST', 'POWER'],
+    grades: [
+      { damage: 110, rangeCells: 3.0, buff: 22, sig: 3.0 },
+      { damage: 180, rangeCells: 3.6, buff: 30, sig: 3.6 },
+      { damage: 300, rangeCells: 4.4, buff: 30, sig: 4.4, diagonal: true },
+    ],
+    blurb: 'Pierces a line • chills targets',
+    iconKey: 'railgun',
+  },
+  gauss_coil: {
+    id: 'gauss_coil',
+    name: 'Гаусс-Катушка',
+    shortName: 'GAUSS COIL',
+    element: 'Electricity',
+    category: 'attacking',
+    baseLoad: 3,
+    costGold: 35,
+    cooldown: 2.6,
+    buffStat: 'tempo',
+    signature: 'pierce_length', // electrified pierce line; x2 vs Wet is intrinsic to Electricity
+    hybrid: true,
+    slotElements: ['Water', 'Energy', 'Fire'],
+    slotEffects: ['SUPERCONDUCT', 'POWER', '+DMG'],
+    grades: [
+      { damage: 90, rangeCells: 3.0, buff: 18, sig: 3.0 },
+      { damage: 150, rangeCells: 3.6, buff: 24, sig: 3.6 },
+      { damage: 260, rangeCells: 4.4, buff: 24, sig: 4.4, diagonal: true },
+    ],
+    blurb: 'Electric pierce line • x2 vs WET',
+    iconKey: 'railgun',
+  },
 };
 
 export const CARD_LIST: CardDef[] = Object.values(CARDS);
