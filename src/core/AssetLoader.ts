@@ -40,29 +40,36 @@ export class AssetLoader {
     this.renderer = renderer;
   }
 
-  /** Build all placeholders, then load whatever real sprites exist on disk. */
-  async init(): Promise<void> {
+  /**
+   * Build all placeholders, then load whatever real sprites exist on disk.
+   * `onProgress` (0–1) is forwarded from the texture loader so the boot splash
+   * can show real download progress — this is the slow step on mobile.
+   */
+  async init(onProgress?: (fraction: number) => void): Promise<void> {
     for (const spec of ASSETS) {
       this.placeholders.set(spec.key, this.buildPlaceholder(spec.placeholder));
     }
 
     const entries = Object.entries(SPRITE_URLS);
-    if (entries.length > 0) {
-      const keys: string[] = [];
-      for (const [path, url] of entries) {
-        const key = basename(path);
-        Assets.add({ alias: key, src: url });
-        keys.push(key);
+    if (entries.length === 0) {
+      onProgress?.(1);
+      return;
+    }
+    const keys: string[] = [];
+    for (const [path, url] of entries) {
+      const key = basename(path);
+      Assets.add({ alias: key, src: url });
+      keys.push(key);
+    }
+    try {
+      const loaded = (await Assets.load(keys, onProgress)) as Record<string, Texture>;
+      for (const key of keys) {
+        const tex = loaded[key];
+        if (tex) this.real.set(key, tex);
       }
-      try {
-        const loaded = (await Assets.load(keys)) as Record<string, Texture>;
-        for (const key of keys) {
-          const tex = loaded[key];
-          if (tex) this.real.set(key, tex);
-        }
-      } catch (err) {
-        console.warn('[AssetLoader] some sprites failed to load; using placeholders.', err);
-      }
+    } catch (err) {
+      console.warn('[AssetLoader] some sprites failed to load; using placeholders.', err);
+      onProgress?.(1);
     }
   }
 

@@ -1,6 +1,7 @@
 import { Application, Container } from 'pixi.js';
 import { COLORS } from '../theme';
 import { AssetLoader } from './AssetLoader';
+import { bootDone, bootProgress } from './boot';
 import { loadFonts } from './fonts';
 import { ResponsiveLayout } from './ResponsiveLayout';
 import { SceneManager } from './SceneManager';
@@ -39,13 +40,18 @@ export class Game {
     const mount = document.getElementById('app') ?? document.body;
     mount.appendChild(this.app.canvas);
     setTweenTicker(this.app.ticker);
+    bootProgress(8);
 
     // Register bundled web fonts before any Text is created (placeholders below
     // and every scene render rely on the families declared in FONTS).
     await loadFonts();
+    bootProgress(20);
 
+    // Loading the sprite PNGs is the slow step on mobile — drive the splash bar
+    // with real download progress (mapped into the 20–92% band).
     this.assets = new AssetLoader(this.app.renderer);
-    await this.assets.init();
+    await this.assets.init((fraction) => bootProgress(20 + fraction * 72));
+    bootProgress(92);
 
     this.app.stage.addChild(this.sceneRoot, this.overlayRoot);
     this.layout = new ResponsiveLayout(this.sceneRoot);
@@ -84,7 +90,8 @@ export class Game {
     this.handleResize();
     this.scenes.start(start);
 
-    document.getElementById('boot')?.remove();
+    bootProgress(100);
+    bootDone();
   }
 
   private handleResize(): void {

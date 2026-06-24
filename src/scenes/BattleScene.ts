@@ -514,7 +514,22 @@ export class BattleScene extends Scene {
     this.drawInspectRange(index, def, placed.grade); // attack radius over the road
     this.infoPanel.setWidth(this.infoPanelWidth);
     this.infoPanel.show(def, placed.grade, towerStats(def, placed.grade), this.synergy[index] ?? null);
+    this.infoPanel.setOverload(this.towerOverloadPct(index));
     this.infoPanel.position.set(this.infoPanelPos.x, this.infoPanelPos.y);
+  }
+
+  /**
+   * The live overload fire-rate penalty (percent) for the tower in `index`, for
+   * the inspection readout. Attacking towers only (matching the on-grid badge);
+   * 0 when not overloaded or the battle isn't running.
+   */
+  private towerOverloadPct(index: number): number {
+    const placed = this.state.slots[index];
+    if (!placed || this.sim.status !== 'running') return 0;
+    const def = getCard(placed.cardId);
+    if (def.category !== 'attacking') return 0;
+    const overload = overloadAmount(this.state.energyLoad, this.effectiveCapacity);
+    return Math.round(towerOverloadPenalty(overload, cardLoad(def, placed.grade)) * 100);
   }
 
   private clearInspect(): void {
@@ -1817,6 +1832,9 @@ export class BattleScene extends Scene {
     this.syncProjectiles();
     this.syncCooldowns(dt);
     this.updateWaveToast(dt);
+
+    // Keep the inspected tower's overload readout in step with load/capacity.
+    if (this.inspectedIndex !== null) this.infoPanel.setOverload(this.towerOverloadPct(this.inspectedIndex));
 
     // Overdrive countdown: tick each burn stack; resync capacity when one expires.
     if (this.overdriveStacks.length > 0) {

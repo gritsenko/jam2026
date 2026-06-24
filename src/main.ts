@@ -19,6 +19,7 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   console.error('[Synergy Grid TD] failed to start', err);
-  const boot = document.getElementById('boot');
-  if (boot) boot.textContent = 'Failed to start — see console';
+  const title = document.querySelector('#boot .boot-title');
+  if (title) title.textContent = 'Failed to start — see console';
+  document.querySelector('#boot .boot-track')?.remove();
 });

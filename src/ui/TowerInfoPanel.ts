@@ -37,6 +37,11 @@ export class TowerInfoPanel extends Container {
   private signature: Text;
   private outgoing: Text;
   private incoming: Text;
+  /** Right-side overload readout: caption + the live fire-rate penalty (v3 §3.А). */
+  private overloadLabel: Text;
+  private overloadValue: Text;
+  /** Last shown overload percent (0 = no penalty → readout hidden). */
+  private overloadPct = 0;
   /** Slipways-style row of synergy slots (one per grade level, v2 §9). */
   private slotsRow = new Container();
   /** Caption above the synergy-slot row. */
@@ -54,8 +59,14 @@ export class TowerInfoPanel extends Container {
     this.signature = makeText('', 'label', { fontSize: 20, fill: hex(COLORS.crystal) });
     this.outgoing = makeText('', 'small', { fontSize: 20, fill: hex(COLORS.dropValid) });
     this.incoming = makeText('', 'small', { fontSize: 20, fill: hex(COLORS.textDim) });
+    this.overloadLabel = makeText('OVERLOAD', 'label', { fontSize: 15, fill: hex(COLORS.textMuted) });
+    this.overloadLabel.anchor.set(1, 0);
+    this.overloadLabel.visible = false;
+    this.overloadValue = makeText('', 'value', { fontSize: 24, fill: hex(COLORS.energyDanger) });
+    this.overloadValue.anchor.set(1, 0);
+    this.overloadValue.visible = false;
     this.slotsLabel = makeText('SYNERGY SLOTS', 'label', { fontSize: 18, fill: hex(COLORS.textMuted) });
-    this.addChild(this.title, this.element, this.stats, this.signature, this.outgoing, this.incoming, this.slotsLabel, this.slotsRow);
+    this.addChild(this.title, this.element, this.stats, this.signature, this.outgoing, this.incoming, this.overloadLabel, this.overloadValue, this.slotsLabel, this.slotsRow);
     this.visible = false;
     this.redraw();
   }
@@ -122,12 +133,34 @@ export class TowerInfoPanel extends Container {
     // Per-slot synergy breakdown (Slipways-style "resource" row, v2 §9).
     this.buildSlots(def, grade, synergy);
 
+    // Reset the overload readout; the scene feeds the live value via setOverload.
+    this.overloadPct = 0;
+    this.overloadLabel.visible = false;
+    this.overloadValue.visible = false;
+
     this.redraw();
     this.visible = true;
   }
 
   hide(): void {
     this.visible = false;
+  }
+
+  /**
+   * Live overload penalty for the inspected tower (v3 §3.А), shown as a separate
+   * right-side readout. `pct` is the percent of fire rate lost; 0 hides it. The
+   * scene pushes this every frame while a tower is inspected, so it tracks load /
+   * capacity changes. Reflows only when the value actually changes.
+   */
+  setOverload(pct: number): void {
+    const next = Math.max(0, Math.round(pct));
+    if (next === this.overloadPct) return;
+    this.overloadPct = next;
+    const visible = next > 0;
+    this.overloadValue.text = visible ? `-${next}% SPD` : '';
+    this.overloadLabel.visible = visible;
+    this.overloadValue.visible = visible;
+    this.redraw();
   }
 
   /**
@@ -232,9 +265,26 @@ export class TowerInfoPanel extends Container {
     this.slotsLabel.position.set(pad, 188);
     this.slotsRow.position.set(pad, 212);
 
-    // Keep the lines inside the panel.
+    // Overload penalty: a separate readout stacked in the top-right, under the
+    // element label. Reserves a right column so the stats/signature lines (which
+    // share those rows) never run under it.
+    let rightColW = 0;
+    if (this.overloadValue.visible) {
+      this.overloadLabel.scale.set(1);
+      this.overloadValue.scale.set(1);
+      this.overloadLabel.position.set(W - pad, 50);
+      this.overloadValue.position.set(W - pad, 68);
+      rightColW = Math.max(this.overloadLabel.width, this.overloadValue.width) + 18;
+    }
+
+    // Keep the lines inside the panel; the top two rows also clear the right column.
     const maxW = W - pad * 2;
-    for (const t of [this.stats, this.signature, this.outgoing, this.incoming]) {
+    const topMaxW = maxW - rightColW;
+    for (const t of [this.stats, this.signature]) {
+      t.scale.set(1);
+      if (t.width > topMaxW) t.scale.set(topMaxW / t.width);
+    }
+    for (const t of [this.outgoing, this.incoming]) {
       t.scale.set(1);
       if (t.width > maxW) t.scale.set(maxW / t.width);
     }
