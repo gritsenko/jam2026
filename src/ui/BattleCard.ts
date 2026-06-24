@@ -36,6 +36,9 @@ export class BattleCard extends Container {
   // Dim + red "locked" veil shown when the card is unaffordable.
   private lockOverlay = new Container();
 
+  // Bright element-colored ring drawn while the card is tapped/selected.
+  private selectGlow = new Graphics();
+
   constructor(def: CardDef, grade: number, art: Texture, opts: BattleCardOptions = {}) {
     super();
     this.def = def;
@@ -93,6 +96,27 @@ export class BattleCard extends Container {
     // Cost row: two compact chips — energy load + gold price.
     this.buildCostRow(opts.energyIcon, opts.goldIcon);
     this.buildLockOverlay();
+    // Selection ring sits on top so a tapped card reads even over the lock veil.
+    this.addChild(this.selectGlow);
+  }
+
+  /**
+   * Toggle the tapped/selected highlight — a bright element-colored ring with a
+   * soft outer glow, so the inspected hand card stands out from the rest.
+   */
+  setSelected(on: boolean): void {
+    this.selectGlow.clear();
+    if (!on) return;
+    const W = this.cardW;
+    const H = this.cardH;
+    const glow = ELEMENTS[this.def.element].glow;
+    for (let i = 3; i >= 1; i--) {
+      const grow = i * 5;
+      this.selectGlow
+        .roundRect(-W / 2 - grow, -H / 2 - grow, W + grow * 2, H + grow * 2, 20 + grow)
+        .stroke({ width: 5, color: glow, alpha: 0.16 });
+    }
+    this.selectGlow.roundRect(-W / 2, -H / 2, W, H, 20).stroke({ width: 4, color: glow, alpha: 0.95 });
   }
 
   /**
@@ -110,7 +134,9 @@ export class BattleCard extends Container {
     const r = 12; // 2x — matches the enlarged on-platform dots
     const gap = r * 2.7;
     const startX = -((els.length - 1) * gap) / 2;
-    const y = this.cardH * 0.3;
+    // Sit just above the name banner (bottom edge of the art): the enlarged dots
+    // no longer crowd the cost chips, and the grade preview reads up top.
+    const y = -this.cardH * 0.02;
     els.forEach((el, i) => {
       const skin = ELEMENTS[el];
       const color = skin.glow;

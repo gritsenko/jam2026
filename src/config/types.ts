@@ -87,6 +87,13 @@ export interface CardDef {
    * Support cards leave this empty and instead show coverage dots.
    */
   readonly slotElements: ElementId[];
+  /**
+   * Short effect label per synergy slot, parallel to {@link slotElements} (v2 §9):
+   * what the i-th slot grants once its wanted element is adjacent — a resonance
+   * reaction ("STEAM BURST"), "POWER" (energy feed), or a stat buff. Empty/omitted
+   * for support cards, which fill a coverage role instead of resonating.
+   */
+  readonly slotEffects?: readonly string[];
   /** Per-grade stat tables (3 entries: Grade I / II / III). */
   readonly grades: readonly [CardGrade, CardGrade, CardGrade];
   /** One-line flavor for the card face / tooltip. */

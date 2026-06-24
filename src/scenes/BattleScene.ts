@@ -198,6 +198,9 @@ export class BattleScene extends Scene {
     arena.anchor.set(0);
     arena.width = this.arenaW;
     arena.height = this.arenaH;
+    // A tap on empty field (anywhere not a tower) dismisses the current selection.
+    arena.eventMode = 'static';
+    arena.on('pointertap', () => { if (!this.dragging) this.clearInspect(); });
     this.field.addChild(arena);
 
     this.grid = new PlatformGrid(assets, 720);
@@ -404,6 +407,7 @@ export class BattleScene extends Scene {
     }
     this.clearInspect();
     this.inspectedCard = card;
+    card.setSelected(true);
     this.infoPanel.setWidth(this.infoPanelWidth);
     this.infoPanel.show(card.def, card.grade, towerStats(card.def, card.grade));
     this.infoPanel.position.set(this.infoPanelPos.x, this.infoPanelPos.y);
@@ -494,6 +498,7 @@ export class BattleScene extends Scene {
       this.inspectRange.clear();
       this.inspectRange.visible = false;
     }
+    if (this.inspectedCard && !this.inspectedCard.destroyed) this.inspectedCard.setSelected(false);
     this.inspectedCard = null;
     this.infoPanel.hide();
   }

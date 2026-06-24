@@ -22,6 +22,7 @@ export const CARDS: Record<string, CardDef> = {
     buffStat: 'damage',
     signature: 'projectile_power', // damage per shot
     slotElements: ['Water', 'Physical', 'Energy'],
+    slotEffects: ['STEAM BURST', 'SHRAPNEL', 'POWER'],
     grades: [
       { damage: 15, rangeCells: 2, buff: 15, sig: 15 },
       { damage: 23, rangeCells: 2, buff: 22, sig: 23 },
@@ -42,6 +43,7 @@ export const CARDS: Record<string, CardDef> = {
     buffStat: 'range',
     signature: 'freeze_radius', // sig = slow %, sig2 = Wet seconds
     slotElements: ['Electricity', 'Fire', 'Energy'],
+    slotEffects: ['SUPERCONDUCT', 'STEAM BURST', 'POWER'],
     grades: [
       { damage: 8, rangeCells: 2.4, buff: 20, sig: 25, sig2: 3 },
       { damage: 8, rangeCells: 2.6, buff: 30, sig: 35, sig2: 3 },
@@ -62,6 +64,7 @@ export const CARDS: Record<string, CardDef> = {
     buffStat: 'tempo',
     signature: 'chain_targets', // sig = number of chain targets
     slotElements: ['Water', 'Energy', 'Fire'],
+    slotEffects: ['SUPERCONDUCT', 'POWER', '+DMG'],
     grades: [
       { damage: 10, rangeCells: 2, buff: 15, sig: 3 },
       { damage: 10, rangeCells: 2.1, buff: 22, sig: 5 },
@@ -82,6 +85,7 @@ export const CARDS: Record<string, CardDef> = {
     buffStat: 'tempo', // a *penalty* to neighbors (negative), fades with grade
     signature: 'pierce_length', // sig = attack range cells (line length)
     slotElements: ['Energy', 'Fire', 'Water'],
+    slotEffects: ['POWER', 'SHRAPNEL', 'CHILL'],
     grades: [
       { damage: 120, rangeCells: 2.6, buff: -5, sig: 2.6 },
       { damage: 200, rangeCells: 3.4, buff: -2, sig: 3.4 },

@@ -2,7 +2,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import { COLORS, ELEMENTS, hex } from '../theme';
 import type { BuffStat, CardDef } from '../config/types';
 import { cardGrade } from '../config/cards';
-import { getReaction } from '../config/resonance';
+import { reactionFor } from '../config/resonance';
 import { SUPERCONDUCT_TEMPO_MULT } from '../config/combatRules';
 import type { SlotSynergy } from '../game/synergy';
 import { drawPanel, makeText } from './helpers';
@@ -37,9 +37,12 @@ export class TowerInfoPanel extends Container {
   private signature: Text;
   private outgoing: Text;
   private incoming: Text;
-  private resonance: Text;
+  /** Slipways-style row of synergy slots (one per grade level, v2 §9). */
+  private slotsRow = new Container();
+  /** Caption above the synergy-slot row. */
+  private slotsLabel: Text;
   private panelW = 760;
-  readonly panelH = 232;
+  readonly panelH = 286;
 
   constructor() {
     super();
@@ -51,8 +54,8 @@ export class TowerInfoPanel extends Container {
     this.signature = makeText('', 'label', { fontSize: 20, fill: hex(COLORS.crystal) });
     this.outgoing = makeText('', 'small', { fontSize: 20, fill: hex(COLORS.dropValid) });
     this.incoming = makeText('', 'small', { fontSize: 20, fill: hex(COLORS.textDim) });
-    this.resonance = makeText('', 'label', { fontSize: 22, fill: hex(COLORS.energyOverdrive) });
-    this.addChild(this.title, this.element, this.stats, this.signature, this.outgoing, this.incoming, this.resonance);
+    this.slotsLabel = makeText('SYNERGY SLOTS', 'label', { fontSize: 18, fill: hex(COLORS.textMuted) });
+    this.addChild(this.title, this.element, this.stats, this.signature, this.outgoing, this.incoming, this.slotsLabel, this.slotsRow);
     this.visible = false;
     this.redraw();
   }
@@ -116,13 +119,8 @@ export class TowerInfoPanel extends Container {
       this.incoming.text = synergy ? '← Receiving: none' : '';
     }
 
-    // Resonance line.
-    if (synergy && synergy.reactions.length > 0) {
-      this.resonance.text = `RESONANCE: ${synergy.reactions.map((r) => getReaction(r).name).join(' + ')}`;
-      this.resonance.visible = true;
-    } else {
-      this.resonance.visible = false;
-    }
+    // Per-slot synergy breakdown (Slipways-style "resource" row, v2 §9).
+    this.buildSlots(def, grade, synergy);
 
     this.redraw();
     this.visible = true;
@@ -130,6 +128,85 @@ export class TowerInfoPanel extends Container {
 
   hide(): void {
     this.visible = false;
+  }
+
+  /**
+   * Build the synergy-slot row: one cell per grade level (v2 §9 slot order). Each
+   * cell shows the element the slot wants and the effect it grants when present —
+   * a resonance reaction, "POWER" or a stat buff. Cells light up when that effect
+   * is actually live, dim while merely open, and read "LOCKED" until the tower's
+   * grade unlocks them. Support cards show their coverage instead.
+   */
+  private buildSlots(def: CardDef, grade: number, synergy: SlotSynergy | null): void {
+    this.slotsRow.removeChildren().forEach((c) => c.destroy());
+
+    // Support: coverage role, not resonance.
+    if (def.slotElements.length === 0) {
+      const cov = synergy?.coverage ?? 0;
+      const verb = def.signature === 'energy_output' ? 'Powers' : 'Shields';
+      const t = makeText(`${verb} ${cov} adjacent tower${cov === 1 ? '' : 's'}`, 'small', {
+        fontSize: 20,
+        fill: hex(COLORS.textDim),
+      });
+      this.slotsRow.addChild(t);
+      return;
+    }
+
+    const maxW = this.panelW - 22 * 2;
+    const gap = 12;
+    const cellW = (maxW - gap * 2) / 3;
+    const cellH = 56;
+    const incoming = synergy?.incomingElements ?? [];
+
+    for (let k = 0; k < 3; k++) {
+      const el = def.slotElements[k] ?? def.element;
+      const skin = ELEMENTS[el];
+      const reaction = reactionFor(def.element, el);
+      const open = k < grade;
+      const active =
+        open && synergy ? (reaction ? synergy.reactions.includes(reaction.id) : incoming.includes(el)) : false;
+      const effect = def.slotEffects?.[k] ?? (reaction ? reaction.name : el === 'Energy' ? 'POWER' : '+BUFF');
+
+      const cell = new Container();
+      cell.position.set(k * (cellW + gap), 0);
+
+      const bg = new Graphics();
+      const edge = !open ? COLORS.metalLight : active ? skin.glow : COLORS.brass;
+      bg.roundRect(0, 0, cellW, cellH, 10).fill({ color: COLORS.metalDark, alpha: open ? 0.92 : 0.45 });
+      bg.roundRect(0, 0, cellW, cellH, 10).stroke({ width: active ? 3 : 2, color: edge, alpha: active ? 1 : 0.6 });
+      cell.addChild(bg);
+
+      // Element "LED": dark element socket, lit when the effect is live (§9).
+      const dotR = 10;
+      const dotX = 20;
+      const dotY = cellH / 2;
+      const dot = new Graphics();
+      dot.circle(dotX, dotY, dotR + 3).fill({ color: skin.dark, alpha: open ? 0.95 : 0.5 });
+      if (active) {
+        dot.circle(dotX, dotY, dotR + 4).stroke({ width: 2, color: skin.glow, alpha: 0.7 });
+        dot.circle(dotX, dotY, dotR).fill({ color: skin.glow });
+      } else {
+        dot.circle(dotX, dotY, dotR).fill({ color: COLORS.black, alpha: 0.4 });
+        dot.circle(dotX, dotY, dotR).stroke({ width: 1.5, color: skin.glow, alpha: open ? 0.6 : 0.3 });
+      }
+      cell.addChild(dot);
+
+      const textX = dotX + dotR + 10;
+      const lv = makeText(`Lv${k + 1}`, 'micro', { fontSize: 15, fill: hex(open ? COLORS.textDim : COLORS.textMuted) });
+      lv.position.set(textX, 9);
+      cell.addChild(lv);
+
+      const label = makeText(open ? effect : 'LOCKED', 'label', {
+        fontSize: 19,
+        fill: hex(open ? (active ? skin.glow : COLORS.textBright) : COLORS.textMuted),
+      });
+      label.position.set(textX, 28);
+      const labelMaxW = cellW - textX - 8;
+      if (label.width > labelMaxW) label.scale.set(labelMaxW / label.width);
+      cell.addChild(label);
+
+      this.slotsRow.addChild(cell);
+    }
   }
 
   private redraw(): void {
@@ -152,11 +229,12 @@ export class TowerInfoPanel extends Container {
     this.signature.position.set(pad, 90);
     this.outgoing.position.set(pad, 122);
     this.incoming.position.set(pad, 154);
-    this.resonance.position.set(pad, 190);
+    this.slotsLabel.position.set(pad, 188);
+    this.slotsRow.position.set(pad, 212);
 
     // Keep the lines inside the panel.
     const maxW = W - pad * 2;
-    for (const t of [this.stats, this.signature, this.outgoing, this.incoming, this.resonance]) {
+    for (const t of [this.stats, this.signature, this.outgoing, this.incoming]) {
       t.scale.set(1);
       if (t.width > maxW) t.scale.set(maxW / t.width);
     }
