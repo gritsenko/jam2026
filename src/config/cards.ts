@@ -134,6 +134,72 @@ export const CARDS: Record<string, CardDef> = {
     blurb: '+energy • slows neighbors',
     iconKey: 'grid_stabilizer',
   },
+  // --- Modernization (global platform upgrades, docs/done/modernization-cards.md) ---
+  // Not placed in a slot: dragging one holos the *whole* platform and releasing
+  // over it applies the upgrade globally. They carry no synergy / signature (the
+  // placeholder fields below are inert — the card is gated by `category` /
+  // `mod` everywhere it matters). Prices mirror docs/cards.json `global_upgrades`.
+  isolation_circuit: {
+    id: 'isolation_circuit',
+    name: 'Изоляционный Контур',
+    shortName: 'ISOLATION',
+    element: 'Energy',
+    category: 'modernization',
+    mod: 'isolation',
+    baseLoad: 0,
+    costGold: 150,
+    buffStat: 'damage', // inert (modernization cards broadcast nothing)
+    signature: 'energy_output', // inert placeholder
+    slotElements: [],
+    grades: [
+      { buff: 0, sig: 0 },
+      { buff: 0, sig: 0 },
+      { buff: 0, sig: 0 },
+    ],
+    blurb: '+2 base capacity • all battle',
+    iconKey: 'isolation_circuit',
+  },
+  elemental_focus: {
+    id: 'elemental_focus',
+    name: 'Элементальный Фокус',
+    shortName: 'FOCUS',
+    element: 'Physical',
+    category: 'modernization',
+    mod: 'focus',
+    baseLoad: 0,
+    costGold: 120,
+    buffStat: 'damage',
+    signature: 'energy_output',
+    slotElements: [],
+    grades: [
+      { buff: 0, sig: 0 },
+      { buff: 0, sig: 0 },
+      { buff: 0, sig: 0 },
+    ],
+    blurb: '+25% DMG to one element • this wave',
+    iconKey: 'elemental_focus',
+  },
+  emergency_overdrive: {
+    id: 'emergency_overdrive',
+    name: 'Экстренный Овердрайв',
+    shortName: 'OVERDRIVE',
+    element: 'Fire',
+    category: 'modernization',
+    mod: 'overdrive',
+    baseLoad: 0,
+    costGold: 0,
+    costCrystals: 80,
+    buffStat: 'damage',
+    signature: 'energy_output',
+    slotElements: [],
+    grades: [
+      { buff: 0, sig: 0 },
+      { buff: 0, sig: 0 },
+      { buff: 0, sig: 0 },
+    ],
+    blurb: 'Reactor overdrive 10s • no card burned',
+    iconKey: 'emergency_overdrive',
+  },
   // --- Hybrids (fusion in hand, v2 §6.5) ----------------------------------
   // Crafted from two different base cards; compact two-element kits with a
   // boosted base stat line. They reuse a parent's art for now — real hybrid

@@ -10,6 +10,8 @@ export interface BattleCardOptions {
   energyIcon?: Texture;
   /** Gold-coin texture for the cost chip (assets key 'icon_gold'). */
   goldIcon?: Texture;
+  /** Crystal texture for cards priced in crystals (modernization Overdrive). */
+  crystalIcon?: Texture;
 }
 
 /**
@@ -28,10 +30,13 @@ export class BattleCard extends Container {
   /** Whether the player can currently afford this card (gates dragging). */
   affordable = true;
 
-  // Gold chip pieces, recolored when affordability changes.
+  // Cost chip pieces, recolored when affordability changes. For build cards this
+  // is the gold price chip; for a modernization card it is the single (gold or
+  // crystal) cost chip. `costColor` is the affordable color it returns to.
   private goldChipBg = new Graphics();
   private goldChipRect: [number, number, number, number] = [0, 0, 0, 0];
   private goldValue!: Text;
+  private costColor: number = COLORS.gold;
 
   // Dim + red "locked" veil shown when the card is unaffordable.
   private lockOverlay = new Container();
@@ -93,8 +98,9 @@ export class BattleCard extends Container {
     // Influence-dot row (v2 §9): count = grade, color = wanted-neighbor element.
     this.buildDotRow();
 
-    // Cost row: two compact chips — energy load + gold price.
-    this.buildCostRow(opts.energyIcon, opts.goldIcon);
+    // Cost row: two compact chips — energy load + gold price (a single
+    // gold/crystal chip for modernization cards, which add no load).
+    this.buildCostRow(opts.energyIcon, opts.goldIcon, opts.crystalIcon);
     this.buildLockOverlay();
     // Selection ring sits on top so a tapped card reads even over the lock veil.
     this.addChild(this.selectGlow);
@@ -125,6 +131,8 @@ export class BattleCard extends Container {
    * support cards). Mirrors the lit dots that appear once the card is placed.
    */
   private buildDotRow(): void {
+    // Modernization cards carry no synergy slots — no dot row.
+    if (this.def.category === 'modernization') return;
     const slots = Math.min(Math.max(this.grade, 1), 3);
     const els =
       this.def.category === 'support'
@@ -155,7 +163,13 @@ export class BattleCard extends Container {
    * this card adds to the network; `-n` green for generators) and a gold chip
    * (its play price). Both are origin-centered so they travel with the card.
    */
-  private buildCostRow(energyIcon?: Texture, goldIcon?: Texture): void {
+  private buildCostRow(energyIcon?: Texture, goldIcon?: Texture, crystalIcon?: Texture): void {
+    // Modernization cards add no network load — show a single centered cost chip
+    // (the gold or crystal price) instead of the energy + gold pair.
+    if (this.def.category === 'modernization') {
+      this.buildModCostChip(goldIcon, crystalIcon);
+      return;
+    }
     const W = this.cardW;
     const H = this.cardH;
 
@@ -183,6 +197,31 @@ export class BattleCard extends Container {
     this.goldValue = makeText(String(this.def.costGold), 'value', { fontSize: 26, fill: hex(COLORS.gold) });
     this.paintChip(this.goldChipBg, rightCx, cy, chipW, chipH, COLORS.gold);
     this.layoutChipContent(rightCx, cy, chipW, chipH, goldIcon, this.goldValue);
+  }
+
+  /**
+   * A single centered cost chip for a modernization card — crystal-priced when
+   * {@link CardDef.costCrystals} is set (Emergency Overdrive), gold otherwise.
+   * Reuses the affordability-recolored gold-chip fields so {@link setAffordable}
+   * keeps working unchanged.
+   */
+  private buildModCostChip(goldIcon?: Texture, crystalIcon?: Texture): void {
+    const W = this.cardW;
+    const H = this.cardH;
+    const chipH = 40;
+    const chipW = W * 0.62;
+    const cx = 0;
+    const cy = H / 2 - chipH / 2 - 14;
+    const crystal = (this.def.costCrystals ?? 0) > 0;
+    this.costColor = crystal ? COLORS.crystal : COLORS.gold;
+    const value = crystal ? this.def.costCrystals! : this.def.costGold;
+    const icon = crystal ? crystalIcon : goldIcon;
+
+    this.goldChipRect = [cx - chipW / 2, cy - chipH / 2, chipW, chipH];
+    this.addChild(this.goldChipBg);
+    this.goldValue = makeText(String(value), 'value', { fontSize: 26, fill: hex(this.costColor) });
+    this.paintChip(this.goldChipBg, cx, cy, chipW, chipH, this.costColor);
+    this.layoutChipContent(cx, cy, chipW, chipH, icon, this.goldValue);
   }
 
   /** Draw a single rounded cost-chip background with a colored edge. */
@@ -219,7 +258,8 @@ export class BattleCard extends Container {
     veil.roundRect(-W / 2, -H / 2, W, H, 20).fill({ color: COLORS.black, alpha: 0.5 });
     veil.roundRect(-W / 2, -H / 2, W, H, 20).stroke({ width: 5, color: COLORS.energyDanger, alpha: 0.85 });
     this.lockOverlay.addChild(veil);
-    const label = makeText('NEED GOLD', 'label', { fontSize: 26, fill: hex(COLORS.energyDanger) });
+    const lockText = (this.def.costCrystals ?? 0) > 0 ? 'NEED GEMS' : 'NEED GOLD';
+    const label = makeText(lockText, 'label', { fontSize: 26, fill: hex(COLORS.energyDanger) });
     label.anchor.set(0.5);
     if (label.width > W - 30) label.scale.set((W - 30) / label.width);
     this.lockOverlay.addChild(label);
@@ -237,7 +277,7 @@ export class BattleCard extends Container {
     this.affordable = affordable;
     this.lockOverlay.visible = !affordable;
     this.cursor = affordable ? 'grab' : 'not-allowed';
-    const color = affordable ? COLORS.gold : COLORS.energyDanger;
+    const color = affordable ? this.costColor : COLORS.energyDanger;
     this.goldValue.style.fill = hex(color);
     const [x, y, w, h] = this.goldChipRect;
     this.paintChip(this.goldChipBg, x + w / 2, y + h / 2, w, h, color);

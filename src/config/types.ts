@@ -5,7 +5,17 @@ export type { ElementId };
 /** Orthogonal directions — still used by the grid to draw broadcast arrows. */
 export type Direction = 'Up' | 'Down' | 'Left' | 'Right';
 
-export type CardCategory = 'attacking' | 'support';
+export type CardCategory = 'attacking' | 'support' | 'modernization';
+
+/**
+ * Which platform-wide upgrade a modernization card applies (docs/done/modernization-cards.md).
+ * Unlike build cards, these never occupy a slot — they apply to the *whole*
+ * platform on release over it:
+ * - `isolation` — permanently (for the battle) raises the network's base capacity;
+ * - `focus` — buffs the damage of all towers of a chosen element until the wave ends;
+ * - `overdrive` — an emergency Reactor overdrive window paid in crystals, no card burned.
+ */
+export type ModEffect = 'isolation' | 'focus' | 'overdrive';
 
 /** Stat a card broadcasts to its neighbors (drives the buff badges + combat). */
 export type BuffStat = 'damage' | 'range' | 'tempo' | 'defense';
@@ -75,6 +85,16 @@ export interface CardDef {
   readonly baseLoad: number;
   /** Gold spent to place this card from the hand. */
   readonly costGold: number;
+  /**
+   * Crystal price instead of gold, for cards paid in the hard currency
+   * (modernization Emergency Overdrive). Omitted → the card is paid in {@link costGold}.
+   */
+  readonly costCrystals?: number;
+  /**
+   * Modernization cards only ({@link CardCategory} `modernization`): the global
+   * platform effect applied on release over the platform. Build cards leave it undefined.
+   */
+  readonly mod?: ModEffect;
   /** Base seconds between shots (attacking towers). */
   readonly cooldown?: number;
   /** Which neighbor stat this card buffs / penalizes. */

@@ -1,5 +1,5 @@
 import { Container, type FederatedPointerEvent, Graphics, type PointData, Sprite, type Texture } from 'pixi.js';
-import { COLORS, ELEMENTS, hex } from '../theme';
+import { COLORS, ELEMENTS, type ElementId, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
@@ -7,6 +7,9 @@ import { createBattleState } from '../config/battleState';
 import {
   HAND_RESPAWN_SEC,
   HAND_SIZE,
+  MOD_EMERGENCY_OVERDRIVE_SEC,
+  MOD_FOCUS_DMG_MULT,
+  MOD_ISOLATION_CAPACITY,
   OVERDRIVE_SEC,
   overdriveCost,
   REROLL_BASE_COST,
@@ -26,8 +29,8 @@ import { cardLoad, getCard } from '../config/cards';
 import { getEnemy } from '../config/enemies';
 import { FUSION_CRYSTAL_COST, fusionGoldCost, fusionResult } from '../config/fusion';
 import { combatForLevel, type LevelCombat } from '../config/levelCombat';
-import { DRAW_POOL } from '../config/battleRules';
-import type { BattleStateMock, CardDef } from '../config/types';
+import { DRAW_POOL, MOD_CARD_POOL, MOD_DRAW_CHANCE } from '../config/battleRules';
+import type { BattleStateMock, CardDef, HandCard } from '../config/types';
 import { towersUnlockedByClearing, unlockedMechanicsForLevel, unlockedTowersForLevel } from '../config/progression';
 import * as progress from '../game/progress';
 import { ArenaPath } from '../game/path';
@@ -52,6 +55,7 @@ import { EnemySprite } from '../ui/EnemySprite';
 import { EnergyGauge } from '../ui/EnergyGauge';
 import { HandSlotView } from '../ui/HandSlotView';
 import { HeroAvatar } from '../ui/HeroAvatar';
+import { ModOverlay } from '../ui/ModOverlay';
 import { MoveCostReadout, type CostPart } from '../ui/MoveCostReadout';
 import { PlatformGrid } from '../ui/PlatformGrid';
 import { ProjectileView } from '../ui/Projectile';
@@ -133,6 +137,16 @@ export class BattleScene extends Scene {
   private grid!: PlatformGrid;
   private reactor!: ReactorZone;
   private reactorTween?: TweenHandle;
+  /** Platform-wide holo shown while dragging a modernization card (§5). */
+  private modOverlay!: ModOverlay;
+  /**
+   * Active Elemental Focus (modernization §4): the element whose towers get
+   * +{@link MOD_FOCUS_DMG_MULT} damage until the wave ends; null when none. Baked
+   * into the tower specs by {@link syncTowers}, cleared in {@link onWaveBegan}.
+   */
+  private focusElement: ElementId | null = null;
+  /** On-field caption showing the active Focus element (hidden when none). */
+  private focusLabel = makeText('', 'label', { fontSize: 30, fill: hex(COLORS.dropValid) });
   private gauge!: EnergyGauge;
   private waveBadge!: WaveBadge;
   private coreBadge!: CoreBadge;
@@ -282,10 +296,24 @@ export class BattleScene extends Scene {
     );
     this.field.addChild(this.resonanceLabel);
 
+    // Active Elemental Focus caption, just below the platform (hidden when none).
+    this.focusElement = null;
+    this.focusLabel.anchor.set(0.5);
+    this.focusLabel.position.set(
+      this.arenaW * 0.5,
+      this.arenaH * 0.5 + this.arenaW * PLATFORM_FRAC * 0.5 + 26,
+    );
+    this.focusLabel.alpha = 0;
+    this.field.addChild(this.focusLabel);
+
+    // Platform-wide holo for modernization-card drags (hidden until one is dragged).
+    this.modOverlay = new ModOverlay(this.arenaW * PLATFORM_FRAC * 1.06);
+    this.modOverlay.position.set(this.arenaW * 0.5, this.arenaH * 0.5);
+
     this.enemySize = this.arenaW * 0.12;
     this.rangePreview.visible = false;
     this.inspectRange.visible = false;
-    this.field.addChild(this.rangePreview, this.inspectRange, this.enemyLayer, this.fxLayer);
+    this.field.addChild(this.rangePreview, this.inspectRange, this.modOverlay, this.enemyLayer, this.fxLayer);
 
     this.buildHud();
     this.buildHand();
@@ -456,10 +484,7 @@ export class BattleScene extends Scene {
       let card: BattleCard | null = null;
       if (hc) {
         const def = getCard(hc.cardId);
-        card = new BattleCard(def, hc.grade, this.services.assets.get(def.iconKey), {
-          energyIcon: this.services.assets.get('icon_energy'),
-          goldIcon: this.services.assets.get('icon_gold'),
-        });
+        card = this.makeCard(def, hc.grade);
         this.wireCard(card);
       }
       const cw = card?.cardW ?? 212;
@@ -471,6 +496,15 @@ export class BattleScene extends Scene {
       this.hand.push({ home: { x: 0, y: 0 }, card, charge, cooldown: card ? 0 : HAND_RESPAWN_SEC });
     }
     this.refreshHandAffordability();
+  }
+
+  /** Build a hand / drag-avatar card with the standard cost-chip icons. */
+  private makeCard(def: CardDef, grade: number): BattleCard {
+    return new BattleCard(def, grade, this.services.assets.get(def.iconKey), {
+      energyIcon: this.services.assets.get('icon_energy'),
+      goldIcon: this.services.assets.get('icon_gold'),
+      crystalIcon: this.services.assets.get('icon_crystal'),
+    });
   }
 
   /** Wire press/drag handlers on a hand card (shared by initial deal and respawn).
@@ -711,9 +745,16 @@ export class BattleScene extends Scene {
     this.previewSlot = null;
     this.cardGhosted = false;
 
-    this.showReactor();
-    this.grid.showDropTargets(true);
-    this.reactor.setHighlight('valid');
+    // Modernization cards apply to the *whole* platform: holo overlay, no slot /
+    // Reactor targets (§5). Build cards light the slots + the Reactor burn zone.
+    if (card.def.category === 'modernization') {
+      card.alpha = 0.55; // see the holo + element discs through the dragged card
+      this.showModOverlay(card.def);
+    } else {
+      this.showReactor();
+      this.grid.showDropTargets(true);
+      this.reactor.setHighlight('valid');
+    }
     this.hint.alpha = 0.95;
   }
 
@@ -731,10 +772,7 @@ export class BattleScene extends Scene {
     this.clearInspect(); // inspection and dragging are mutually exclusive modes
 
     const def = getCard(placed.cardId);
-    const avatar = new BattleCard(def, placed.grade, this.services.assets.get(def.iconKey), {
-      energyIcon: this.services.assets.get('icon_energy'),
-      goldIcon: this.services.assets.get('icon_gold'),
-    });
+    const avatar = this.makeCard(def, placed.grade);
     avatar.eventMode = 'none'; // visual only; slot/card move+up handlers drive it
     this.dragging = avatar;
     this.fieldDragFrom = slot.index;
@@ -760,6 +798,12 @@ export class BattleScene extends Scene {
     if (!card) return;
     const p = this.dragLayer.toLocal(e.global);
     card.position.set(p.x + this.dragOffset.x, p.y + this.dragOffset.y);
+
+    // Modernization cards have their own (platform-wide) drag feedback.
+    if (card.def.category === 'modernization') {
+      this.onModDragMove(card, e);
+      return;
+    }
 
     const fieldDrag = this.fieldDragFrom !== null;
     // Reactor is only a target for hand cards (you can't burn a placed tower).
@@ -947,6 +991,13 @@ export class BattleScene extends Scene {
   private endDrag(e: FederatedPointerEvent): void {
     const card = this.dragging;
     if (!card) return;
+
+    // Modernization cards resolve against the platform holo, not the slots / Reactor.
+    if (card.def.category === 'modernization') {
+      this.endModDrag(card, e);
+      return;
+    }
+
     const fromIndex = this.fieldDragFrom;
     this.dragging = null;
     this.fieldDragFrom = null;
@@ -1174,6 +1225,187 @@ export class BattleScene extends Scene {
     this.animateBurn(card);
   }
 
+  // --- Modernization cards (global platform upgrades, §4/§5) ---------------
+
+  /** Reveal the platform holo for the dragged modernization card. */
+  private showModOverlay(def: CardDef): void {
+    this.modOverlay.show(def.mod!, this.modTitle(def), def.mod === 'focus');
+    this.modOverlay.setAffordable(this.canAffordCard(def));
+  }
+
+  /** Caption for the holo: the effect the release will apply. */
+  private modTitle(def: CardDef): string {
+    switch (def.mod) {
+      case 'isolation':
+        return `+${MOD_ISOLATION_CAPACITY} BASE CAPACITY`;
+      case 'overdrive':
+        return `OVERDRIVE ${MOD_EMERGENCY_OVERDRIVE_SEC}s`;
+      case 'focus':
+        return `FOCUS  +${Math.round((MOD_FOCUS_DMG_MULT - 1) * 100)}% DMG`;
+      default:
+        return '';
+    }
+  }
+
+  /** Drag feedback for a modernization card: affordability tint, Focus picker, cost. */
+  private onModDragMove(card: BattleCard, e: FederatedPointerEvent): void {
+    const def = card.def;
+    this.modOverlay.setAffordable(this.canAffordCard(def));
+    const el = def.mod === 'focus' ? this.modOverlay.elementAtGlobal(e.global) : null;
+    if (def.mod === 'focus') this.modOverlay.highlightElement(el);
+    this.moveCost.show(this.modCostParts(def, el));
+    this.moveCost.position.set(this.moveCostPos.x, this.moveCostPos.y);
+    this.hint.alpha = 0;
+  }
+
+  /**
+   * Resolve a modernization drop: apply the upgrade to the whole platform when the
+   * release lands over it (and is affordable) — Focus additionally needs an element
+   * disc under the pointer (§5). Anything else glides the card back home.
+   */
+  private endModDrag(card: BattleCard, e: FederatedPointerEvent): void {
+    this.dragging = null;
+    card.cursor = 'grab';
+    // Hit-test while the overlay is still live, then tear it down.
+    const el = card.def.mod === 'focus' ? this.modOverlay.elementAtGlobal(e.global) : null;
+    const overPlatform = this.grid.containsGlobal(e.global) || this.modOverlay.containsGlobal(e.global);
+    this.modOverlay.hide();
+    this.moveCost.hide();
+    this.hint.alpha = 0.7;
+
+    if (!this.canAffordCard(card.def)) {
+      this.returnCardHome(card);
+      return;
+    }
+    switch (card.def.mod) {
+      case 'isolation':
+        if (overPlatform) this.applyIsolation(card);
+        else this.returnCardHome(card);
+        break;
+      case 'overdrive':
+        if (overPlatform) this.applyEmergencyOverdrive(card);
+        else this.returnCardHome(card);
+        break;
+      case 'focus':
+        if (el) this.applyFocus(card, el);
+        else this.returnCardHome(card);
+        break;
+      default:
+        this.returnCardHome(card);
+    }
+  }
+
+  /** Cost chips for the modernization action under the pointer (§5). */
+  private modCostParts(def: CardDef, el: ElementId | null): CostPart[] {
+    const energyIcon = this.services.assets.get('icon_energy');
+    const goldIcon = this.services.assets.get('icon_gold');
+    const crystalIcon = this.services.assets.get('icon_crystal');
+    switch (def.mod) {
+      case 'isolation':
+        return [
+          { text: 'ISOLATION', color: COLORS.crystal },
+          { icon: energyIcon, text: `+${MOD_ISOLATION_CAPACITY} CAP`, color: COLORS.energyOk },
+          this.goldPart(goldIcon, def.costGold),
+        ];
+      case 'overdrive':
+        return [
+          { text: 'OVERDRIVE', color: COLORS.energyOverdrive },
+          {
+            icon: energyIcon,
+            text: `+${OVERDRIVE_CAPACITY_BONUS} CAP ${MOD_EMERGENCY_OVERDRIVE_SEC}s`,
+            color: COLORS.energyOverdrive,
+          },
+          this.crystalPart(crystalIcon, def.costCrystals ?? 0),
+        ];
+      case 'focus': {
+        const label = el ? ELEMENTS[el].label : 'PICK ELEMENT';
+        const color = el ? ELEMENTS[el].glow : COLORS.textDim;
+        return [
+          { text: `FOCUS ${label}`, color },
+          { text: `+${Math.round((MOD_FOCUS_DMG_MULT - 1) * 100)}% DMG`, color: COLORS.dropValid },
+          this.goldPart(goldIcon, def.costGold),
+        ];
+      }
+      default:
+        return [];
+    }
+  }
+
+  /** A crystal-cost chip, red when the player can't currently afford it. */
+  private crystalPart(icon: Texture, cost: number): CostPart {
+    return { icon, text: `-${cost}`, color: this.state.crystals >= cost ? COLORS.crystal : COLORS.energyDanger };
+  }
+
+  /** Isolation Circuit (§4): permanently bump the network's base capacity. */
+  private applyIsolation(card: BattleCard): void {
+    this.services.audio.playSfx('sfx_place');
+    this.spendGold(card.def.costGold);
+    this.state.energyCapacity += MOD_ISOLATION_CAPACITY;
+    this.refreshEnergy();
+    this.flash(this.gauge, COLORS.crystal);
+    this.freeHandCard(card);
+    this.animateModApply(card);
+  }
+
+  /** Elemental Focus (§4): +DMG to all towers of `el` until the wave ends. */
+  private applyFocus(card: BattleCard, el: ElementId): void {
+    this.services.audio.playSfx('sfx_place');
+    this.spendGold(card.def.costGold);
+    this.focusElement = el;
+    this.syncTowers(); // re-bake tower damage with the focus multiplier
+    this.updateFocusLabel();
+    this.freeHandCard(card);
+    this.animateModApply(card);
+  }
+
+  /**
+   * Emergency Overdrive (§4): the same capacity-boost window as a Reactor burn, but
+   * shorter, paid in crystals, with no card burned (so {@link burnsThisBattle} — the
+   * burn-cost escalator — is left untouched).
+   */
+  private applyEmergencyOverdrive(card: BattleCard): void {
+    this.services.audio.playSfx('sfx_burn');
+    this.spendCrystals(card.def.costCrystals ?? 0);
+    this.overdriveStacks.push(MOD_EMERGENCY_OVERDRIVE_SEC);
+    this.refreshEnergy();
+    this.flash(this.gauge, COLORS.energyOverdrive);
+    this.freeHandCard(card);
+    this.animateModApply(card);
+  }
+
+  /** Fly an applied modernization card into the platform, shrink and fade out. */
+  private animateModApply(card: BattleCard): void {
+    const start = { x: card.x, y: card.y };
+    const fromScale = card.scale.x;
+    const fromAlpha = card.alpha;
+    this.track(
+      tween({
+        duration: 0.3,
+        easing: Easings.inOutSine,
+        onUpdate: (t) => {
+          if (card.destroyed) return;
+          const tgt = this.dragLayer.toLocal(this.grid.getGlobalPosition());
+          card.position.set(start.x + (tgt.x - start.x) * t, start.y + (tgt.y - start.y) * t);
+          card.scale.set(fromScale + (0.3 - fromScale) * t);
+          card.alpha = fromAlpha * (1 - t);
+        },
+        onComplete: () => { if (!card.destroyed) card.destroy(); },
+      }),
+    );
+  }
+
+  /** Reflect the active Elemental Focus on the field caption (hidden when none). */
+  private updateFocusLabel(): void {
+    if (this.focusElement) {
+      const skin = ELEMENTS[this.focusElement];
+      this.focusLabel.text = `FOCUS: ${skin.label}  +${Math.round((MOD_FOCUS_DMG_MULT - 1) * 100)}%`;
+      this.focusLabel.style.fill = hex(skin.glow);
+      this.focusLabel.alpha = 1;
+    } else {
+      this.focusLabel.alpha = 0;
+    }
+  }
+
   // --- Fusion in hand (v2 §6.5) --------------------------------------------
 
   /** The hand slot whose card sits under `global` (skipping `exclude` / the dragged card). */
@@ -1236,10 +1468,7 @@ export class BattleScene extends Scene {
       return;
     }
     const def = getCard(hybridId);
-    const hybrid = new BattleCard(def, 1, this.services.assets.get(def.iconKey), {
-      energyIcon: this.services.assets.get('icon_energy'),
-      goldIcon: this.services.assets.get('icon_gold'),
-    });
+    const hybrid = this.makeCard(def, 1);
     this.wireCard(hybrid);
     entry.returnTween?.stop();
     entry.returnTween = undefined;
@@ -1321,20 +1550,37 @@ export class BattleScene extends Scene {
 
   /** Recharge finished: deal a fresh card into an empty hand position. */
   private spawnIntoSlot(slot: HandSlot): void {
-    const hc = rollHandCard(this.instanceSeq++, this.drawPool);
+    const hc = this.rollBattleHandCard();
     const def = getCard(hc.cardId);
-    const card = new BattleCard(def, hc.grade, this.services.assets.get(def.iconKey), {
-      energyIcon: this.services.assets.get('icon_energy'),
-      goldIcon: this.services.assets.get('icon_gold'),
-    });
+    const card = this.makeCard(def, hc.grade);
     this.wireCard(card);
     slot.card = card;
     slot.cooldown = 0;
     slot.charge.visible = false;
     card.position.copyFrom(slot.home);
-    card.setAffordable(this.state.gold >= def.costGold);
+    card.setAffordable(this.canAffordCard(def));
     this.handLayer.addChild(card);
     this.animateSpawn(card);
+  }
+
+  /**
+   * Roll a fresh hand card for this battle. When the `mod_cards` mechanic is
+   * unlocked, a small {@link MOD_DRAW_CHANCE} share of draws yields a modernization
+   * card (§3, kept rare so it doesn't crowd the tower roster); otherwise it draws a
+   * tower from the campaign roster ({@link drawPool}).
+   */
+  private rollBattleHandCard(): HandCard {
+    if (this.mechanics.has('mod_cards') && MOD_CARD_POOL.length > 0 && Math.random() < MOD_DRAW_CHANCE) {
+      const id = MOD_CARD_POOL[Math.floor(Math.random() * MOD_CARD_POOL.length)]!;
+      return { instanceId: `spawn-${this.instanceSeq++}`, cardId: id, grade: 1 };
+    }
+    return rollHandCard(this.instanceSeq++, this.drawPool);
+  }
+
+  /** Whether the player can currently pay for a card (crystal price for crystal cards). */
+  private canAffordCard(def: CardDef): boolean {
+    if ((def.costCrystals ?? 0) > 0) return this.state.crystals >= def.costCrystals!;
+    return this.state.gold >= def.costGold;
   }
 
   /** Fly the dragged card into its slot, shrink and fade, then destroy it. */
@@ -1480,7 +1726,15 @@ export class BattleScene extends Scene {
         reactions: syn?.reactions ?? [],
       });
       const roadFar = this.path.nearestDistance(p.x, p.y) >= jamReach;
-      specs.push({ ...spec, slotIndex: i, interruptImmune: spec.interruptImmune || roadFar });
+      // Elemental Focus (§4): +DMG to every tower of the focused element, folded
+      // into the spec's damage like the synergy mults are (cleared each wave).
+      const focusMult = this.focusElement && def.element === this.focusElement ? MOD_FOCUS_DMG_MULT : 1;
+      specs.push({
+        ...spec,
+        slotIndex: i,
+        damage: Math.round(spec.damage * focusMult),
+        interruptImmune: spec.interruptImmune || roadFar,
+      });
     });
     this.sim.setTowers(specs);
   }
@@ -1501,6 +1755,12 @@ export class BattleScene extends Scene {
     this.waveBadge.setWave(n, this.sim.totalWaves);
     this.currentWave = n;
     this.rerollsThisWave = 0;
+    // Elemental Focus lasts only the wave it was played (§4): drop it on wave start.
+    if (this.focusElement) {
+      this.focusElement = null;
+      this.updateFocusLabel();
+      this.syncTowers();
+    }
     this.refreshEnergy(); // capacity rose by CAPACITY_PER_WAVE this wave
     this.refreshRerollButton();
   }
@@ -1518,17 +1778,19 @@ export class BattleScene extends Scene {
     this.playWaveClearedSequence(n, perfect, crystals);
   }
 
-  /** Grant crystals (Perfect Clear) and refresh the Reroll button (display chases). */
+  /** Grant crystals (Perfect Clear / elite drop) and refresh wallet-gated UI. */
   private addCrystals(n: number): void {
     if (!n) return;
     this.state.crystals += n;
     this.refreshRerollButton();
+    this.refreshHandAffordability(); // crystal-priced cards may now be affordable
   }
 
-  /** Spend crystals (Reroll / fusion) and refresh the Reroll button (display chases). */
+  /** Spend crystals (Reroll / fusion / Emergency Overdrive) and refresh wallet-gated UI. */
   private spendCrystals(n: number): void {
     this.state.crystals = Math.max(0, this.state.crystals - n);
     this.refreshRerollButton();
+    this.refreshHandAffordability(); // a crystal-priced card may now be locked
   }
 
   /** Crystal cost of the next hand Reroll this wave (v2 §8.Б: base, +step each use). */
@@ -1610,7 +1872,7 @@ export class BattleScene extends Scene {
   /** Lock every hand card the player can no longer afford (and unlock the rest). */
   private refreshHandAffordability(): void {
     for (const slot of this.hand) {
-      if (slot.card) slot.card.setAffordable(this.state.gold >= slot.card.def.costGold);
+      if (slot.card) slot.card.setAffordable(this.canAffordCard(slot.card.def));
     }
   }
 
@@ -2425,6 +2687,7 @@ export class BattleScene extends Scene {
     this.syncCooldowns(dt);
     this.updateWaveToast(dt);
     this.updateTelegraph(dt);
+    this.modOverlay.tick(dt); // pulse the platform holo while a modernization card is dragged
     this.chaseChips(dt); // gold/crystal counters ease toward their true totals (§3/§4)
 
     // Keep the inspected tower's overload readout in step with load/capacity.

@@ -42,8 +42,40 @@ export function overdriveCost(burnsDone: number): number {
 export const REROLL_BASE_COST = 10;
 export const REROLL_STEP = 5;
 
-/** Card ids eligible to spawn into the hand (hybrids are crafted, never dealt). */
-export const DRAW_POOL: string[] = CARD_LIST.filter((c) => !c.hybrid).map((c) => c.id);
+/**
+ * Modernization cards (global platform upgrades, docs/done/modernization-cards.md).
+ * These are the *behavior* tunables the battle reads; the gold / crystal prices
+ * live on the {@link import('./cards').CardDef}s (single source for a card's cost).
+ */
+/** Isolation Circuit: permanent (battle-long) bump to the network's *base* capacity. */
+export const MOD_ISOLATION_CAPACITY = 2;
+/** Elemental Focus: damage multiplier for all towers of the chosen element, until the wave ends. */
+export const MOD_FOCUS_DMG_MULT = 1.25;
+/**
+ * Emergency Overdrive window in seconds — shorter than a Reactor card-burn
+ * ({@link OVERDRIVE_SEC} = 15s): the trade is "no card spent, but crystals + less time".
+ */
+export const MOD_EMERGENCY_OVERDRIVE_SEC = 10;
+
+/**
+ * Card ids eligible to spawn into the hand (hybrids are crafted, never dealt;
+ * modernization cards are gated behind the `mod_cards` mechanic — see {@link MOD_CARD_POOL}).
+ */
+export const DRAW_POOL: string[] = CARD_LIST.filter(
+  (c) => !c.hybrid && c.category !== 'modernization',
+).map((c) => c.id);
+
+/** Modernization card ids, drawn only when `mod_cards` is unlocked (§3, kept rare). */
+export const MOD_CARD_POOL: string[] = CARD_LIST.filter((c) => c.category === 'modernization').map(
+  (c) => c.id,
+);
+
+/**
+ * Chance a freshly dealt hand card is a modernization card (when `mod_cards` is
+ * unlocked, §3). Kept low so modernization stays a deliberate option, not the
+ * background of the hand. Under tuning at playtest.
+ */
+export const MOD_DRAW_CHANCE = 0.16;
 
 /**
  * Roll a fresh hand card (grade 1) from the draw pool. `seq` makes the instance

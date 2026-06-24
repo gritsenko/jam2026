@@ -89,6 +89,26 @@ export class TowerInfoPanel extends Container {
     this.element.text = skin.label;
     this.element.style.fill = hex(skin.base);
 
+    // Modernization card: a global platform upgrade, not a tower — show the effect
+    // line and skip the combat / synergy readouts (they don't apply).
+    if (def.category === 'modernization') {
+      this.stats.text = 'PLATFORM UPGRADE';
+      this.stats.style.fill = hex(COLORS.crystal);
+      this.signature.text = def.blurb;
+      this.outgoing.text = '';
+      this.incoming.text = '';
+      this.slotsLabel.visible = false;
+      this.slotsRow.removeChildren().forEach((c) => c.destroy());
+      this.overloadPct = 0;
+      this.overloadLabel.visible = false;
+      this.overloadValue.visible = false;
+      this.redraw();
+      this.visible = true;
+      return;
+    }
+    this.stats.style.fill = hex(COLORS.textBright);
+    this.slotsLabel.visible = true;
+
     // Net combat stats (apply synergy mults when inspecting a placed tower).
     const dMult = synergy?.damageMult ?? 1;
     const rMult = synergy?.rangeMult ?? 1;

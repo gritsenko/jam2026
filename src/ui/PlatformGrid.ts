@@ -135,6 +135,11 @@ export class PlatformGrid extends Container {
     return { x: this.x + slot.x * this.scale.x, y: this.y + slot.y * this.scale.y };
   }
 
+  /** Is a global point over the platform plate? (Modernization release-anywhere, §5.) */
+  containsGlobal(global: PointData): boolean {
+    return this.plate.getBounds().rectangle.contains(global.x, global.y);
+  }
+
   /** Returns the slot whose bounds contain the given global point, else null. */
   slotAtGlobal(global: PointData): SlotView | null {
     for (const slot of this.slots) {

@@ -242,6 +242,29 @@ export const ASSETS: AssetSpec[] = [
     placeholder: { shape: 'round', tint: N, label: 'CELL' },
   },
 
+  // ---- Modernization cards (global platform upgrades) ----------------------
+  {
+    key: 'isolation_circuit',
+    category: 'card_icon',
+    size: 512,
+    prompt: 'isolation circuit upgrade emblem, layered brass insulation rings around a glowing green energy core, riveted heat-shield plating, no turret, three-quarter view',
+    placeholder: { shape: 'round', tint: N, label: 'ISOLATE' },
+  },
+  {
+    key: 'elemental_focus',
+    category: 'card_icon',
+    size: 512,
+    prompt: 'elemental focus lens device, a brass prism splitting a white beam into five colored elemental rays, polished steel mount, no turret, three-quarter view',
+    placeholder: { shape: 'round', tint: P, label: 'FOCUS' },
+  },
+  {
+    key: 'emergency_overdrive',
+    category: 'card_icon',
+    size: 512,
+    prompt: 'emergency overdrive lever, a slammed red hazard switch venting orange plasma and sparks, yellow-black warning stripes, brass housing, no turret, three-quarter view',
+    placeholder: { shape: 'round', tint: F, label: 'OVERDRIVE' },
+  },
+
   // ---- Enemies -------------------------------------------------------------
   {
     key: 'enemy_magma_brute',
