@@ -77,7 +77,7 @@ export interface CardGrade {
 export interface CardDef {
   readonly id: string;
   readonly name: string;
-  /** Short label shown on the card face (e.g. "STORM COIL"). */
+  /** Short label shown on the card face (e.g. "TESLA GUN"). */
   readonly shortName: string;
   readonly element: ElementId;
   readonly category: CardCategory;

@@ -12,8 +12,8 @@ export const CARDS: Record<string, CardDef> = {
   // --- Attacking ----------------------------------------------------------
   plasma_shutter: {
     id: 'plasma_shutter',
-    name: 'Плазменный Затвор',
-    shortName: 'PLASMA SHUTTER',
+    name: 'Огневая Пушка',
+    shortName: 'FIRE GUN',
     element: 'Fire',
     category: 'attacking',
     baseLoad: 2,
@@ -33,8 +33,8 @@ export const CARDS: Record<string, CardDef> = {
   },
   frost_pulse: {
     id: 'frost_pulse',
-    name: 'Морозный Импульс',
-    shortName: 'FROST PULSE',
+    name: 'Ледяная Пушка',
+    shortName: 'ICE GUN',
     element: 'Water',
     category: 'attacking',
     baseLoad: 1,
@@ -54,8 +54,8 @@ export const CARDS: Record<string, CardDef> = {
   },
   storm_coil: {
     id: 'storm_coil',
-    name: 'Грозовая Катушка',
-    shortName: 'STORM COIL',
+    name: 'Тесла-Пушка',
+    shortName: 'TESLA GUN',
     element: 'Electricity',
     category: 'attacking',
     baseLoad: 2,
@@ -118,7 +118,7 @@ export const CARDS: Record<string, CardDef> = {
   grid_stabilizer: {
     id: 'grid_stabilizer',
     name: 'Стабилизатор Сети',
-    shortName: 'URANIUM CELL',
+    shortName: 'GRID STABILIZER',
     element: 'Energy',
     category: 'support',
     baseLoad: -2,

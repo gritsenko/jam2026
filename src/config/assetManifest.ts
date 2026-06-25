@@ -204,7 +204,7 @@ export const ASSETS: AssetSpec[] = [
     category: 'card_icon',
     size: 512,
     prompt: 'plasma shutter turret, glowing orange plasma core, brass and steel housing, three-quarter view',
-    placeholder: { shape: 'round', tint: F, label: 'PLASMA' },
+    placeholder: { shape: 'round', tint: F, label: 'FIRE' },
   },
   {
     key: 'frost_pulse',
@@ -240,6 +240,46 @@ export const ASSETS: AssetSpec[] = [
     size: 512,
     prompt: 'uranium battery cell stabilizer, glowing green energy rods, yellow hazard markings, three-quarter view',
     placeholder: { shape: 'round', tint: N, label: 'CELL' },
+  },
+
+  // ---- Element symbols (readability: the element motif on cards/dots/panel) -
+  // One bold emblem per ElementId; key = `sym_<element lowercased>` (see
+  // theme.elementSymbolKey). Shown on the card body, on the influence dots and
+  // in the tower info panel so the element reads by SHAPE, not only color.
+  {
+    key: 'sym_fire',
+    category: 'icon',
+    size: 256,
+    prompt: 'a single bold stylized flame emblem, teardrop fire shape, warm orange and yellow glow, strong dark outline, clean readable game UI symbol',
+    placeholder: { shape: 'disc', tint: F, label: 'FIRE' },
+  },
+  {
+    key: 'sym_water',
+    category: 'icon',
+    size: 256,
+    prompt: 'a single bold six-point snowflake ice crystal emblem, cyan and pale white, strong dark outline, clean readable game UI symbol',
+    placeholder: { shape: 'disc', tint: W, label: 'ICE' },
+  },
+  {
+    key: 'sym_electricity',
+    category: 'icon',
+    size: 256,
+    prompt: 'a single bold lightning bolt emblem, zigzag, violet and white glow, strong dark outline, clean readable game UI symbol',
+    placeholder: { shape: 'disc', tint: E, label: 'VOLT' },
+  },
+  {
+    key: 'sym_physical',
+    category: 'icon',
+    size: 256,
+    prompt: 'a single bold bullet kinetic slug emblem with a sharp tip, polished steel grey, strong dark outline, clean readable game UI symbol',
+    placeholder: { shape: 'disc', tint: P, label: 'KIN' },
+  },
+  {
+    key: 'sym_energy',
+    category: 'icon',
+    size: 256,
+    prompt: 'a single bold glowing diamond energy-cell emblem, vivid green core, strong dark outline, clean readable game UI symbol',
+    placeholder: { shape: 'disc', tint: N, label: 'NRG' },
   },
 
   // ---- Modernization cards (global platform upgrades) ----------------------

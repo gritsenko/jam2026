@@ -1,11 +1,11 @@
-import { Container, Graphics, Text } from 'pixi.js';
-import { COLORS, ELEMENTS, hex } from '../theme';
+import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
 import type { BuffStat, CardDef } from '../config/types';
 import { cardGrade } from '../config/cards';
 import { reactionFor } from '../config/resonance';
 import { SUPERCONDUCT_TEMPO_MULT } from '../config/combatRules';
 import type { SlotSynergy } from '../game/synergy';
-import { drawPanel, makeText } from './helpers';
+import { drawPanel, fitSprite, makeText } from './helpers';
 
 /** Grade-resolved base stats the panel reads (mirrors game/BattleSim's ResolvedTowerStats). */
 export interface InspectStats {
@@ -33,6 +33,9 @@ export class TowerInfoPanel extends Container {
   private bg = new Graphics();
   private title: Text;
   private element: Text;
+  /** Bold element-symbol sprite shown left of the element label (readability). */
+  private elementSym = new Sprite(Texture.EMPTY);
+  private symbols?: Partial<Record<ElementId, Texture>>;
   private stats: Text;
   private signature: Text;
   private outgoing: Text;
@@ -66,7 +69,8 @@ export class TowerInfoPanel extends Container {
     this.overloadValue.anchor.set(1, 0);
     this.overloadValue.visible = false;
     this.slotsLabel = makeText('SYNERGY SLOTS', 'label', { fontSize: 18, fill: hex(COLORS.textMuted) });
-    this.addChild(this.title, this.element, this.stats, this.signature, this.outgoing, this.incoming, this.overloadLabel, this.overloadValue, this.slotsLabel, this.slotsRow);
+    this.elementSym.visible = false;
+    this.addChild(this.title, this.element, this.elementSym, this.stats, this.signature, this.outgoing, this.incoming, this.overloadLabel, this.overloadValue, this.slotsLabel, this.slotsRow);
     this.visible = false;
     this.redraw();
   }
@@ -88,6 +92,14 @@ export class TowerInfoPanel extends Container {
     this.title.style.fill = hex(skin.glow);
     this.element.text = skin.label;
     this.element.style.fill = hex(skin.base);
+    const symTex = this.symbols?.[def.element];
+    if (symTex) {
+      this.elementSym.texture = symTex;
+      fitSprite(this.elementSym, 30, 30);
+      this.elementSym.visible = true;
+    } else {
+      this.elementSym.visible = false;
+    }
 
     // Modernization card: a global platform upgrade, not a tower — show the effect
     // line and skip the combat / synergy readouts (they don't apply).
@@ -164,6 +176,11 @@ export class TowerInfoPanel extends Container {
 
   hide(): void {
     this.visible = false;
+  }
+
+  /** Provide the element-symbol textures shown beside the element label. */
+  setSymbolTextures(symbols: Partial<Record<ElementId, Texture>>): void {
+    this.symbols = symbols;
   }
 
   /**
@@ -277,6 +294,10 @@ export class TowerInfoPanel extends Container {
     });
 
     this.element.position.set(W - pad, 16);
+    if (this.elementSym.visible) {
+      // Sit the symbol just left of the right-aligned element label.
+      this.elementSym.position.set(W - pad - this.element.width - 18, 16 + this.element.height / 2);
+    }
     this.title.position.set(pad, 12);
     this.stats.position.set(pad, 56);
     this.signature.position.set(pad, 90);

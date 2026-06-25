@@ -1,7 +1,7 @@
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
-import { COLORS, ELEMENTS, hex } from '../theme';
+import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
 import type { CardDef } from '../config/types';
-import { drawPanel, fitSprite, makeText } from './helpers';
+import { drawPanel, fitSprite, makeElementSymbol, makeText } from './helpers';
 
 export interface BattleCardOptions {
   width?: number;
@@ -12,6 +12,8 @@ export interface BattleCardOptions {
   goldIcon?: Texture;
   /** Crystal texture for cards priced in crystals (modernization Overdrive). */
   crystalIcon?: Texture;
+  /** Element-symbol textures (key `sym_<element>`), for the body badge + dots. */
+  symbols?: Partial<Record<ElementId, Texture>>;
 }
 
 /**
@@ -44,12 +46,16 @@ export class BattleCard extends Container {
   // Bright element-colored ring drawn while the card is tapped/selected.
   private selectGlow = new Graphics();
 
+  // Element-symbol textures (sym_<element>) for the body badge + influence dots.
+  private symbols?: Partial<Record<ElementId, Texture>>;
+
   constructor(def: CardDef, grade: number, art: Texture, opts: BattleCardOptions = {}) {
     super();
     this.def = def;
     this.grade = grade;
     this.cardW = opts.width ?? 212;
     this.cardH = opts.height ?? 300;
+    this.symbols = opts.symbols;
     const W = this.cardW;
     const H = this.cardH;
     const skin = ELEMENTS[def.element];
@@ -75,6 +81,21 @@ export class BattleCard extends Container {
     fitSprite(artSp, artBox, H * 0.46);
     artSp.position.set(0, -H * 0.16);
     this.addChild(artSp);
+
+    // Element badge (top-left): the card's OWN element as a bold motif, so the
+    // element reads by shape — not only by the frame color (readability pass).
+    const symTex = this.symbols?.[def.element];
+    if (symTex) {
+      const bx = -W / 2 + 30;
+      const by = -H / 2 + 30;
+      const badge = new Graphics();
+      badge.circle(bx, by, 24).fill({ color: COLORS.black, alpha: 0.45 });
+      badge.circle(bx, by, 24).stroke({ width: 2, color: skin.base, alpha: 0.85 });
+      this.addChild(badge);
+      const sym = makeElementSymbol(symTex, 40);
+      sym.position.set(bx, by);
+      this.addChild(sym);
+    }
 
     // Name banner.
     const nameY = H * 0.12;
@@ -156,6 +177,16 @@ export class BattleCard extends Container {
       g.circle(x, y, r).fill({ color, alpha: 0.95 });
     });
     this.addChild(g);
+    // Element symbol on each bulb (readability): the wanted-neighbor element by
+    // SHAPE, tinted dark for contrast on the bright bulb. Added after `g` so it
+    // sits on top.
+    els.forEach((el, i) => {
+      const tex = this.symbols?.[el];
+      if (!tex) return;
+      const sym = makeElementSymbol(tex, r * 1.7, ELEMENTS[el].dark);
+      sym.position.set(startX + i * gap, y);
+      this.addChild(sym);
+    });
   }
 
   /**

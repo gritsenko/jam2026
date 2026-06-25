@@ -1,4 +1,4 @@
-import { Graphics, Sprite, Text, type TextStyleOptions } from 'pixi.js';
+import { Graphics, Sprite, Text, Texture, type TextStyleOptions } from 'pixi.js';
 import { COLORS, FONTS, hex } from '../theme';
 
 /**
@@ -102,6 +102,18 @@ export function makeText(text: string, preset: TextPreset, overrides: TextStyleO
     },
   });
   return t;
+}
+
+/**
+ * A centered element-symbol sprite (the `sym_<element>` motif) sized to fit a
+ * `diameter`×`diameter` box, anchored at its middle. Origin (0,0); callers set
+ * `position`. Pass `tint` to recolor a light emblem for contrast on a bright dot.
+ */
+export function makeElementSymbol(tex: Texture, diameter: number, tint?: number): Sprite {
+  const s = new Sprite(tex);
+  fitSprite(s, diameter, diameter);
+  if (tint !== undefined) s.tint = tint;
+  return s;
 }
 
 /** A soft radial glow disc, useful behind icons and energy beams. */

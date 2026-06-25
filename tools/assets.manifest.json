@@ -32,6 +32,12 @@
     { "key": "shield_generator", "file": "assets/sprites/shield_generator.png", "category": "card_icon", "size": 512, "prompt": "shield dome generator emitting a glowing protective energy cupola, brass base, three-quarter view" },
     { "key": "grid_stabilizer", "file": "assets/sprites/grid_stabilizer.png", "category": "card_icon", "size": 512, "prompt": "uranium battery cell stabilizer, glowing green energy rods, yellow hazard markings, three-quarter view" },
 
+    { "key": "sym_fire", "file": "assets/sprites/sym_fire.png", "category": "icon", "size": 256, "prompt": "a single bold stylized flame emblem, teardrop fire shape, warm orange and yellow glow, strong dark outline, clean readable game UI symbol" },
+    { "key": "sym_water", "file": "assets/sprites/sym_water.png", "category": "icon", "size": 256, "prompt": "a single bold six-point snowflake ice crystal emblem, cyan and pale white, strong dark outline, clean readable game UI symbol" },
+    { "key": "sym_electricity", "file": "assets/sprites/sym_electricity.png", "category": "icon", "size": 256, "prompt": "a single bold lightning bolt emblem, zigzag, violet and white glow, strong dark outline, clean readable game UI symbol" },
+    { "key": "sym_physical", "file": "assets/sprites/sym_physical.png", "category": "icon", "size": 256, "prompt": "a single bold bullet kinetic slug emblem with a sharp tip, polished steel grey, strong dark outline, clean readable game UI symbol" },
+    { "key": "sym_energy", "file": "assets/sprites/sym_energy.png", "category": "icon", "size": 256, "prompt": "a single bold glowing diamond energy-cell emblem, vivid green core, strong dark outline, clean readable game UI symbol" },
+
     { "key": "isolation_circuit", "file": "assets/sprites/isolation_circuit.png", "category": "card_icon", "size": 512, "prompt": "isolation circuit upgrade emblem, layered brass insulation rings around a glowing green energy core, riveted heat-shield plating, no turret, three-quarter view" },
     { "key": "elemental_focus", "file": "assets/sprites/elemental_focus.png", "category": "card_icon", "size": 512, "prompt": "elemental focus lens device, a brass prism splitting a white beam into five colored elemental rays, polished steel mount, no turret, three-quarter view" },
     { "key": "emergency_overdrive", "file": "assets/sprites/emergency_overdrive.png", "category": "card_icon", "size": 512, "prompt": "emergency overdrive lever, a slammed red hazard switch venting orange plasma and sparks, yellow-black warning stripes, brass housing, no turret, three-quarter view" },
