@@ -1,4 +1,4 @@
-import { ColorMatrixFilter, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
 import type { SynergyDot } from '../game/synergy';
 import { fitSprite, makeElementSymbol, makeText } from './helpers';
@@ -47,6 +47,14 @@ export class SlotView extends Container {
   private occupied = false;
   /** Element-symbol textures (sym_<element>) overlaid on the influence dots. */
   private symbols?: Partial<Record<ElementId, Texture>>;
+  /** The placed tower's main sprite (swapped between rest art and aim frames). */
+  private towerSprite?: Sprite;
+  /** Resting (no-target) art — the static base shown when the turret isn't aiming. */
+  private restTex?: Texture;
+  /** 8 directional aim frames (N, NE, E, … NW) sliced from an `<id>_dirs` strip. */
+  private dirFrames?: Texture[];
+  /** Currently-shown octant (0–7) or −1 for the resting frame. */
+  private curOctant = -1;
 
   constructor(index: number, size: number) {
     super();
@@ -71,6 +79,10 @@ export class SlotView extends Container {
     this.reso.clear();
     this.litDots = [];
     this.dotGlow.clear();
+    this.towerSprite = undefined;
+    this.restTex = undefined;
+    this.dirFrames = undefined;
+    this.curOctant = -1;
     this.setCooldown(0);
     this.setEffect(0, false, false);
     this.drawEmpty();
@@ -88,6 +100,7 @@ export class SlotView extends Container {
     _grade: number,
     dots: readonly SynergyDot[] = [],
     resonant = false,
+    dirStrip?: Texture,
   ): void {
     this.occupied = true;
     this.content.removeChildren().forEach((c) => c.destroy());
@@ -105,8 +118,53 @@ export class SlotView extends Container {
     fitSprite(sprite, s * 0.82, s * 0.82);
     this.content.addChild(sprite);
 
+    // Turret aim frames: keep the resting art and slice the 8-direction strip so
+    // setAim() can swap facings without re-fetching. Towers without a strip
+    // (supports, missing art) stay static — setAim is then a no-op.
+    this.towerSprite = sprite;
+    this.restTex = art;
+    this.dirFrames = dirStrip ? this.sliceStrip(dirStrip, 8) : undefined;
+    this.curOctant = -1;
+
     this.drawDots(dots);
     this.drawResonance(resonant, skin.glow);
+  }
+
+  /** Slice a horizontal `<id>_dirs` strip into `n` equal directional frames. */
+  private sliceStrip(strip: Texture, n: number): Texture[] {
+    const cw = strip.width / n;
+    const frames: Texture[] = [];
+    for (let i = 0; i < n; i++) {
+      frames.push(
+        new Texture({ source: strip.source, frame: new Rectangle(i * cw, 0, cw, strip.height) }),
+      );
+    }
+    return frames;
+  }
+
+  /**
+   * Point the turret at a scene-space aim angle (radians, screen convention: 0 =
+   * east, +PI/2 = south). Snaps to the nearest of 8 directional frames (frame 0 =
+   * north, clockwise). `null` returns to the resting frame. No-op for towers
+   * without a directional strip.
+   */
+  setAim(angle: number | null): void {
+    const frames = this.dirFrames;
+    const sprite = this.towerSprite;
+    if (!frames || !sprite) return;
+    if (angle === null) {
+      if (this.curOctant === -1) return;
+      this.curOctant = -1;
+      if (this.restTex) sprite.texture = this.restTex;
+      fitSprite(sprite, this.size * 0.82, this.size * 0.82);
+      return;
+    }
+    // North-up, clockwise: shift by +PI/2 so straight-up maps to frame 0.
+    const oct = ((Math.round(((angle + Math.PI / 2) / (Math.PI * 2)) * 8) % 8) + 8) % 8;
+    if (oct === this.curOctant) return;
+    this.curOctant = oct;
+    sprite.texture = frames[oct]!;
+    fitSprite(sprite, this.size * 0.82, this.size * 0.82);
   }
 
   /**

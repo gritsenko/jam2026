@@ -6,7 +6,7 @@ import type { CardDef } from './types';
  * Synergy is positional: every card broadcasts its buff to all orthogonal
  * neighbors (Grade I–II) and additionally to diagonals at Grade III. The grade
  * tables below carry damage/range, the buff %, the signature value and the
- * synergy reach. In-game labels are English to match docs/style_ref.png.
+ * synergy reach. In-game labels are English to match docs/visual_refs/new_style.jpg.
  */
 export const CARDS: Record<string, CardDef> = {
   // --- Attacking ----------------------------------------------------------

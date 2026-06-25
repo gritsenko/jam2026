@@ -120,13 +120,24 @@ export interface SimTower extends HitEffects {
   interruptImmune: boolean;
   /** Sim-clock deadline this tower is locked (stunned) until; 0 = free to fire. */
   disabledUntil: number;
+  /**
+   * Last acquired lead-target position (arena coords), refreshed every frame so
+   * the renderer can rotate the turret to track it even between shots. Only valid
+   * when {@link hasAim}; the renderer reads it via {@link BattleSim.towerAim}.
+   */
+  aimX: number;
+  aimY: number;
+  hasAim: boolean;
 }
 
 /**
  * Spec the scene feeds in for each tower; the sim owns the per-frame runtime
  * state (cooldown + interrupt-stun), so those are filled in by {@link BattleSim.setTowers}.
  */
-export type TowerSpec = Omit<SimTower, 'cdLeft' | 'cdMax' | 'disabledUntil'>;
+export type TowerSpec = Omit<
+  SimTower,
+  'cdLeft' | 'cdMax' | 'disabledUntil' | 'aimX' | 'aimY' | 'hasAim'
+>;
 
 /**
  * An in-flight projectile, carrying its on-hit effects. Homes on its target enemy
@@ -287,7 +298,15 @@ export class BattleSim {
     const prev = new Map(this.towers.map((t) => [t.slotIndex, t]));
     this.towers = specs.map((s) => {
       const p = prev.get(s.slotIndex);
-      return { ...s, cdLeft: p?.cdLeft ?? 0, cdMax: p?.cdMax ?? 0, disabledUntil: p?.disabledUntil ?? 0 };
+      return {
+        ...s,
+        cdLeft: p?.cdLeft ?? 0,
+        cdMax: p?.cdMax ?? 0,
+        disabledUntil: p?.disabledUntil ?? 0,
+        aimX: p?.aimX ?? 0,
+        aimY: p?.aimY ?? 0,
+        hasAim: p?.hasAim ?? false,
+      };
     });
   }
 
@@ -300,6 +319,16 @@ export class BattleSim {
     const tower = this.towers.find((t) => t.slotIndex === slotIndex);
     if (!tower || tower.cdMax <= 0 || tower.cdLeft <= 0) return 0;
     return Math.min(1, tower.cdLeft / tower.cdMax);
+  }
+
+  /**
+   * The lead-target position the tower in `slotIndex` is currently tracking
+   * (arena = scene coords), or null if it has no target in range. The renderer
+   * turns this into an aim angle to rotate/select the turret's facing.
+   */
+  towerAim(slotIndex: number): { x: number; y: number } | null {
+    const tower = this.towers.find((t) => t.slotIndex === slotIndex);
+    return tower && tower.hasAim ? { x: tower.aimX, y: tower.aimY } : null;
   }
 
   update(dt: number): void {
@@ -465,6 +494,17 @@ export class BattleSim {
 
   private fireTowers(dt: number): void {
     for (const tower of this.towers) {
+      // Refresh the aim every frame (before any stun/cooldown early-out) so the
+      // turret can visibly track the lead enemy between shots and while jammed.
+      const target = this.acquireTarget(tower);
+      if (target) {
+        tower.aimX = target.x;
+        tower.aimY = target.y;
+        tower.hasAim = true;
+      } else {
+        tower.hasAim = false;
+      }
+
       // Interrupt stun (v3 §2.Г): the tower is locked — its cooldown is frozen
       // until the stun lapses, then it resumes from where it was.
       if (tower.disabledUntil > this.clock) continue;
@@ -473,7 +513,6 @@ export class BattleSim {
         tower.cdLeft -= dt;
         if (tower.cdLeft > 0) continue;
       }
-      const target = this.acquireTarget(tower);
       if (!target) {
         tower.cdLeft = 0; // stay ready; fire the instant a target enters range
         continue;

@@ -58,12 +58,19 @@ export function drawPanel(
 
   g.roundRect(x, y, w, h, radius).fill({ color: fill, alpha: fillAlpha });
   if (bevel) {
+    // Glossy top band + deeper bottom shade read as machined dieselpunk plate.
     g.roundRect(x + edgeWidth, y + edgeWidth, w - edgeWidth * 2, (h - edgeWidth * 2) * 0.5, radius)
-      .fill({ color: COLORS.white, alpha: 0.05 });
+      .fill({ color: COLORS.white, alpha: 0.07 });
     g.roundRect(x + edgeWidth, y + h * 0.5, w - edgeWidth * 2, h * 0.5 - edgeWidth, radius)
-      .fill({ color: COLORS.black, alpha: 0.12 });
+      .fill({ color: COLORS.black, alpha: 0.18 });
   }
+  // Dark steel keyline under the brass edge for depth, then the brass edge itself.
+  g.roundRect(x, y, w, h, radius).stroke({ width: edgeWidth + 2, color: COLORS.black, alpha: 0.4, alignment: 1 });
   g.roundRect(x, y, w, h, radius).stroke({ width: edgeWidth, color: edge, alignment: 0.5 });
+  // Thin inner machined highlight, a hair inside the edge.
+  const inset = edgeWidth + 3;
+  g.roundRect(x + inset, y + inset, w - inset * 2, h - inset * 2, Math.max(2, radius - 4))
+    .stroke({ width: 1.5, color: COLORS.brassLight, alpha: 0.22 });
 
   if (rivets) {
     const r = 4;

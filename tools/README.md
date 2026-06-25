@@ -48,7 +48,7 @@ tools\.venv\Scripts\python.exe tools\gen_sprite.py "cracked desert sand ground, 
 | `--category` | — | `card_icon`, `tower`/`turret`, `enemy`, `prop`, `fx`, `tile`, `background`. Задаёт ракурс; `tile`/`background` не режут фон. |
 | `--size` | `512` | Максимальная сторона итогового PNG (только уменьшение). Иконки 256, турели/враги 512, фоны 1024. |
 | `--model` | авто | Принудительно задать модель. Иначе перебор: Nano Banana 2 → Pro → Nano Banana. |
-| `--ref <path>` | `docs/style_ref.png` | Референс стиля. Можно указать уже принятый спрайт для консистентности. |
+| `--ref <path>` | `docs/visual_refs/new_style.jpg` | Референс стиля. Можно указать уже принятый спрайт для консистентности. |
 | `--no-ref` | — | Не прикреплять референс. |
 | `--key` | `auto` | Цвет хромакея: `auto` (по углам), `magenta`, `green`, `"r,g,b"`. |
 | `--pixel` | — | Уменьшение через NEAREST (для пиксель-арта). |
@@ -58,8 +58,11 @@ tools\.venv\Scripts\python.exe tools\gen_sprite.py "cracked desert sand ground, 
 
 - Единый стиль задаётся в [sprite_style.py](sprite_style.py) (`STYLE_PREAMBLE`) — правь
   там, чтобы поменять вид всего проекта разом.
-- `docs/style_ref.png` автоматически прикрепляется как референс. Когда получишь
-  удачный спрайт-эталон — указывай его через `--ref`, новые ассеты будут под него.
+- `docs/visual_refs/new_style.jpg` автоматически прикрепляется как референс (мастер-эталон
+  стиля: тёплый desert-canyon + полировка Iron Marines). Когда получишь удачный
+  спрайт-эталон — указывай его через `--ref`, новые ассеты будут под него.
+- Скрипт печатает `style ref: <путь>` в лог; если запрошенный референс не найден —
+  громко предупреждает (`WARNING: style ref not found`), а не молча генерит без якоря.
 
 ## Переобработать без новой генерации
 

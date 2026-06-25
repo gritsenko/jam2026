@@ -1967,6 +1967,14 @@ export class BattleScene extends Scene {
       const slot = this.grid.slots[i];
       if (!slot || !slot.isOccupied) continue;
       slot.setCooldown(this.sim.cooldownFrac(i));
+      // Rotate the turret to track its lead enemy (sim coords == scene coords).
+      const aim = this.sim.towerAim(i);
+      if (aim) {
+        const p = this.grid.slotScenePos(i);
+        slot.setAim(Math.atan2(aim.y - p.y, aim.x - p.x));
+      } else {
+        slot.setAim(null);
+      }
       this.syncTowerBadge(slot, i, overload);
       slot.tickDots(dt);
     }

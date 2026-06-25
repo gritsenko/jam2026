@@ -1,9 +1,10 @@
 /**
  * Central design tokens for Synergy Grid TD.
  *
- * Derived from docs/style_ref.png: a warm desert-canyon, brass-and-steel
- * steampunk platform with element-coded energy glows. Tweak values here to
- * re-skin the whole game at once. Colors are PixiJS-friendly hex numbers.
+ * Tuned to docs/visual_refs/new_style.jpg: a flat flash-cartoon (Iron Marines /
+ * Kingdom Rush) look — dark dieselpunk metal + a warm base with element-coded
+ * energy glows. Tweak values here to re-skin the whole game at once. Colors are
+ * PixiJS-friendly hex numbers.
  */
 
 export type ElementId = 'Fire' | 'Water' | 'Electricity' | 'Physical' | 'Energy';

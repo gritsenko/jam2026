@@ -136,6 +136,24 @@ RAILGUN); у каждой стихии своя эмблема-символ (`sy
 [../planned/tower-readability.md](../planned/tower-readability.md) (слои 1–2 готовы,
 силуэты/эффекты — стретчи).
 
+## Визуальный стиль и поворот турелей
+
+Весь геймплейный арт пересобран в едином стиле — плоский флеш-флэт (Iron Marines /
+Kingdom Rush) + тёмный дизельпанк-металл, якорь `docs/visual_refs/new_style.jpg`
+(преамбула — [sprite_style.py](../../tools/sprite_style.py); генератор печатает
+`style ref: <путь>` и предупреждает, если референс не найден). Платформа-плита и
+HUD-панели рисуются **процедурно** ([PlatformGrid.buildPlate](../../src/ui/PlatformGrid.ts),
+[helpers.drawPanel](../../src/ui/helpers.ts)) в тон — тёмный металл + заклёпки + фаска.
+
+**Поворот турелей на врага** — у атакующих башен 8 направлений (N→NW по часовой) в
+strip-е `<iconKey>_dirs` (8 равных ячеек), собранном [pack_dirs.py](../../tools/pack_dirs.py)
+из покадровых исходников `tools/dir_frames/`. Сим кэширует цель каждый кадр
+([BattleSim](../../src/game/BattleSim.ts) `fireTowers` → `towerAim`), сцена снапит
+ближайший октант ([SlotView](../../src/ui/SlotView.ts) `setAim`, из
+`BattleScene.syncCooldowns`). База статична; саппорты (Щит/Стабилизатор) не вращаются;
+гибриды берут strip родителя по `iconKey`. Кадры черновые («как получится») —
+поворот дорабатывается позже (заменить кадры в `tools/dir_frames/` → `pack_dirs.py`).
+
 ## Звук
 
 Аудио-слой подключён ([AudioBus.ts](../../src/core/AudioBus.ts), нативный Web Audio,

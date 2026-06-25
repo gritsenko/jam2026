@@ -119,8 +119,20 @@ export class PlatformGrid extends Container {
       if (placed) {
         const def = CARDS[placed.cardId];
         const syn = this.synergy[i];
-        if (def) slot.setPlaced(this.artFor(placed.cardId), def.element, placed.grade, syn?.dots ?? [], syn?.resonant ?? false);
-        else slot.setEmpty();
+        if (def) {
+          // Aim frames live under `<iconKey>_dirs` (hybrids share their parent's
+          // strip via iconKey); absent for supports/un-generated art → static.
+          const dirsKey = `${def.iconKey}_dirs`;
+          const dirStrip = this.assets.has(dirsKey) ? this.assets.get(dirsKey) : undefined;
+          slot.setPlaced(
+            this.artFor(def.iconKey),
+            def.element,
+            placed.grade,
+            syn?.dots ?? [],
+            syn?.resonant ?? false,
+            dirStrip,
+          );
+        } else slot.setEmpty();
       } else {
         slot.setEmpty();
       }
@@ -365,13 +377,18 @@ export class PlatformGrid extends Container {
       -o + chamfer, -o, o - chamfer, -o, o, -o + chamfer, o, o - chamfer,
       o - chamfer, o, -o + chamfer, o, -o, o - chamfer, -o, -o + chamfer,
     ];
-    g.poly(oct).fill({ color: COLORS.metalMid });
-    g.poly(oct).stroke({ width: 10, color: COLORS.brass });
-    g.poly(oct.map((v) => v * 0.92)).stroke({ width: 4, color: COLORS.brassLight, alpha: 0.4 });
+    // Dieselpunk dark-steel plate (matches the towers): dark fill, a recessed
+    // inner panel, brass edge with a dark keyline under it, and a riveted rim.
+    g.poly(oct).fill({ color: COLORS.metalDark });
+    g.poly(oct.map((v) => v * 0.9)).fill({ color: COLORS.metalMid, alpha: 0.55 });
+    g.poly(oct).stroke({ width: 12, color: COLORS.black, alpha: 0.4 });
+    g.poly(oct).stroke({ width: 8, color: COLORS.brass });
+    g.poly(oct.map((v) => v * 0.9)).stroke({ width: 3, color: COLORS.brassLight, alpha: 0.35 });
     const rivetR = o * 0.86;
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2 + Math.PI / 12;
       g.circle(Math.cos(a) * rivetR, Math.sin(a) * rivetR, 6).fill({ color: COLORS.rivet });
+      g.circle(Math.cos(a) * rivetR, Math.sin(a) * rivetR, 6).stroke({ width: 1.5, color: COLORS.brassLight, alpha: 0.4 });
     }
     this.plate.addChild(g);
   }

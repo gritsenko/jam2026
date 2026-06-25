@@ -10,9 +10,14 @@ import { COLORS, ELEMENTS } from '../theme';
  * `prompt`/`category`/`size` feed tools/gen_sprite.py (mirrored in
  * tools/assets.manifest.json).
  *
- * Status note (2026): the style-validation batch already exists on disk —
- * bg_level, base_platform, plasma_shutter, the four resource icons and the
- * ui_* chrome. Everything else still resolves to a placeholder.
+ * Status note (2026): the whole gameplay set was re-skinned to one style — flat
+ * flash-cartoon (Iron Marines / Kingdom Rush) + dark dieselpunk metal, anchored
+ * to docs/visual_refs/new_style.jpg. On disk: backgrounds, platform, 6 towers +
+ * 4 `<id>_dirs` aim strips, 5 enemies, map nodes, icon_star, the 3 modernization
+ * cards, the sym_* element marks. The HUD chrome is procedural (drawPanel /
+ * PlatformGrid.buildPlate), so the legacy ui_panel/ui_button/ui_card_frame keys
+ * are unused. Only decor_pylon (unwired) and icon_reactor (uses ui_button_overdrive
+ * via ASSET_FALLBACKS) still resolve to a placeholder.
  */
 export type AssetCategory =
   | 'background'
@@ -85,7 +90,7 @@ export const ASSETS: AssetSpec[] = [
     key: 'base_platform',
     category: 'prop',
     size: 1024,
-    prompt: 'steampunk tower-defense platform plate, brass and blue steel, nine glowing rune slots in a 3x3 grid, reactor stack at the back, three-quarter view',
+    prompt: 'dieselpunk tower-defense battle platform, a heavy square dark gunmetal iron plate with bolted riveted edges and a few rust streaks, its flat top surface holds nine recessed metal build sockets in a clean 3x3 grid linked by glowing blue energy channels, dark weathered steel with brass bolt accents and glowing blue energy at the socket rims, chunky industrial beveled sides, three-quarter top-down view',
     placeholder: { shape: 'round', tint: COLORS.metalMid, label: '' },
   },
   {
@@ -198,48 +203,87 @@ export const ASSETS: AssetSpec[] = [
     placeholder: { shape: 'disc', tint: COLORS.reactor, label: 'BURN' },
   },
 
-  // ---- Card / tower art (keyed by card id) ---------------------------------
+  // ---- Tower art (keyed by card id) ----------------------------------------
+  // `<id>` is the resting tower sprite (also the hand-card art). Attacking
+  // turrets additionally have an `<id>_dirs` strip of 8 facing frames that the
+  // slot swaps to aim at the lead enemy (see the "Turret aim strips" block).
+  // Supports (shield/stabilizer) don't aim. Hybrids reuse their parent's art.
   {
     key: 'plasma_shutter',
-    category: 'card_icon',
+    category: 'tower',
     size: 512,
-    prompt: 'plasma shutter turret, glowing orange plasma core, brass and steel housing, three-quarter view',
+    prompt: 'fire turret base mount, a chunky armored circular turntable with a glowing molten-orange plasma core at its center and a forward gun-mount cradle, dark burnished metal, three-quarter top-down view',
     placeholder: { shape: 'round', tint: F, label: 'FIRE' },
   },
   {
     key: 'frost_pulse',
-    category: 'card_icon',
+    category: 'tower',
     size: 512,
-    prompt: 'frost pulse turret, icy blue crystal emitter coils on frosted metal, three-quarter view',
+    prompt: 'ice cannon turret base mount, a chunky armored circular turntable with a glowing pale-cyan frost crystal core and a forward gun-mount cradle, dark frosted metal, three-quarter top-down view',
     placeholder: { shape: 'round', tint: W, label: 'FROST' },
   },
   {
     key: 'storm_coil',
-    category: 'card_icon',
+    category: 'tower',
     size: 512,
-    prompt: 'storm coil tesla turret, crackling violet lightning arcs over copper rings, three-quarter view',
+    prompt: 'tesla turret base mount, a chunky armored circular turntable with crackling violet electric arcs over copper rings and a glowing core, forward gun-mount cradle, dark metal, three-quarter top-down view',
     placeholder: { shape: 'round', tint: E, label: 'STORM' },
   },
   {
     key: 'railgun',
-    category: 'card_icon',
+    category: 'tower',
     size: 512,
-    prompt: 'heavy railgun turret, long barrel with exposed rails, steel plating, faint sparks, three-quarter view',
+    prompt: 'heavy railgun turret base mount, a chunky reinforced steel turntable with a long rail-cradle and a glowing energy capacitor, dark gunmetal with brass bolts, three-quarter top-down view',
     placeholder: { shape: 'round', tint: P, label: 'RAILGUN' },
   },
   {
     key: 'shield_generator',
-    category: 'card_icon',
+    category: 'tower',
     size: 512,
-    prompt: 'shield dome generator emitting a glowing protective energy cupola, brass base, three-quarter view',
+    prompt: 'shield dome generator turret, a squat armored emitter projecting a translucent glowing blue energy dome, dark metal base, three-quarter top-down view',
     placeholder: { shape: 'round', tint: P, label: 'SHIELD' },
   },
   {
     key: 'grid_stabilizer',
-    category: 'card_icon',
+    category: 'tower',
     size: 512,
-    prompt: 'uranium battery cell stabilizer, glowing green energy rods, yellow hazard markings, three-quarter view',
+    prompt: 'uranium battery stabilizer cell turret, a dark metal canister with glowing green energy rods and yellow-black hazard stripes, three-quarter top-down view',
     placeholder: { shape: 'round', tint: N, label: 'CELL' },
+  },
+
+  // ---- Turret aim strips ---------------------------------------------------
+  // 8-direction facing frames for the attacking turrets, packed as one uniform
+  // horizontal strip (8 equal cells, N→NW clockwise) by tools/pack_dirs (NOT
+  // gen_sprite — the 8 source frames are generated per direction, then packed).
+  // SlotView slices the strip and swaps cells to aim; absent → the turret is
+  // static. Prototype frames (see docs); refined later. Keyed `<iconKey>_dirs`.
+  {
+    key: 'plasma_shutter_dirs',
+    category: 'tower',
+    size: 2048,
+    prompt: 'packed 8-direction aim strip for the fire turret (see plasma_shutter); built by tools/pack_dirs, not gen_sprite',
+    placeholder: { shape: 'round', tint: F, label: '' },
+  },
+  {
+    key: 'frost_pulse_dirs',
+    category: 'tower',
+    size: 2048,
+    prompt: 'packed 8-direction aim strip for the ice turret (see frost_pulse); built by tools/pack_dirs, not gen_sprite',
+    placeholder: { shape: 'round', tint: W, label: '' },
+  },
+  {
+    key: 'storm_coil_dirs',
+    category: 'tower',
+    size: 2048,
+    prompt: 'packed 8-direction aim strip for the tesla turret (see storm_coil); built by tools/pack_dirs, not gen_sprite',
+    placeholder: { shape: 'round', tint: E, label: '' },
+  },
+  {
+    key: 'railgun_dirs',
+    category: 'tower',
+    size: 2048,
+    prompt: 'packed 8-direction aim strip for the railgun turret (see railgun); built by tools/pack_dirs, not gen_sprite',
+    placeholder: { shape: 'round', tint: P, label: '' },
   },
 
   // ---- Element symbols (readability: the element motif on cards/dots/panel) -
