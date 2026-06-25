@@ -2100,6 +2100,7 @@ export class BattleScene extends Scene {
     if (crystals > 0) {
       this.addCrystals(crystals);
       this.crystalChip.pulse();
+      this.services.audio.playOneOf(['sfx_crystal1', 'sfx_crystal2', 'sfx_crystal3']);
     }
     const view = this.detachEnemyView(e.id);
     if (!view) return;
@@ -2215,6 +2216,7 @@ export class BattleScene extends Scene {
       size: enemyScreen * 0.33,
       flyDelay: 0.4,
       grow: true,
+      sound: ['sfx_gold1', 'sfx_gold2', 'sfx_gold3'],
     });
   }
 
@@ -2231,10 +2233,11 @@ export class BattleScene extends Scene {
     chip: ResourceChip,
     tex: Texture,
     count: number,
-    opts: { size: number; flyDelay: number; grow?: boolean },
+    opts: { size: number; flyDelay: number; grow?: boolean; sound?: string[] },
   ): void {
     const { size, flyDelay } = opts;
     const grow = opts.grow ?? false;
+    const sound = opts.sound;
     const baseScale = size / (tex.width || size);
     for (let i = 0; i < count; i++) {
       const coin = new Sprite(tex);
@@ -2278,6 +2281,15 @@ export class BattleScene extends Scene {
           onComplete: () => {
             if (!coin.destroyed) coin.destroy();
             if (!chip.destroyed) chip.pulse();
+            // One chime per token as it lands — a rising-ish cascade via small
+            // per-token pitch variation; throttled so a mass payout never floods.
+            if (sound) {
+              this.services.audio.playOneOf(sound, {
+                rate: 0.94 + (i / Math.max(1, count)) * 0.18,
+                throttleMs: 22,
+                group: 'reward',
+              });
+            }
           },
         }),
       );
@@ -2453,7 +2465,7 @@ export class BattleScene extends Scene {
                         this.crystalChip,
                         this.services.assets.get('icon_crystal'),
                         Math.min(7, crystals),
-                        { size: 42, flyDelay: 0.06, grow: true },
+                        { size: 42, flyDelay: 0.06, grow: true, sound: ['sfx_crystal1', 'sfx_crystal2', 'sfx_crystal3'] },
                       );
                       this.track(
                         tween({

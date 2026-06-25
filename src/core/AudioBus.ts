@@ -67,6 +67,8 @@ export class AudioBus {
   private pendingMusic: string | null = null;
   private muted = false;
   private vol: Record<MixBus, number>;
+  /** Last play time (ms) per throttle group, for playOneOf burst-limiting. */
+  private lastGroupPlay = new Map<string, number>();
 
   constructor() {
     this.muted = (() => {
@@ -155,6 +157,28 @@ export class AudioBus {
       src.connect(g).connect(bus);
       src.start();
     });
+  }
+
+  /**
+   * Play one randomly-chosen variant from a list (e.g. coin pickup 1/2/3).
+   * `throttleMs` + `group` rate-limit a burst: when many tokens land on the same
+   * frame, only one chime per `throttleMs` for that group gets through, so a mass
+   * payout cascades pleasantly instead of becoming a wall of sound.
+   */
+  playOneOf(
+    keys: string[],
+    opts?: { volume?: number; rate?: number; throttleMs?: number; group?: string },
+  ): void {
+    const present = keys.filter((k) => AUDIO_FILE[k]);
+    if (present.length === 0) return;
+    if (opts?.throttleMs && opts.group) {
+      const now = performance.now();
+      const last = this.lastGroupPlay.get(opts.group) ?? -Infinity;
+      if (now - last < opts.throttleMs) return;
+      this.lastGroupPlay.set(opts.group, now);
+    }
+    const key = present[Math.floor(Math.random() * present.length)]!;
+    this.playSfx(key, { volume: opts?.volume, rate: opts?.rate });
   }
 
   /** Crossfade to a looping track. Same key = no-op; missing file = silent. */

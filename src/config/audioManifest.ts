@@ -94,6 +94,16 @@ export const AUDIO: AudioSpec[] = [
       'feeding a card into an energy reactor, smooth deep whoosh with a soft warm fiery surge and a rising power charge, satisfying and natural, not harsh or noisy, 0.8 seconds',
   },
 
+  // ---- Gameplay SFX: reward pickup (random variant on collect) -------------
+  // Externally sourced clips; one of the N variants plays each time the reward
+  // tokens land on the HUD chip. See playOneOf() / streamReward().
+  { key: 'sfx_gold1', kind: 'sfx', volume: 0.5, prompt: 'collecting gold coins, bright pleasant metallic coin chime, satisfying, short' },
+  { key: 'sfx_gold2', kind: 'sfx', volume: 0.5, prompt: 'collecting gold coins, bright pleasant metallic coin chime, satisfying, short (variant)' },
+  { key: 'sfx_gold3', kind: 'sfx', volume: 0.5, prompt: 'collecting gold coins, bright pleasant metallic coin chime, satisfying, short (variant)' },
+  { key: 'sfx_crystal1', kind: 'sfx', volume: 0.55, prompt: 'collecting a crystal, clear glassy crystalline sparkle chime, magical, short' },
+  { key: 'sfx_crystal2', kind: 'sfx', volume: 0.55, prompt: 'collecting a crystal, clear glassy crystalline sparkle chime, magical, short (variant)' },
+  { key: 'sfx_crystal3', kind: 'sfx', volume: 0.55, prompt: 'collecting a crystal, clear glassy crystalline sparkle chime, magical, short (variant)' },
+
   // ---- Gameplay SFX: combat ------------------------------------------------
   {
     key: 'sfx_shoot',
