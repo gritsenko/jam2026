@@ -147,8 +147,10 @@ export interface HandCard {
  * the core. A `disruptor` (Нарушитель) instead rushes the platform and *interrupts*
  * tower attacks — glitching a shot or, on a crit, briefly stunning the tower —
  * which is what finally gives the Shield's +DEF / interrupt-immunity a purpose.
+ * A `support` mob (docs/planned/support-enemies.md) has no direct attack and
+ * instead buffs/protects nearby *allied* enemies — the "enemies synergize" mirror.
  */
-export type EnemyArchetype = 'standard' | 'disruptor';
+export type EnemyArchetype = 'standard' | 'disruptor' | 'support';
 
 export interface EnemyDef {
   readonly id: string;
@@ -178,6 +180,18 @@ export interface EnemyDef {
    * 0 for ordinary enemies.
    */
   readonly crystalBounty?: number;
+  /**
+   * Support mobs (docs/planned/support-enemies.md) — the "enemies synergize"
+   * mirror. Each aura affects *other* enemies within `auraRadiusFrac` (fraction of
+   * arena width). All optional, so the existing roster is untouched.
+   */
+  readonly auraRadiusFrac?: number;
+  /** Resonance Mote: +% move speed to allies in range (pack total capped in sim). */
+  readonly auraHastePct?: number;
+  /** Coolant Mender: HP/sec healed to wounded non-support allies in range (≤ maxHp). */
+  readonly auraHealPerSec?: number;
+  /** Aegis Beacon: shield HP granted to allies in range, refreshed while it lives. */
+  readonly allyShieldHp?: number;
 }
 
 /**

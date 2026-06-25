@@ -197,6 +197,8 @@ export const LEVEL_COMBAT: Record<string, LevelCombat> = {
         { enemyId: 'frost_wisp', count: 8, gap: 0.4 },
       ] },
       { groups: [
+        // Resonance Mote (support) debuts early: it hastes the tank pair → focus it.
+        { enemyId: 'resonance_mote', count: 1, gap: 2.0 },
         { enemyId: 'iron_husk', count: 2, gap: 3.5 },
         { enemyId: 'volt_crawler', count: 8, gap: 0.6 },
       ] },
@@ -206,6 +208,8 @@ export const LEVEL_COMBAT: Record<string, LevelCombat> = {
         { enemyId: 'iron_husk', count: 1, gap: 0 },
       ] },
       { groups: [
+        // Coolant Mender (support) mid-level: it repairs the husks → burst them down.
+        { enemyId: 'coolant_mender', count: 1, gap: 2.0 },
         { enemyId: 'iron_husk', count: 3, gap: 3.0 },
         { enemyId: 'volt_crawler', count: 10, gap: 0.5 },
         { enemyId: 'signal_disruptor', count: 3, gap: 1.6 },
@@ -216,6 +220,8 @@ export const LEVEL_COMBAT: Record<string, LevelCombat> = {
         { enemyId: 'frost_wisp', count: 12, gap: 0.3 },
       ] },
       { groups: [
+        // Boss wave: two Aegis Beacons (support) shield the husks → kill the beacons first.
+        { enemyId: 'aegis_beacon', count: 2, gap: 2.5 },
         { enemyId: 'iron_husk', count: 4, gap: 2.5 },
         { enemyId: 'magma_brute', count: 8, gap: 0.8 },
         { enemyId: 'signal_disruptor', count: 4, gap: 1.5 },

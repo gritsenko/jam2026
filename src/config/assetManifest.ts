@@ -302,6 +302,32 @@ export const ASSETS: AssetSpec[] = [
       'menacing signal-jammer saboteur drone creature, bristling with broadcast antenna spikes, glitching red and violet disruptive energy arcs crackling around it, fast aggressive low crawling pose',
     placeholder: { shape: 'disc', tint: E, label: 'JAMMER' },
   },
+  // Support mobs (docs/planned/support-enemies.md): the "enemies synergize" mirror.
+  // Silhouettes read as "I radiate, not attack" — auras, rings, emitters; no guns.
+  {
+    key: 'enemy_resonance_mote',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'floating resonance mote creature, warm amber-gold energy core, pulsing concentric aura rings rippling outward, hovering bobbing pose, no limbs',
+    placeholder: { shape: 'disc', tint: N, label: 'MOTE' },
+  },
+  {
+    key: 'enemy_coolant_mender',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'drifting coolant mender spirit, translucent teal jellyfish-like dome body, trailing restorative coolant vapor streams reaching outward, gentle floating pose',
+    placeholder: { shape: 'disc', tint: W, label: 'MENDER' },
+  },
+  {
+    key: 'enemy_aegis_beacon',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'hovering aegis beacon drone creature, faceted hexagonal energy-shield emitter nodes, projecting translucent dome barriers outward, cool blue-gold glow, steady levitating defensive pose',
+    placeholder: { shape: 'disc', tint: N, label: 'BEACON' },
+  },
 
   // ---- World map -----------------------------------------------------------
   {

@@ -126,6 +126,14 @@ export const INTERRUPT_STUN_SEC = 1.2;
 /** Seconds a Shield barrier holds the lead enemy still; recharge after. */
 export const BARRIER_COOLDOWN_SEC = 12;
 
+// --- Support-mob auras (docs/planned/support-enemies.md) -------------------
+
+/** Cap on the total Resonance-Mote move-speed bonus a pack can stack (no runaway). */
+export const AURA_HASTE_CAP_PCT = 50;
+
+/** Aegis-Beacon ally shield decays this many HP/sec once no beacon refreshes it. */
+export const AURA_SHIELD_DECAY_PER_SEC = 40;
+
 // --- Resonance reaction effects (v2 §7) ------------------------------------
 
 /** Steam Burst: movement slow and damage-over-time applied to hit enemies. */

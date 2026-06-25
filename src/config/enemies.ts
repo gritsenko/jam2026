@@ -36,6 +36,25 @@ export const ENEMIES: EnemyDef[] = [
     interruptCrit: 0.25,
     crystalBounty: 2,
   },
+  // --- Support mobs (docs/planned/support-enemies.md) -------------------------
+  // The "enemies synergize" mirror: no direct attack, low HP, premium bounty —
+  // the threat is what they hand to allies, so focusing them first is the play.
+  // Each aura affects *other* enemies within auraRadiusFrac (resolved in BattleSim).
+  {
+    id: 'resonance_mote', name: 'Resonance Mote', element: 'Energy', iconKey: 'enemy_resonance_mote',
+    maxHp: 70, speed: 0.06, bounty: 12, coreDamage: 1,
+    archetype: 'support', auraRadiusFrac: 0.18, auraHastePct: 25,
+  },
+  {
+    id: 'coolant_mender', name: 'Coolant Mender', element: 'Water', iconKey: 'enemy_coolant_mender',
+    maxHp: 65, speed: 0.055, bounty: 11, coreDamage: 1,
+    archetype: 'support', auraRadiusFrac: 0.16, auraHealPerSec: 8,
+  },
+  {
+    id: 'aegis_beacon', name: 'Aegis Beacon', element: 'Energy', iconKey: 'enemy_aegis_beacon',
+    maxHp: 60, speed: 0.05, bounty: 13, coreDamage: 1,
+    archetype: 'support', auraRadiusFrac: 0.15, allyShieldHp: 60,
+  },
 ];
 
 export const ENEMY_BY_ID: Record<string, EnemyDef> = Object.fromEntries(

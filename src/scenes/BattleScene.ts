@@ -1904,7 +1904,12 @@ export class BattleScene extends Scene {
     for (const e of this.sim.enemies) {
       let view = this.enemyViews.get(e.id);
       if (!view) {
-        view = new EnemySprite(assets.get(e.def.iconKey), this.enemySize, e.id * 0.7);
+        // Support mobs telegraph their buff reach with an element-tinted aura ring.
+        const aura =
+          e.def.archetype === 'support' && e.def.auraRadiusFrac
+            ? { color: ELEMENTS[e.def.element].glow, radiusPx: e.def.auraRadiusFrac * this.arenaW }
+            : undefined;
+        view = new EnemySprite(assets.get(e.def.iconKey), this.enemySize, e.id * 0.7, aura);
         this.enemyViews.set(e.id, view);
         this.enemyHpSeen.set(e.id, e.hp);
         this.enemyLayer.addChild(view);
@@ -1914,6 +1919,7 @@ export class BattleScene extends Scene {
       this.enemyHpSeen.set(e.id, e.hp);
       view.position.set(e.x, e.y);
       view.setHpFrac(e.hp / e.maxHp);
+      view.setShield(e.shield, e.shieldMax);
       view.tick(dt);
     }
   }
