@@ -94,6 +94,28 @@ const PLATFORM_FRAC = 0.5;
 const DRAG_THRESHOLD_SQ = 12 * 12;
 
 /**
+ * Per-tower fire SFX by card id (see docs/planned/tower-sound-design.md). Towers
+ * not listed (support / unknown) fall back to the generic `sfx_shoot`.
+ */
+const TOWER_SHOOT_SFX: Record<string, string> = {
+  plasma_shutter: 'sfx_shoot_plasma',
+  frost_pulse: 'sfx_shoot_frost',
+  storm_coil: 'sfx_shoot_storm',
+  railgun: 'sfx_shoot_railgun',
+};
+
+/**
+ * Per-tower impact SFX keyed by the source tower's element (each attacking
+ * element maps to exactly one tower). Falls back to the generic `sfx_hit`.
+ */
+const ELEMENT_HIT_SFX: Partial<Record<ElementId, string>> = {
+  Fire: 'sfx_hit_plasma',
+  Water: 'sfx_hit_frost',
+  Electricity: 'sfx_hit_storm',
+  Physical: 'sfx_hit_railgun',
+};
+
+/**
  * The main battle screen. All HUD elements from the brief (§5.3) on mock data.
  *
  * The arena (background-with-road + platform + enemies) lives in a single
@@ -340,18 +362,15 @@ export class BattleScene extends Scene {
           this.services.audio.playSfx('sfx_leak');
           this.onEnemyLeaked(e);
         },
-        onEnemyDamaged: (e, amount, crit) => {
-          this.services.audio.playSfx(crit ? 'sfx_crit' : 'sfx_hit');
+        onEnemyDamaged: (e, amount, crit, element) => {
+          this.services.audio.playSfx(crit ? 'sfx_crit' : (ELEMENT_HIT_SFX[element] ?? 'sfx_hit'));
           this.floatDamage(e.x, e.y, amount, crit);
         },
         onTowerInterrupted: (slot, kind, x, y) => {
-          this.services.audio.playSfx('sfx_disrupt');
+          this.services.audio.playSfx(kind === 'stun' ? 'sfx_stun' : 'sfx_disrupt');
           this.onTowerInterrupted(slot, kind, x, y);
         },
-        onTowerFired: (slotIndex) => {
-          this.services.audio.playSfx('sfx_shoot');
-          this.onTowerFired(slotIndex);
-        },
+        onTowerFired: (slotIndex) => this.onTowerFired(slotIndex),
         onProjectileHit: (x, y, element) => this.burst(x, y, ELEMENTS[element].glow, this.arenaW * 0.03),
         onBeam: (x1, y1, x2, y2, element) => this.beam(x1, y1, x2, y2, ELEMENTS[element].glow),
         onBarrier: (x, y) => {
@@ -1338,7 +1357,7 @@ export class BattleScene extends Scene {
 
   /** Isolation Circuit (§4): permanently bump the network's base capacity. */
   private applyIsolation(card: BattleCard): void {
-    this.services.audio.playSfx('sfx_place');
+    this.services.audio.playSfx('sfx_upgrade');
     this.spendGold(card.def.costGold);
     this.state.energyCapacity += MOD_ISOLATION_CAPACITY;
     this.refreshEnergy();
@@ -2093,6 +2112,7 @@ export class BattleScene extends Scene {
     const placed = this.state.slots[slotIndex];
     if (!placed) return;
     const def = getCard(placed.cardId);
+    this.services.audio.playSfx(TOWER_SHOOT_SFX[placed.cardId] ?? 'sfx_shoot');
     const p = this.grid.slotScenePos(slotIndex);
     this.burst(p.x, p.y, ELEMENTS[def.element].glow, this.arenaW * 0.026);
   }

@@ -61,7 +61,7 @@ export const AUDIO: AudioSpec[] = [
   {
     key: 'sfx_pickup',
     kind: 'sfx',
-    volume: 0.5,
+    volume: 0.15,
     prompt:
       'picking up a holographic card, soft airy lift swish with a gentle digital shimmer, light and tactile, smooth, 0.3 seconds',
   },
@@ -93,6 +93,13 @@ export const AUDIO: AudioSpec[] = [
     prompt:
       'feeding a card into an energy reactor, smooth deep whoosh with a soft warm fiery surge and a rising power charge, satisfying and natural, not harsh or noisy, 0.8 seconds',
   },
+  {
+    key: 'sfx_upgrade',
+    kind: 'sfx',
+    volume: 0.65,
+    prompt:
+      'permanent base upgrade, warm rising harmonic shimmer resolving into a bright satisfying major chord chime, with a soft swelling power-up hum underneath, triumphant and rewarding, smooth and clean, 0.8 seconds',
+  },
 
   // ---- Gameplay SFX: reward pickup (random variant on collect) -------------
   // Externally sourced clips; one of the N variants plays each time the reward
@@ -104,39 +111,102 @@ export const AUDIO: AudioSpec[] = [
   { key: 'sfx_crystal2', kind: 'sfx', volume: 0.55, prompt: 'collecting a crystal, clear glassy crystalline sparkle chime, magical, short (variant)' },
   { key: 'sfx_crystal3', kind: 'sfx', volume: 0.55, prompt: 'collecting a crystal, clear glassy crystalline sparkle chime, magical, short (variant)' },
 
-  // ---- Gameplay SFX: combat ------------------------------------------------
+  // ---- Gameplay SFX: combat (generic fallback) -----------------------------
+  // Used by towers that have no dedicated sound (e.g. Shield's barrier shot) and
+  // as the fallback if a per-tower clip is missing. See tower-specific keys below.
   {
     key: 'sfx_shoot',
     kind: 'sfx',
-    volume: 0.45,
+    volume: 0.2,
     prompt:
       'soft sci-fi energy bolt, smooth synthetic laser pew, light and clean, gentle not piercing, 0.25 seconds',
   },
   {
     key: 'sfx_hit',
     kind: 'sfx',
-    volume: 0.5,
+    volume: 0.25,
     prompt:
       'soft energy projectile impact, gentle electric tick with a subtle warm thump, 0.2 seconds',
+  },
+
+  // ---- Gameplay SFX: per-tower fire + impact -------------------------------
+  // Each attacking tower gets its own pair (shoot/hit) matching its element/style.
+  // Routed in BattleScene by card id (shoot) and source element (hit); see
+  // docs/planned/tower-sound-design.md. Support towers fire no projectile.
+  {
+    key: 'sfx_shoot_plasma',
+    kind: 'sfx',
+    volume: 0.2,
+    prompt:
+      'plasma cannon firing a hot energy bolt, deep punchy fiery whoomph with a short electric crackle, warm and powerful, not harsh, 0.3 seconds',
+  },
+  {
+    key: 'sfx_hit_plasma',
+    kind: 'sfx',
+    volume: 0.25,
+    prompt:
+      'plasma bolt impact, satisfying fiery thump with a soft sizzling ember tail, warm and weighty, 0.3 seconds',
+  },
+  {
+    key: 'sfx_shoot_frost',
+    kind: 'sfx',
+    volume: 0.55,
+    prompt:
+      'frost projectile launch, soft airy icy whoosh with a gentle crystalline shimmer, cool and clean, 0.3 seconds',
+  },
+  {
+    key: 'sfx_hit_frost',
+    kind: 'sfx',
+    volume: 0.6,
+    prompt:
+      'frost impact freezing an enemy, smooth glassy crystallize chime with a soft frosty crackle, gentle and magical, 0.35 seconds',
+  },
+  {
+    key: 'sfx_shoot_storm',
+    kind: 'sfx',
+    volume: 0.25,
+    prompt:
+      'electric coil discharging, crisp clean synthetic zap with a quick high spark snap, snappy not piercing, 0.25 seconds',
+  },
+  {
+    key: 'sfx_hit_storm',
+    kind: 'sfx',
+    volume: 0.3,
+    prompt:
+      'chain lightning arcing between enemies, fast tight electric crackle-zip with a bright spark, clean and energetic, 0.3 seconds',
+  },
+  {
+    key: 'sfx_shoot_railgun',
+    kind: 'sfx',
+    volume: 0.3,
+    prompt:
+      'heavy railgun firing, deep magnetic charge-up into a powerful low boom and a sharp metallic snap, weighty and impactful, clean, 0.6 seconds',
+  },
+  {
+    key: 'sfx_hit_railgun',
+    kind: 'sfx',
+    volume: 0.35,
+    prompt:
+      'high-velocity slug piercing through, hard kinetic thud with a brief metallic ring-out, satisfying and heavy, 0.35 seconds',
   },
   {
     key: 'sfx_crit',
     kind: 'sfx',
-    volume: 0.65,
+    volume: 0.35,
     prompt:
       'powerful critical energy strike, deep satisfying impact with a bright crystalline sparkle tail, punchy but smooth, 0.5 seconds',
   },
   {
     key: 'sfx_enemy_die',
     kind: 'sfx',
-    volume: 0.55,
+    volume: 0.45,
     prompt:
       'small sci-fi drone dissolving, soft digital poof with a gentle descending shimmer, satisfying not crunchy, 0.5 seconds',
   },
   {
     key: 'sfx_leak',
     kind: 'sfx',
-    volume: 0.85,
+    volume: 0.45,
     prompt:
       'enemy breaches the core and deals damage, strong clear impact hit with a deep heavy boom and a short alarming distorted synth blare, punchy and very noticeable, urgent warning, not muffled, 1 second',
   },
@@ -146,6 +216,13 @@ export const AUDIO: AudioSpec[] = [
     volume: 0.55,
     prompt:
       'electronic interference jamming a tower, smooth glitchy modulated warble, eerie and wobbly, not harsh static, 0.5 seconds',
+  },
+  {
+    key: 'sfx_stun',
+    kind: 'sfx',
+    volume: 0.4,
+    prompt:
+      'tower stunned and shut down, short heavy electric lock-down zap with a low descending power-down dip and a brief dead hum, jarring but smooth, not harsh static, 0.4 seconds',
   },
   {
     key: 'sfx_barrier',

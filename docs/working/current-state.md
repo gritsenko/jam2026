@@ -150,6 +150,14 @@ text-to-audio промпты — [audioManifest.ts](../../src/config/audioManife
 с картами (**взятие**/постановка/мердж/фьюжн/Overdrive/реролл/клик). UI-звуки
 (клик, реролл) идут по шине `ui`.
 
+**Пер-башенные звуки.** Каждая атакующая башня играет свою пару SFX вместо общих:
+вылет роутится по `cardId` (`TOWER_SHOOT_SFX` в [BattleScene.ts](../../src/scenes/BattleScene.ts)),
+попадание — по стихии источника (`ELEMENT_HIT_SFX`; колбэк `onEnemyDamaged` несёт
+`element`). Ключи: `sfx_shoot_*`/`sfx_hit_*` для `plasma`/`frost`/`storm`/`railgun`
+([audioManifest.ts](../../src/config/audioManifest.ts)). Поддержка снарядов не пускает
+(Щит → `sfx_barrier`); если PNG-сэмпла нет — фоллбек на общие `sfx_shoot`/`sfx_hit`.
+Спека — [done/tower-sound-design.md](done/tower-sound-design.md).
+
 **Настройки звука** — кнопка-шестерёнка ([GearButton.ts](../../src/ui/GearButton.ts))
 под кнопкой MAP в бою открывает модалку ([SettingsPanel.ts](../../src/ui/SettingsPanel.ts))
 с тремя ползунками ([Slider.ts](../../src/ui/Slider.ts)) — Музыка / Эффекты /

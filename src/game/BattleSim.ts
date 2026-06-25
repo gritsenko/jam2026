@@ -163,8 +163,8 @@ export type WavePhase = 'countdown' | 'spawning' | 'active';
 export interface SimCallbacks {
   onEnemyKilled?(enemy: SimEnemy): void;
   onEnemyLeaked?(enemy: SimEnemy): void;
-  /** An enemy took a discrete hit — `amount` already folds in the Wet bonus; `crit` = a Wet x2 strike. */
-  onEnemyDamaged?(enemy: SimEnemy, amount: number, crit: boolean): void;
+  /** An enemy took a discrete hit — `amount` already folds in the Wet bonus; `crit` = a Wet x2 strike; `element` = the source tower's element (for per-tower hit SFX). */
+  onEnemyDamaged?(enemy: SimEnemy, amount: number, crit: boolean, element: ElementId): void;
   /** A Disruptor jammed a tower (v3 §2.Г): `stun` = locked for a beat, else a glitched shot. */
   onTowerInterrupted?(slotIndex: number, kind: 'glitch' | 'stun', x: number, y: number): void;
   onTowerFired?(slotIndex: number, target: SimEnemy): void;
@@ -774,12 +774,12 @@ export class BattleSim {
   }
 
   /** Apply damage (with Wet bonus) and on-hit statuses from a hit source. */
-  private applyHit(e: SimEnemy, baseDamage: number, fx: HitEffects): void {
+  private applyHit(e: SimEnemy, baseDamage: number, fx: HitEffects & { readonly element: ElementId }): void {
     if (!e.alive) return;
     const wet = e.wetUntil > this.clock;
     const dmg = baseDamage * (wet ? fx.vsWetMult : 1);
     // Floating damage number (skips status-only applications like the freeze wash).
-    if (dmg > 0) this.cb.onEnemyDamaged?.(e, Math.round(dmg), wet && fx.vsWetMult > 1);
+    if (dmg > 0) this.cb.onEnemyDamaged?.(e, Math.round(dmg), wet && fx.vsWetMult > 1, fx.element);
     this.damageEnemy(e, dmg);
     if (!e.alive) return;
 
