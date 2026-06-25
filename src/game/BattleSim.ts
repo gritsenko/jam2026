@@ -4,6 +4,8 @@ import { getEnemy } from '../config/enemies';
 import { cardGrade, cardLoad } from '../config/cards';
 import {
   AOE_SPLASH_FRAC,
+  AURA_HASTE_CAP_PCT,
+  AURA_SHIELD_DECAY_PER_SEC,
   BARRIER_COOLDOWN_SEC,
   CHAIN_FALLOFF,
   CHAIN_RADIUS_FRAC,
@@ -63,6 +65,15 @@ export interface SimEnemy {
   dotDps: number;
   /** Disruptor only (v3 §2.Г): seconds until its next interrupt attempt. */
   interruptCd: number;
+  /**
+   * Move-speed multiplier from nearby Resonance Motes (1 = none; capped). Recomputed
+   * each frame by {@link BattleSim.tickAuras} (docs/planned/support-enemies.md).
+   */
+  hasteMult: number;
+  /** Aegis-Beacon ally shield: absorbs flat damage before HP, decays when unrefreshed. */
+  shield: number;
+  /** High-water shield value granted (for the view's shield-bubble fraction); 0 = never shielded. */
+  shieldMax: number;
 }
 
 /** On-hit payload a tower stamps onto its shots / strikes. */
@@ -163,8 +174,8 @@ export type WavePhase = 'countdown' | 'spawning' | 'active';
 export interface SimCallbacks {
   onEnemyKilled?(enemy: SimEnemy): void;
   onEnemyLeaked?(enemy: SimEnemy): void;
-  /** An enemy took a discrete hit — `amount` already folds in the Wet bonus; `crit` = a Wet x2 strike. */
-  onEnemyDamaged?(enemy: SimEnemy, amount: number, crit: boolean): void;
+  /** An enemy took a discrete hit — `amount` already folds in the Wet bonus; `crit` = a Wet x2 strike; `element` = the source tower's element (for per-tower hit SFX). */
+  onEnemyDamaged?(enemy: SimEnemy, amount: number, crit: boolean, element: ElementId): void;
   /** A Disruptor jammed a tower (v3 §2.Г): `stun` = locked for a beat, else a glitched shot. */
   onTowerInterrupted?(slotIndex: number, kind: 'glitch' | 'stun', x: number, y: number): void;
   onTowerFired?(slotIndex: number, target: SimEnemy): void;
@@ -242,6 +253,8 @@ export class BattleSim {
   private readonly railgunBand: number;
   /** Reach within which a Disruptor jams a tower, in px. */
   private readonly jamRange: number;
+  /** Arena image width in px — converts fractional aura radii (support mobs) to px. */
+  private readonly arenaWidth: number;
 
   /** Zero-based index of the wave being fought; -1 before the first one. */
   private waveIndex = -1;
@@ -265,6 +278,7 @@ export class BattleSim {
     this.chainRadius = CHAIN_RADIUS_FRAC * opts.arenaWidth;
     this.railgunBand = RAILGUN_BEAM_HALF_WIDTH_FRAC * opts.arenaWidth;
     this.jamRange = DISRUPTOR_JAM_RANGE_FRAC * opts.arenaWidth;
+    this.arenaWidth = opts.arenaWidth;
   }
 
   /** 1-based number of the current/next wave for the HUD. */
@@ -336,6 +350,7 @@ export class BattleSim {
     this.clock += dt;
 
     this.tickWaveSpawning(dt);
+    this.tickAuras(dt);
     this.moveEnemies(dt);
     this.tickStatuses(dt);
     this.tickInterrupts(dt);
@@ -447,6 +462,9 @@ export class BattleSim {
       dotUntil: 0,
       dotDps: 0,
       interruptCd: def.interruptInterval ?? 0,
+      hasteMult: 1,
+      shield: 0,
+      shieldMax: 0,
     });
   }
 
@@ -458,7 +476,7 @@ export class BattleSim {
       // Held (barrier / stun) → no advance this frame.
       if (e.stunUntil > this.clock) continue;
       const slow = e.slowUntil > this.clock ? e.slowFactor : 1;
-      e.t += e.def.speed * slow * dt;
+      e.t += e.def.speed * slow * e.hasteMult * dt;
       if (e.t >= 1) {
         const end = this.path.pointAt(1);
         e.x = end.x;
@@ -487,6 +505,50 @@ export class BattleSim {
         e.dotDps = 0;
       }
       if (e.slowUntil <= this.clock && e.slowFactor !== 1) e.slowFactor = 1;
+    }
+  }
+
+  /**
+   * Support-mob auras (docs/planned/support-enemies.md): the "enemies synergize"
+   * mirror, recomputed every frame. Resonance Mote hastes the pack (additive %,
+   * globally capped — no runaway stack); Coolant Mender repairs wounded *fighters*
+   * (never itself or other support mobs, so menders can't form an immortal duet);
+   * Aegis Beacon tops up an ally shield that decays once no beacon refreshes it.
+   * All effects skip the source itself.
+   */
+  private tickAuras(dt: number): void {
+    let hasteBonus: Map<number, number> | null = null;
+    const refreshed = new Set<number>();
+
+    for (const s of this.enemies) {
+      if (!s.alive || s.def.auraRadiusFrac === undefined) continue;
+      const r2 = (s.def.auraRadiusFrac * this.arenaWidth) ** 2;
+      for (const e of this.enemies) {
+        if (e === s || !e.alive) continue;
+        if (this.dist2(s.x, s.y, e.x, e.y) > r2) continue;
+        if (s.def.auraHastePct) {
+          hasteBonus ??= new Map();
+          hasteBonus.set(e.id, (hasteBonus.get(e.id) ?? 0) + s.def.auraHastePct);
+        }
+        if (s.def.auraHealPerSec && e.def.archetype !== 'support' && e.hp < e.maxHp) {
+          e.hp = Math.min(e.maxHp, e.hp + s.def.auraHealPerSec * dt);
+        }
+        if (s.def.allyShieldHp) {
+          e.shield = Math.max(e.shield, s.def.allyShieldHp);
+          e.shieldMax = Math.max(e.shieldMax, s.def.allyShieldHp);
+          refreshed.add(e.id);
+        }
+      }
+    }
+
+    // Apply the (capped) haste and decay any shield no beacon refreshed this frame.
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const b = hasteBonus?.get(e.id);
+      e.hasteMult = b ? 1 + Math.min(AURA_HASTE_CAP_PCT, b) / 100 : 1;
+      if (e.shield > 0 && !refreshed.has(e.id)) {
+        e.shield = Math.max(0, e.shield - AURA_SHIELD_DECAY_PER_SEC * dt);
+      }
     }
   }
 
@@ -751,12 +813,12 @@ export class BattleSim {
   }
 
   /** Apply damage (with Wet bonus) and on-hit statuses from a hit source. */
-  private applyHit(e: SimEnemy, baseDamage: number, fx: HitEffects): void {
+  private applyHit(e: SimEnemy, baseDamage: number, fx: HitEffects & { readonly element: ElementId }): void {
     if (!e.alive) return;
     const wet = e.wetUntil > this.clock;
     const dmg = baseDamage * (wet ? fx.vsWetMult : 1);
     // Floating damage number (skips status-only applications like the freeze wash).
-    if (dmg > 0) this.cb.onEnemyDamaged?.(e, Math.round(dmg), wet && fx.vsWetMult > 1);
+    if (dmg > 0) this.cb.onEnemyDamaged?.(e, Math.round(dmg), wet && fx.vsWetMult > 1, fx.element);
     this.damageEnemy(e, dmg);
     if (!e.alive) return;
 
@@ -789,6 +851,14 @@ export class BattleSim {
 
   private damageEnemy(enemy: SimEnemy, amount: number): void {
     if (!enemy.alive || amount <= 0) return;
+    // Aegis-Beacon ally shield (docs/planned/support-enemies.md) soaks flat damage
+    // before HP — an extra pool, not a resist (damage stays flat, no type table).
+    if (enemy.shield > 0) {
+      const absorbed = Math.min(enemy.shield, amount);
+      enemy.shield -= absorbed;
+      amount -= absorbed;
+      if (amount <= 0) return;
+    }
     enemy.hp -= amount;
     if (enemy.hp <= 0) {
       enemy.hp = 0;
