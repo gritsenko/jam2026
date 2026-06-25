@@ -18,10 +18,11 @@
 ### working/ — рабочие (зеркало кода)
 - [current-state.md](working/current-state.md) — что реально работает в прототипе (бой, волны, башни, синергии, резонанс, мердж/фьюжн, энергосеть, экономика).
 - [enemy-balance.md](working/enemy-balance.md) — анализ текущего ростера монстров из `enemies.ts`/`waves.ts`.
+- [towers.md](working/towers.md) — справочник по 6 башням (роль, атака/барьер, сигнатура, синергия, нагрузка/цена по грейдам), зеркало `cards.ts`/`synergy.ts`/`BattleSim.ts`.
 
-> Отдельного `working/cards.md` нет: список карт со стихиями/грейдами — `docs/cards.json`
-> (не-статусный ассет в корне `docs/`), стат-таблицы — `src/config/cards.ts`.
-> Старая v1-спека карт лежит в `backlog/cards.md`.
+> Список карт со стихиями/грейдами — `docs/cards.json` (не-статусный ассет в корне
+> `docs/`), стат-таблицы — `src/config/cards.ts`, человекочитаемый разбор поведения
+> башен — [towers.md](working/towers.md). Старая v1-спека карт лежит в `backlog/cards.md`.
 
 ### done/ — выполненные (архив реализованных спек)
 - [progression-and-tech-tree.md](done/progression-and-tech-tree.md) — мета-кампания: линейный гейт уровней, перманентные разблокировки башен/механик, звёзды на узлах, Admin mode. **MVP реализован**; стретчи (SP-дерево, трата Чертежей) описаны внутри, но **вырезаны для джема** (см. [done/v3-alignment.md](done/v3-alignment.md)).
