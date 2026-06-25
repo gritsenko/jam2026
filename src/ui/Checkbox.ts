@@ -1,5 +1,5 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
-import { COLORS, RADIUS } from '../theme';
+import { COLORS, RADIUS, hex } from '../theme';
 import { makeText } from './helpers';
 
 /**
@@ -23,7 +23,14 @@ export class Checkbox extends Container {
 
     this.addChild(this.box, this.tick);
 
-    const text = makeText(label, 'label', { fontSize: 24 });
+    // Light fill + dark outline + shadow so the label reads over bright scene
+    // backdrops (e.g. the world-map sand), not just dark HUD panels.
+    const text = makeText(label, 'label', {
+      fontSize: 24,
+      fill: hex(COLORS.white),
+      stroke: { color: hex(COLORS.black), width: 5, alpha: 0.95 },
+      dropShadow: { color: hex(COLORS.black), alpha: 0.7, blur: 4, distance: 3, angle: Math.PI / 2 },
+    });
     text.anchor.set(0, 0.5);
     text.position.set(size + 12, size / 2);
     this.addChild(text);

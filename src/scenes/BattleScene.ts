@@ -289,7 +289,10 @@ export class BattleScene extends Scene {
     // --- Locked playfield: arena image (level map with the road) + platform +
     //     enemies in one transform, contain-fit and centered on the neutral
     //     backdrop above. ---
-    const arenaTex = assets.get('bg_level');
+    // Per-level arena: the road painted into `bg_<levelId>` matches this level's
+    // enemy path shape (see assetManifest). Falls back to the generic ring
+    // `bg_level` via ASSET_FALLBACKS when a level has no dedicated background.
+    const arenaTex = assets.get(`bg_${this.levelId}`);
     this.arenaW = arenaTex.width || 1024;
     this.arenaH = arenaTex.height || 1024;
     const arena = new Sprite(arenaTex);

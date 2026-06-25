@@ -29,7 +29,7 @@ export class WorldMapNode extends Container {
     super();
     this.node = node;
     this.state = state;
-    const r = 46;
+    const r = 92;
 
     if (state === 'available') {
       this.glow = glowCircle(r * 1.5, COLORS.brassLight, 0.6);
@@ -45,20 +45,32 @@ export class WorldMapNode extends Container {
     this.addChild(this.ring);
     this.drawRing(r);
 
+    // Labels sit over a busy, often light desert backdrop, so the default thin
+    // stroke isn't enough — give them a bright fill, a thick opaque dark outline
+    // and a soft drop shadow so they read on any biome (locked stays dimmer).
     const label = makeText(node.name, 'small', {
-      fontSize: 22,
-      fill: hex(state === 'locked' ? COLORS.textMuted : COLORS.textBright),
+      fontSize: 44,
+      fontWeight: '800',
+      fill: hex(state === 'locked' ? COLORS.textDim : COLORS.white),
+      stroke: { color: hex(COLORS.black), width: 7, alpha: 0.95 },
+      dropShadow: {
+        color: hex(COLORS.black),
+        alpha: 0.7,
+        blur: 5,
+        distance: 4,
+        angle: Math.PI / 2,
+      },
     });
     label.anchor.set(0.5, 0);
-    label.position.set(0, r + 8);
+    label.position.set(0, r + 16);
     this.addChild(label);
 
     if (state === 'cleared') {
       // Best star rating (1..3) earned for this level (§4) — filled vs empty pips.
       const pips = `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}`;
-      const starText = makeText(pips, 'small', { fontSize: 26, fill: hex(COLORS.gold) });
+      const starText = makeText(pips, 'small', { fontSize: 52, fill: hex(COLORS.gold) });
       starText.anchor.set(0.5, 1);
-      starText.position.set(0, -r - 6);
+      starText.position.set(0, -r - 12);
       this.addChild(starText);
     }
 
@@ -86,7 +98,7 @@ export class WorldMapNode extends Container {
         : this.state === 'cleared'
           ? COLORS.brass
           : COLORS.metalLight;
-    this.ring.circle(0, 0, r + 2).stroke({ width: 5, color });
-    this.ring.circle(0, 0, r + 8).stroke({ width: 2, color, alpha: 0.4 });
+    this.ring.circle(0, 0, r + 4).stroke({ width: 10, color });
+    this.ring.circle(0, 0, r + 16).stroke({ width: 4, color, alpha: 0.4 });
   }
 }

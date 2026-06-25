@@ -70,6 +70,68 @@ export const ASSETS: AssetSpec[] = [
     prompt: 'top-down desert canyon battle arena, a worn dirt enemy road looping in a rounded square ring around a large open flat sandy plateau in the center, scattered rocks ruins and gears, warm tones, no characters (square 1:1)',
     placeholder: { shape: 'rect', tint: 0x2e2013, label: '' },
   },
+
+  // ---- Per-level arena backgrounds -----------------------------------------
+  // One themed arena per campaign level, keyed `bg_<levelId>` so BattleScene can
+  // resolve it directly from the level id. CRUCIAL: the worn road painted into
+  // each image follows the SAME shape as that level's enemy path (combatRules
+  // ENEMY_PATHS / levelCombat.pathId) so the baked road matches where the units
+  // actually walk — full ring for `bottom` levels, an L-bracket on two edges for
+  // the `top`/`left`/`right` sweeps (the opposite corner is left open). The road
+  // sits inset from the frame edges in the 0.16/0.84 band and never crosses the
+  // open central plateau (the platform's seat). The precise route is still
+  // re-traced on top procedurally (BattleScene.drawRoad), so these only need to
+  // be approximately on-band. Any missing PNG falls back to `bg_level` (the
+  // generic ring) via ASSET_FALLBACKS, so the shell stays playable.
+  {
+    key: 'bg_lvl_1', // Sunbaked Gulch — ring (bottom)
+    category: 'background',
+    size: 1024,
+    prompt: 'top-down sunbaked desert gulch battle arena, dry cracked warm clay and scattered sandstone rocks, a worn dirt enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), warm golden tones, no characters (square 1:1)',
+    placeholder: { shape: 'rect', tint: 0x3a2a16, label: '' },
+  },
+  {
+    key: 'bg_lvl_2', // Rusted Spillway — ring (bottom)
+    category: 'background',
+    size: 1024,
+    prompt: 'top-down abandoned rusted industrial water-spillway battle arena, rusty riveted metal channels and dried teal water stains on cracked concrete, a worn enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), warm rust and brown tones, no characters (square 1:1)',
+    placeholder: { shape: 'rect', tint: 0x3a2418, label: '' },
+  },
+  {
+    key: 'bg_lvl_3', // Static Mesa — ring (bottom)
+    category: 'background',
+    size: 1024,
+    prompt: 'top-down high desert mesa battle arena crackling with static electricity, violet electric arcs and glowing tesla nodes along the rocks, a worn enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), warm rock tones with violet electric glow, no characters (square 1:1)',
+    placeholder: { shape: 'rect', tint: 0x2a2438, label: '' },
+  },
+  {
+    key: 'bg_lvl_4', // Ember Hollow — L bracket on top + right edges (pathId 'top')
+    category: 'background',
+    size: 1024,
+    prompt: 'top-down volcanic ember-hollow battle arena, charred black volcanic rock with glowing molten-orange lava cracks and drifting ember sparks, a worn enemy road that runs horizontally across the top and turns at the upper-right corner to run straight down the right side, forming a backwards-L bracket hugging the top and right edges inset from the frame, the lower-left half is open empty ground with no road, a large open flat plateau fills the center, dark rock with fiery orange glow, no characters (square 1:1)',
+    placeholder: { shape: 'rect', tint: 0x2e1410, label: '' },
+  },
+  {
+    key: 'bg_lvl_5', // Glass Dunes — L bracket on left + top edges (pathId 'left')
+    category: 'background',
+    size: 1024,
+    prompt: 'top-down fused-glass desert dunes battle arena, smooth vitrified pale sand with turquoise and teal glass shards catching light, a worn enemy road that runs vertically up the left side and turns at the upper-left corner to run horizontally across the top, forming an L bracket hugging the left and top edges inset from the frame, the lower-right half is open empty ground with no road, a large open flat plateau fills the center, warm sand with cool turquoise glass accents, no characters (square 1:1)',
+    placeholder: { shape: 'rect', tint: 0x1c2a2a, label: '' },
+  },
+  {
+    key: 'bg_lvl_6', // Coolant Ridge — L bracket on right + bottom edges (pathId 'right')
+    category: 'background',
+    size: 1024,
+    prompt: 'top-down frozen coolant-ridge battle arena, pale cyan ice and frost over dark rock with teal coolant pools and snow patches, a worn enemy road that runs vertically down the right side and turns at the lower-right corner to run horizontally across the bottom, forming an L bracket hugging the right and bottom edges inset from the frame, the upper-left half is open empty ground with no road, a large open flat plateau fills the center, cold cyan and teal tones, no characters (square 1:1)',
+    placeholder: { shape: 'rect', tint: 0x1a2630, label: '' },
+  },
+  {
+    key: 'bg_lvl_7', // Overload Spire — ring (bottom), climactic finale
+    category: 'background',
+    size: 1024,
+    prompt: 'top-down overloaded reactor-spire battle arena, dark dieselpunk metal deck with glowing energy conduits and an intense multi-colored energy storm crackling around the edges, a worn enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), dark metal with vivid glowing energy accents, no characters (square 1:1)',
+    placeholder: { shape: 'rect', tint: 0x251a2e, label: '' },
+  },
   {
     key: 'bg_menu',
     category: 'background',
@@ -78,10 +140,15 @@ export const ASSETS: AssetSpec[] = [
     placeholder: { shape: 'rect', tint: COLORS.bgCanyon, label: '' },
   },
   {
+    // Campaign map: a tall 9:16 journey whose seven themed regions are stacked
+    // bottom→top in campaign order, so each level node's `ny` (levels.ts — a
+    // serpentine climbing from lvl_1 at the bottom to lvl_7 at the top) lands it
+    // on the matching biome. The brass trail + nodes are drawn over it by
+    // WorldMapScene; this only supplies the banded backdrop.
     key: 'bg_worldmap',
     category: 'background',
-    size: 1024,
-    prompt: 'top-down stylized desert canyon region, winding dry riverbed, scattered mesas and a turquoise oasis',
+    size: 1536,
+    prompt: 'top-down stylized hand-painted fantasy campaign world-map, tall portrait orientation, a single worn trail snaking in a serpentine zigzag from the bottom edge up to the top edge, passing seven distinct themed regions stacked vertically in order from bottom to top: at the very bottom a warm sunbaked desert gulch of dry cracked canyons; above it rusted industrial water-spillway ruins with teal water channels and gears; then a rocky mesa crackling with violet static electricity; in the middle a glowing molten volcanic hollow with orange lava cracks; above it pale turquoise fused-glass dunes; then a frozen cyan coolant ridge with ice and snow; and at the very top a towering glowing energy reactor spire; warm sandy palette at the bottom shifting smoothly to cold blue and vivid energy-glow tones at the top, no characters, no text, no labels',
     placeholder: { shape: 'rect', tint: 0x3a2a18, label: '' },
   },
 
@@ -442,5 +509,14 @@ export const ASSET_BY_KEY: Record<string, AssetSpec> = Object.fromEntries(
 export const ASSET_FALLBACKS: Record<string, string> = {
   bg_menu: 'bg_level',
   bg_worldmap: 'bg_level',
+  // Per-level arenas fall back to the generic ring backdrop until their PNG
+  // exists (and for any future level id without a dedicated background).
+  bg_lvl_1: 'bg_level',
+  bg_lvl_2: 'bg_level',
+  bg_lvl_3: 'bg_level',
+  bg_lvl_4: 'bg_level',
+  bg_lvl_5: 'bg_level',
+  bg_lvl_6: 'bg_level',
+  bg_lvl_7: 'bg_level',
   icon_reactor: 'ui_button_overdrive',
 };
