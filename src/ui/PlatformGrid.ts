@@ -1,5 +1,5 @@
-import { Container, Graphics, type PointData } from 'pixi.js';
-import { COLORS, ELEMENTS, hex } from '../theme';
+import { Container, Graphics, Texture, type PointData } from 'pixi.js';
+import { COLORS, ELEMENTS, ELEMENT_IDS, elementSymbolKey, hex, type ElementId } from '../theme';
 import type { AssetLoader } from '../core/AssetLoader';
 import { CARDS, cardGrade } from '../config/cards';
 import type { BattleStateMock, BuffStat, CardDef, PlacedCard } from '../config/types';
@@ -76,8 +76,12 @@ export class PlatformGrid extends Container {
     const gap = size * 0.035;
     this.cell = (size * 0.78 - gap * 2) / 3;
     this.step = this.cell + gap;
+    // One shared element-symbol lookup for every slot's influence dots.
+    const symbols: Partial<Record<ElementId, Texture>> = {};
+    for (const e of ELEMENT_IDS) symbols[e] = this.assets.get(elementSymbolKey(e));
     for (let i = 0; i < 9; i++) {
       const slot = new SlotView(i, this.cell);
+      slot.setSymbolTextures(symbols);
       const c = i % 3;
       const r = Math.floor(i / 3);
       slot.position.set((c - 1) * this.step, (r - 1) * this.step);

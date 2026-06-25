@@ -15,7 +15,7 @@
         "attacking": [
             {
                 "id": "plasma_shutter",
-                "name": "Плазменный Затвор",
+                "name": "Огневая Пушка (Fire Gun)",
                 "element": "Fire",
                 "base_load": 2,
                 "cooldown": 0.8,
@@ -59,7 +59,7 @@
             },
             {
                 "id": "frost_pulse",
-                "name": "Морозный Импульс (Frost Pulse)",
+                "name": "Ледяная Пушка (Ice Gun)",
                 "element": "Water",
                 "base_load": 1,
                 "cooldown": 1.5,
@@ -120,7 +120,7 @@
             },
             {
                 "id": "storm_coil",
-                "name": "Грозовая Катушка (Storm Coil)",
+                "name": "Тесла-Пушка (Tesla Gun)",
                 "element": "Electricity",
                 "base_load": 2,
                 "cooldown": 1.2,

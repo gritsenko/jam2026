@@ -8,9 +8,9 @@ Examples:
     python tools/gen_sprite.py "frost pulse turret, icy blue crystals" assets/sprites/frost_pulse.png --category card_icon --size 256
     python tools/gen_sprite.py "desert sand terrain" assets/sprites/tile_sand.png --category tile --size 512
 
-By default the project style reference (docs/style_ref.png) is attached so every
-asset stays visually consistent. Pass --no-ref to disable, or --ref <path> to
-use a different reference (e.g. an already-approved sprite).
+By default the project style reference (docs/visual_refs/new_style.jpg) is
+attached so every asset stays visually consistent. Pass --no-ref to disable, or
+--ref <path> to use a different reference (e.g. an already-approved sprite).
 
 The API key is read from, in order: GEMINI_API_KEY env, GOOGLE_API_KEY env,
 tools/.gemini_key file, or a .env file. See tools/README.md.
@@ -31,7 +31,7 @@ from postprocess import process_image
 from sprite_style import OPAQUE_CATEGORIES, build_prompt
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_REF = ROOT / "docs" / "style_ref.png"
+DEFAULT_REF = ROOT / "docs" / "visual_refs" / "new_style.jpg"
 RAW_DIR = ROOT / "assets" / "raw"
 
 # Tried in order until one works. Env GEMINI_IMAGE_MODEL or --model jumps the queue.
@@ -149,7 +149,7 @@ def main() -> int:
     ap.add_argument("--size", type=int, default=512, help="max longest side after downscale (default 512)")
     ap.add_argument("--aspect", default="1:1", help='requested aspect ratio (default "1:1")')
     ap.add_argument("--model", help="force a model id (else uses the fallback chain)")
-    ap.add_argument("--ref", help="style reference image (default docs/style_ref.png)")
+    ap.add_argument("--ref", help="style reference image (default docs/visual_refs/new_style.jpg)")
     ap.add_argument("--no-ref", action="store_true", help="do not attach a style reference")
     ap.add_argument("--key", default="auto", help='chroma key: auto|magenta|green|"r,g,b"')
     ap.add_argument("--tol", type=float, default=60.0, help="chroma-key tolerance")
@@ -178,6 +178,18 @@ def main() -> int:
         ref_path = None
     else:
         ref_path = Path(a.ref) if a.ref else DEFAULT_REF
+
+    # Surface the style anchor in the log. A requested-but-missing ref is dropped
+    # silently by generate() (line ~106), which once let assets drift off-style
+    # when the default path moved -- so warn loudly instead of guessing.
+    if ref_path is None:
+        print("  style ref: <none>")
+    elif ref_path.exists():
+        print(f"  style ref: {ref_path}")
+    else:
+        print(f"  WARNING: style ref not found, generating WITHOUT anchor: {ref_path}",
+              file=sys.stderr)
+
     prompt = build_prompt(a.prompt, a.category)
 
     client = genai.Client(api_key=key)

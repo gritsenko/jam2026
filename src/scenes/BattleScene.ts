@@ -1,5 +1,5 @@
 import { Container, type FederatedPointerEvent, Graphics, type PointData, Sprite, type Texture } from 'pixi.js';
-import { COLORS, ELEMENTS, type ElementId, hex } from '../theme';
+import { COLORS, ELEMENTS, ELEMENT_IDS, type ElementId, elementSymbolKey, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
@@ -477,6 +477,7 @@ export class BattleScene extends Scene {
     this.waveToast.alpha = 0;
 
     this.infoPanel = new TowerInfoPanel();
+    this.infoPanel.setSymbolTextures(this.elementSymbols());
 
     this.hudLayer.addChild(
       this.waveBadge,
@@ -523,7 +524,19 @@ export class BattleScene extends Scene {
       energyIcon: this.services.assets.get('icon_energy'),
       goldIcon: this.services.assets.get('icon_gold'),
       crystalIcon: this.services.assets.get('icon_crystal'),
+      symbols: this.elementSymbols(),
     });
+  }
+
+  /** Element-symbol textures (`sym_<element>`), built once and reused. */
+  private symbolCache?: Partial<Record<ElementId, Texture>>;
+  private elementSymbols(): Partial<Record<ElementId, Texture>> {
+    if (!this.symbolCache) {
+      const rec: Partial<Record<ElementId, Texture>> = {};
+      for (const e of ELEMENT_IDS) rec[e] = this.services.assets.get(elementSymbolKey(e));
+      this.symbolCache = rec;
+    }
+    return this.symbolCache;
   }
 
   /** Wire press/drag handlers on a hand card (shared by initial deal and respawn).

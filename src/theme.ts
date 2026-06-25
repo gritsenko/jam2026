@@ -17,12 +17,22 @@ export interface ElementSkin {
 }
 
 export const ELEMENTS: Record<ElementId, ElementSkin> = {
-  Fire: { base: 0xff6b35, glow: 0xff3b1f, dark: 0x8c2a12, label: 'PLASMA' },
+  Fire: { base: 0xff6b35, glow: 0xff3b1f, dark: 0x8c2a12, label: 'FIRE' },
   Water: { base: 0x36b6ff, glow: 0x6fe0ff, dark: 0x12517f, label: 'FROST' },
   Electricity: { base: 0xb56bff, glow: 0xe2c2ff, dark: 0x4f2a7a, label: 'STORM' },
   Physical: { base: 0xc2b39a, glow: 0xf0e6d2, dark: 0x5c4f3a, label: 'METAL' },
   Energy: { base: 0x58e06a, glow: 0xa8ff9e, dark: 0x1f6e34, label: 'ENERGY' },
 };
+
+/** All element ids in table order — for iterating/building per-element lookups. */
+export const ELEMENT_IDS = Object.keys(ELEMENTS) as ElementId[];
+
+/**
+ * Asset key for an element's symbol sprite (a bold motif drawn on cards / dots /
+ * the info panel so the element reads by shape, not only color). The PNG lives at
+ * `assets/sprites/sym_<element>.png`; see src/config/assetManifest.ts.
+ */
+export const elementSymbolKey = (e: ElementId): string => `sym_${e.toLowerCase()}`;
 
 export const COLORS = {
   // Environment

@@ -1,7 +1,7 @@
 import { ColorMatrixFilter, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
 import type { SynergyDot } from '../game/synergy';
-import { fitSprite, makeText } from './helpers';
+import { fitSprite, makeElementSymbol, makeText } from './helpers';
 
 export type SlotHighlight = 'none' | 'valid' | 'hover' | 'invalid' | 'merge';
 
@@ -45,6 +45,8 @@ export class SlotView extends Container {
   private effectPulses = false;
   private effectPulse = 0;
   private occupied = false;
+  /** Element-symbol textures (sym_<element>) overlaid on the influence dots. */
+  private symbols?: Partial<Record<ElementId, Texture>>;
 
   constructor(index: number, size: number) {
     super();
@@ -143,6 +145,22 @@ export class SlotView extends Container {
       }
     }
     this.content.addChild(g);
+    // Element symbol on each bulb (readability): the wanted-neighbor element by
+    // SHAPE. Tinted dark on a lit (bright) bulb, bright on an unlit (dark) one.
+    for (let i = 0; i < dots.length; i++) {
+      const d = dots[i]!;
+      const tex = this.symbols?.[d.element];
+      if (!tex) continue;
+      const skin = ELEMENTS[d.element];
+      const sym = makeElementSymbol(tex, r * 1.7, d.lit ? skin.dark : skin.glow);
+      sym.position.set(startX + i * gap, y);
+      this.content.addChild(sym);
+    }
+  }
+
+  /** Provide the element-symbol textures used to overlay the influence dots. */
+  setSymbolTextures(symbols: Partial<Record<ElementId, Texture>>): void {
+    this.symbols = symbols;
   }
 
   /** Pulse the glow on the lit influence dots + the effect badge. Call each frame. */
