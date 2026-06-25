@@ -36,7 +36,8 @@
 
 ### planned/ — планируемые
 - [synergy-grid-td-v3.md](planned/synergy-grid-td-v3.md) — актуальный концепт-манифест + дерево технологий (мастер-вижн). В шапке — баннер статуса с отличиями от кода (спираль → пер-левел траектории; SP-дерево/Чертежи вырезаны для джема).
-- [enemy-roster-design.md](planned/enemy-roster-design.md) — полный ростер монстров «с нуля».
+- [enemy-roster-design.md](planned/enemy-roster-design.md) — ростер монстров: 5 текущих без изменений + 3 моба поддержки (зеркало синергии), баланс и миграция.
+- [support-enemies.md](planned/support-enemies.md) — карточки мобов поддержки (Resonance Mote / Coolant Mender / Aegis Beacon): внешний вид в стиле текущих врагов + спрайт-промпты.
 - [sell-towers.md](planned/sell-towers.md) — продажа установленных башен.
 
 ### backlog/ — беклог
