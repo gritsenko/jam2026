@@ -24,10 +24,12 @@ interface ProgressData {
   stars: Record<string, number>;
   /** Admin override: all levels open (availability only). */
   admin: boolean;
+  /** Ids of tutorial lessons already shown (docs/done/tutorial-modals.md §4). */
+  seenTutorials: string[];
 }
 
 function fresh(): ProgressData {
-  return { cleared: [], stars: {}, admin: false };
+  return { cleared: [], stars: {}, admin: false, seenTutorials: [] };
 }
 
 function read(): ProgressData {
@@ -39,6 +41,11 @@ function read(): ProgressData {
       cleared: Array.isArray(parsed.cleared) ? parsed.cleared.filter((x) => typeof x === 'string') : [],
       stars: parsed.stars && typeof parsed.stars === 'object' ? parsed.stars : {},
       admin: parsed.admin === true,
+      // Soft migration: old saves without the field just get an empty list (their
+      // tutorials will show once, which is fine).
+      seenTutorials: Array.isArray(parsed.seenTutorials)
+        ? parsed.seenTutorials.filter((s) => typeof s === 'string')
+        : [],
     };
   } catch {
     return fresh();
@@ -103,4 +110,21 @@ export function recordClear(levelId: string, coreHp: number, coreMax: number): n
   state.stars[levelId] = Math.max(state.stars[levelId] ?? 0, stars);
   write();
   return stars;
+}
+
+/** Ids of tutorial lessons the player has already been shown. */
+export function seenTutorials(): ReadonlySet<string> {
+  return new Set(state.seenTutorials);
+}
+
+/** Mark a batch of tutorial lesson ids as shown (persists), so they never repeat. */
+export function markTutorialsSeen(ids: Iterable<string>): void {
+  let changed = false;
+  for (const id of ids) {
+    if (!state.seenTutorials.includes(id)) {
+      state.seenTutorials.push(id);
+      changed = true;
+    }
+  }
+  if (changed) write();
 }
