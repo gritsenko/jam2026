@@ -59,6 +59,12 @@
     { "key": "sym_physical", "file": "assets/sprites/sym_physical.png", "category": "icon", "size": 256, "prompt": "a single bold bullet kinetic slug emblem with a sharp tip, polished steel grey, strong dark outline, clean readable game UI symbol" },
     { "key": "sym_energy", "file": "assets/sprites/sym_energy.png", "category": "icon", "size": 256, "prompt": "a single bold glowing diamond energy-cell emblem, vivid green core, strong dark outline, clean readable game UI symbol" },
 
+    { "key": "Symbols", "file": "assets/sprites/Symbols.png", "category": "icon", "size": 210, "_note": "hand-made 5x2 element-symbol sheet for the influence dots on placed towers AND hand cards (row 0 off/unlit, row 1 on/lit; columns Fire/Energy/Water/Electricity/Physical). Sliced in helpers.sliceElementSymbolSheet. NOT gen_sprite." },
+
+    { "key": "cooldown", "file": "assets/sprites/cooldown.png", "category": "icon", "size": 362, "_note": "hand-made vertical 5-frame charge/cooldown battery sheet for the placed-tower charge bar (top->bottom: [0] empty/discharged, then ready colors [1] blue, [2] green, [3] yellow, [4] red). Sliced in helpers.sliceCooldownSheet. The bar reveals the chosen color frame over the empty frame by the recharge fraction; color encodes tower efficiency. NOT gen_sprite." },
+
+    { "key": "upgrade_back", "file": "assets/sprites/upgrade_back.png", "category": "icon", "size": 114, "_note": "hand-made dark rounded backing plate drawn behind the placed-tower influence/resonance dot row (SlotView.drawDots) so the element symbols read against the tower art. NOT gen_sprite." },
+
     { "key": "isolation_circuit", "file": "assets/sprites/isolation_circuit.png", "category": "card_icon", "size": 512, "prompt": "isolation circuit upgrade emblem, layered brass insulation rings around a glowing green energy core, riveted heat-shield plating, no turret, three-quarter view" },
     { "key": "elemental_focus", "file": "assets/sprites/elemental_focus.png", "category": "card_icon", "size": 512, "prompt": "elemental focus lens device, a brass prism splitting a white beam into five colored elemental rays, polished steel mount, no turret, three-quarter view" },
     { "key": "emergency_overdrive", "file": "assets/sprites/emergency_overdrive.png", "category": "card_icon", "size": 512, "prompt": "emergency overdrive lever, a slammed red hazard switch venting orange plasma and sparks, yellow-black warning stripes, brass housing, no turret, three-quarter view" },

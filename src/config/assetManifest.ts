@@ -385,10 +385,10 @@ export const ASSETS: AssetSpec[] = [
   // Hand-made 3×3 directional sprite-sheets for the rotating turrets. The 8
   // perimeter cells point outward by grid position (top row NW/N/NE … bottom row
   // SW/S/SE). Two layouts (see COMPOSED_AIM_SHEETS in cards.ts): COMPOSED sheets
-  // (plasma_shutter) put a STATIONARY base in the center cell and the rotating
-  // head-only on the perimeter — SlotView draws the base once and rotates just
-  // the head; OLD sheets (railgun) bake a full turret into every cell (center =
-  // idle) and rotate the whole sprite. Either way the facing frame is hard-
+  // (plasma_shutter, railgun) put a STATIONARY base in the center cell and the
+  // rotating head-only on the perimeter — SlotView draws the base once and rotates
+  // just the head; OLD sheets (none currently) bake a full turret into every cell
+  // (center = idle) and rotate the whole sprite. Either way the facing frame is hard-
   // swapped (no crossfade) one octant at a time. SlotView slices the sheet and
   // aims it ([SlotView.sliceSheet3x3] / [BattleSim.towerAim]). NOT generated —
   // drop a transparent 3×3 sheet here as `<iconKey>_dirs.png`. Only rotating
@@ -446,6 +446,40 @@ export const ASSETS: AssetSpec[] = [
     size: 256,
     prompt: 'a single bold glowing diamond energy-cell emblem, vivid green core, strong dark outline, clean readable game UI symbol',
     placeholder: { shape: 'disc', tint: N, label: 'NRG' },
+  },
+  {
+    // Hand-made 5×2 element-symbol sheet for the influence dots on placed towers
+    // AND hand cards (row 0 = off/unlit, row 1 = on/lit; columns = SYM_SHEET_COLS
+    // in src/ui/helpers.ts: Fire, Energy, Water, Electricity, Physical). Sliced in
+    // helpers.sliceElementSymbolSheet; NOT gen_sprite. Replaces the old per-frame
+    // down-scaled sym_ icons on the dots. Key = filename (Symbols.png).
+    key: 'Symbols',
+    category: 'icon',
+    size: 210,
+    prompt: 'hand-made 5x2 element-symbol sheet (off/on rows) for influence dots; not gen_sprite',
+    placeholder: { shape: 'disc', tint: N, label: 'SYM' },
+  },
+  {
+    // Hand-made vertical 5-frame charge/cooldown battery sheet for the placed-tower
+    // charge bar (top→bottom: [0] empty/discharged, then the "ready" colors
+    // [1] blue, [2] green, [3] yellow, [4] red). Sliced in helpers.sliceCooldownSheet;
+    // NOT gen_sprite. The bar reveals the chosen color over the empty frame by the
+    // recharge fraction; color encodes tower efficiency. Key = filename (cooldown.png).
+    key: 'cooldown',
+    category: 'icon',
+    size: 362,
+    prompt: 'hand-made vertical 5-frame battery charge sheet (empty + blue/green/yellow/red ready states) for the tower charge bar; not gen_sprite',
+    placeholder: { shape: 'round', tint: W, label: 'CD' },
+  },
+  {
+    // Hand-made dark rounded backing plate drawn behind the placed-tower influence/
+    // resonance dot row (SlotView.drawDots) so the element symbols read against the
+    // tower art. Key = filename.
+    key: 'upgrade_back',
+    category: 'icon',
+    size: 114,
+    prompt: 'hand-made dark rounded riveted backing plate for the tower resonance/synergy dot indicators; not gen_sprite',
+    placeholder: { shape: 'round', tint: P, label: '' },
   },
 
   // ---- Modernization cards (global platform upgrades) ----------------------

@@ -70,7 +70,7 @@ import type { SlotView } from '../ui/SlotView';
 import { TowerInfoPanel } from '../ui/TowerInfoPanel';
 import { WaveBadge } from '../ui/WaveBadge';
 import { WaveTelegraph } from '../ui/WaveTelegraph';
-import { fitSprite, glowCircle, makeText } from '../ui/helpers';
+import { fitSprite, glowCircle, makeText, sliceElementSymbolSheet, type ElementSymbolFrames } from '../ui/helpers';
 
 /**
  * One fixed hand position. Holds a card, or sits empty and recharges (`charge`
@@ -597,6 +597,7 @@ export class BattleScene extends Scene {
       goldIcon: this.services.assets.get('icon_gold'),
       crystalIcon: this.services.assets.get('icon_crystal'),
       symbols: this.elementSymbols(),
+      symbolFrames: this.symbolFrames(),
     });
   }
 
@@ -609,6 +610,15 @@ export class BattleScene extends Scene {
       this.symbolCache = rec;
     }
     return this.symbolCache;
+  }
+
+  /** Off/on influence-dot symbols sliced from `Symbols.png` once (undefined if absent). */
+  private symbolFrameCache?: ElementSymbolFrames;
+  private symbolFrames(): ElementSymbolFrames | undefined {
+    if (!this.symbolFrameCache && this.services.assets.has('Symbols')) {
+      this.symbolFrameCache = sliceElementSymbolSheet(this.services.assets.get('Symbols'));
+    }
+    return this.symbolFrameCache;
   }
 
   /** Wire press/drag handlers on a hand card (shared by initial deal and respawn).
@@ -741,7 +751,11 @@ export class BattleScene extends Scene {
       return;
     }
     const def = getCard(placed.cardId);
+    if (this.inspectedIndex !== null && this.inspectedIndex !== index) {
+      this.grid.slots[this.inspectedIndex]?.setSelected(false);
+    }
     this.inspectedIndex = index;
+    this.grid.slots[index]?.setSelected(true); // reveal this tower's net-effect badge
     this.grid.inspect(index); // neighbor cells, arrows, effect badges
     this.drawInspectRange(index, def, placed.grade); // attack radius over the road
     this.infoPanel.setWidth(this.infoPanelWidth);
@@ -767,6 +781,7 @@ export class BattleScene extends Scene {
   private clearInspect(): void {
     if (this.inspectedIndex === null && this.inspectedCard === null) return;
     if (this.inspectedIndex !== null) {
+      this.grid.slots[this.inspectedIndex]?.setSelected(false); // hide the net-effect badge
       this.inspectedIndex = null;
       this.grid.clearInspect();
       this.inspectRange.clear();
@@ -2186,7 +2201,7 @@ export class BattleScene extends Scene {
     for (let i = 0; i < this.grid.slots.length; i++) {
       const slot = this.grid.slots[i];
       if (!slot || !slot.isOccupied) continue;
-      slot.setCooldown(this.sim.cooldownFrac(i));
+      const frac = this.sim.cooldownFrac(i);
       // Aim the turret at its lead enemy (sim coords == scene coords); null keeps
       // the last facing. tickAim then steps it there one octant at a time.
       const aim = this.sim.towerAim(i);
@@ -2197,7 +2212,7 @@ export class BattleScene extends Scene {
         slot.setAim(null);
       }
       slot.tickAim(dt);
-      this.syncTowerBadge(slot, i, overload);
+      this.syncTowerBadge(slot, i, overload, frac);
       slot.tickDots(dt);
     }
   }
@@ -2210,13 +2225,15 @@ export class BattleScene extends Scene {
    * yellow = both (a fixable drop). Shown only on firing towers (the support
    * batteries that aren't slowed by overload don't carry it).
    */
-  private syncTowerBadge(slot: SlotView, index: number, overload: number): void {
+  private syncTowerBadge(slot: SlotView, index: number, overload: number, frac: number): void {
     const placed = this.state.slots[index];
     const def = placed ? getCard(placed.cardId) : null;
     // Only attacking towers — their damage/tempo/range the buffs actually scale,
-    // and they carry overload + resonance. Support batteries/barriers don't.
+    // and they carry overload + resonance. Support batteries/barriers don't (and
+    // get no charge bar either — `state < 0` hides it).
     if (!placed || !def || def.category !== 'attacking') {
       slot.setEffect(0, false, false);
+      slot.setCharge(frac, -1);
       return;
     }
     const syn = this.synergy[index];
@@ -2233,7 +2250,11 @@ export class BattleScene extends Scene {
 
     const hasBonus = bonusPct > 0 || (syn?.reactions.length ?? 0) > 0;
     const hasPenalty = penaltyPct > 0;
+    // Efficiency state shared by the badge color and the charge-bar color:
+    // 0 normal · 1 bonus · 2 penalty · 3 both.
+    const state = !hasBonus && !hasPenalty ? 0 : hasBonus && hasPenalty ? 3 : hasPenalty ? 2 : 1;
     slot.setEffect(bonusPct - penaltyPct, hasBonus, hasPenalty);
+    slot.setCharge(frac, state);
   }
 
   /** Announce the pre-wave / intermission countdown; fade out once spawning. */

@@ -18,19 +18,26 @@ export class SlotView extends Container {
   /** Resonance halo drawn around an actively-resonating tower. */
   private reso = new Graphics();
   private content = new Container();
-  /** Pulsing glow over the lit influence dots (animated in {@link tickDots}). */
-  private dotGlow = new Graphics();
-  /** Centers + colors of the currently-lit influence dots, for the pulse. */
-  private litDots: { x: number; y: number; color: number }[] = [];
-  private dotPulse = 0;
-  /** Influence-dot radius (kept in sync between the static draw and the glow). */
+  /** Influence-dot layout radius (sets the symbol footprint + spacing). */
   private static readonly DOT_R = 12;
   /** Translucent preview of the building that would land here while dragging. */
   private ghost = new Container();
-  /** Mini cooldown dial in the corner of an attacking tower (a shrinking sector). */
-  private cdDial = new Graphics();
-  /** Element glow color the cooldown dial is drawn in (set when a tower is placed). */
-  private cdColor: number = COLORS.white;
+  /**
+   * Sprite charge/cooldown bar laid over an attacking tower (just above the
+   * influence-dot row): an empty battery frame with the chosen "ready" color frame
+   * revealed left→right by the recharge fraction. The color encodes efficiency
+   * (blue normal · green bonus · yellow mixed · red penalty), so it carries the
+   * net-effect reading throughout the battle while the % badge stays selection-only.
+   */
+  private cdBar = new Container();
+  private cdBg = new Sprite();
+  private cdFill = new Sprite();
+  private cdMask = new Graphics();
+  /** 5 frames sliced from `cooldown.png`: [0] empty, [1] blue, [2] green, [3] yellow, [4] red. */
+  private chargeFrames?: Texture[];
+  /** Bar footprint (derived from the slot size); also the reveal-mask extent. */
+  private barW = 0;
+  private barH = 0;
   /**
    * Net-effect badge (top-left): the tower's total modifier — neighbor buffs and
    * penalties plus overload — folded into one signed % (v3 §9).
@@ -45,9 +52,19 @@ export class SlotView extends Container {
   /** Whether the badge pulses for attention (only when a penalty is present). */
   private effectPulses = false;
   private effectPulse = 0;
+  /** Whether this tower is the inspected one — gates the net-effect badge. */
+  private selected = false;
   private occupied = false;
-  /** Element-symbol textures (sym_<element>) overlaid on the influence dots. */
+  /**
+   * Legacy element-symbol textures (sym_<element>) — the fallback for influence
+   * dots whose element has no column in the pre-baked sheet (see {@link setSymbolFrames}).
+   */
   private symbols?: Partial<Record<ElementId, Texture>>;
+  /** Pre-baked influence-dot symbols from the 4×2 sheet: unlit (off) / lit (on). */
+  private symFramesOff?: Partial<Record<ElementId, Texture>>;
+  private symFramesOn?: Partial<Record<ElementId, Texture>>;
+  /** Dark backing plate (`upgrade_back`) drawn behind the influence/resonance dot row. */
+  private dotPlateTex?: Texture;
   /**
    * The placed tower's rotating sprite — the head on a composed sheet (over a
    * static {@link sliceCenter3x3} base), the whole turret on an old-layout sheet,
@@ -97,9 +114,13 @@ export class SlotView extends Container {
     this.effectLabel.anchor.set(0, 0.5);
     this.effect.addChild(this.effectBg, this.effectLabel);
     this.effect.visible = false;
-    this.addChild(this.base, this.reso, this.content, this.dotGlow, this.hl, this.ghost, this.cdDial, this.effect);
+    this.cdBg.anchor.set(0.5);
+    this.cdFill.anchor.set(0.5);
+    this.cdFill.mask = this.cdMask;
+    this.cdBar.addChild(this.cdBg, this.cdFill, this.cdMask);
+    this.cdBar.visible = false;
+    this.addChild(this.base, this.reso, this.content, this.hl, this.ghost, this.cdBar, this.effect);
     this.ghost.visible = false;
-    this.cdDial.visible = false;
     // Fixed cell-sized hit area: pointer events (lifting a tower) and drop
     // detection no longer depend on drawn geometry — empty slots paint nothing
     // now that the platform board art provides the socket.
@@ -122,8 +143,6 @@ export class SlotView extends Container {
     this.occupied = false;
     this.content.removeChildren().forEach((c) => c.destroy());
     this.reso.clear();
-    this.litDots = [];
-    this.dotGlow.clear();
     this.towerSprite = undefined;
     this.dirFrames = undefined;
     this.displayOctant = SlotView.DEFAULT_OCTANT;
@@ -132,7 +151,8 @@ export class SlotView extends Container {
     this.pendingOctant = SlotView.DEFAULT_OCTANT;
     this.pendingTimer = 0;
     this.aimTimer = 0;
-    this.setCooldown(0);
+    this.hideCharge();
+    this.setSelected(false);
     this.setEffect(0, false, false);
     this.drawEmpty();
   }
@@ -155,9 +175,8 @@ export class SlotView extends Container {
   ): void {
     this.occupied = true;
     this.content.removeChildren().forEach((c) => c.destroy());
-    this.setCooldown(0);
+    this.hideCharge();
     const skin = ELEMENTS[element];
-    this.cdColor = skin.glow;
     this.seat = seat;
 
     // The painted socket (board art) backs the slot and the sprite reads its own
@@ -307,78 +326,100 @@ export class SlotView extends Container {
   }
 
   /**
-   * Influence dots along the bottom edge (v2 §9): grade = count, color = wanted
-   * element. Each dot sits on a translucent backing in its own element color so it
-   * reads even unlit; a lit dot is a solid disc that also gets a pulsing glow
-   * (driven by {@link tickDots}) to flag the active synergy at a glance.
+   * Influence-dot row along the bottom edge (v2 §9): one symbol per open synergy
+   * slot, the wanted-neighbor element read by SHAPE. Each symbol is a pre-baked
+   * sprite from the 4×2 element-symbol sheet ({@link setSymbolFrames}) — the OFF
+   * frame when that synergy is absent, the ON (lit) frame when it is present. No
+   * 256px icon is down-scaled per frame and there is no pulsing glow; that
+   * procedural noise was the point of the rework. An element with no sheet column
+   * (currently Physical) falls back to {@link drawFallbackDot}.
    */
   private drawDots(dots: readonly SynergyDot[]): void {
-    this.litDots = [];
-    this.dotGlow.clear();
-    this.dotPulse = 0;
     if (dots.length === 0) return;
     const s = this.size;
-    const g = new Graphics();
     const r = SlotView.DOT_R;
-    const gap = r * 2.7;
+    const dia = (r * 5.2) / 1.5; // 2× base footprint, then reduced 1.5× (≈1.33× the original r*2.6)
+    const gap = (r * 5.4) / 2.5; // spacing scaled with the footprint
     const startX = -((dots.length - 1) * gap) / 2;
-    const y = s / 2 - r - 8;
+    const y = s / 2 - dia / 2 + 10; // anchored just inside the bottom edge
+    // Dark backing plate behind the whole dot row (added first → sits underneath).
+    if (this.dotPlateTex) {
+      const plate = new Sprite(this.dotPlateTex);
+      plate.anchor.set(0.5);
+      plate.width = (3 - 1) * gap + dia;
+      plate.height = dia * 0.9;
+      plate.position.set(0, y);
+      this.content.addChild(plate);
+    }
     for (let i = 0; i < dots.length; i++) {
       const d = dots[i]!;
-      const skin = ELEMENTS[d.element];
-      const color = skin.glow;
       const x = startX + i * gap;
-      // Dark element-colored socket — reads like a switched-off LED of the wanted
-      // element, so the slot is legible even before its synergy lights up.
-      g.circle(x, y, r + 4).fill({ color: skin.dark, alpha: 0.95 });
-      g.circle(x, y, r + 4).stroke({ width: 2, color, alpha: 0.45 });
-      if (d.lit) {
-        g.circle(x, y, r).fill({ color });
-        this.litDots.push({ x, y, color });
+      const frame = (d.lit ? this.symFramesOn : this.symFramesOff)?.[d.element];
+      if (frame) {
+        const sym = new Sprite(frame);
+        fitSprite(sym, dia, dia);
+        sym.position.set(x, y);
+        this.content.addChild(sym);
       } else {
-        // Unlit bulb: darker than the socket so "off" reads at a glance.
-        g.circle(x, y, r).fill({ color: COLORS.black, alpha: 0.4 });
-        g.circle(x, y, r).stroke({ width: 1.5, color, alpha: 0.5 });
+        this.drawFallbackDot(x, y, d);
       }
     }
+  }
+
+  /**
+   * Legacy procedural influence dot — an element-colored LED socket with the
+   * down-scaled sym_ icon — drawn only for elements absent from the pre-baked
+   * sheet (currently Physical), so every element still reads correctly.
+   */
+  private drawFallbackDot(x: number, y: number, d: SynergyDot): void {
+    const r = SlotView.DOT_R;
+    const skin = ELEMENTS[d.element];
+    const color = skin.glow;
+    const g = new Graphics();
+    g.circle(x, y, r + 4).fill({ color: skin.dark, alpha: 0.95 });
+    g.circle(x, y, r + 4).stroke({ width: 2, color, alpha: 0.45 });
+    if (d.lit) {
+      g.circle(x, y, r).fill({ color });
+    } else {
+      g.circle(x, y, r).fill({ color: COLORS.black, alpha: 0.4 });
+      g.circle(x, y, r).stroke({ width: 1.5, color, alpha: 0.5 });
+    }
     this.content.addChild(g);
-    // Element symbol on each bulb (readability): the wanted-neighbor element by
-    // SHAPE. Tinted dark on a lit (bright) bulb, bright on an unlit (dark) one.
-    for (let i = 0; i < dots.length; i++) {
-      const d = dots[i]!;
-      const tex = this.symbols?.[d.element];
-      if (!tex) continue;
-      const skin = ELEMENTS[d.element];
+    const tex = this.symbols?.[d.element];
+    if (tex) {
       const sym = makeElementSymbol(tex, r * 1.7, d.lit ? skin.dark : skin.glow);
-      sym.position.set(startX + i * gap, y);
+      sym.position.set(x, y);
       this.content.addChild(sym);
     }
   }
 
-  /** Provide the element-symbol textures used to overlay the influence dots. */
+  /** Provide the legacy element-symbol textures (sym_<element>) for the dot fallback. */
   setSymbolTextures(symbols: Partial<Record<ElementId, Texture>>): void {
     this.symbols = symbols;
   }
 
-  /** Pulse the glow on the lit influence dots + the effect badge. Call each frame. */
+  /** Provide the pre-baked influence-dot symbols (unlit/lit) sliced from the sheet. */
+  setSymbolFrames(
+    off: Partial<Record<ElementId, Texture>>,
+    on: Partial<Record<ElementId, Texture>>,
+  ): void {
+    this.symFramesOff = off;
+    this.symFramesOn = on;
+  }
+
+  /** Provide the backing-plate texture (`upgrade_back`) drawn behind the dot row. */
+  setDotPlate(tex: Texture): void {
+    this.dotPlateTex = tex;
+  }
+
+  /** Pulse the net-effect badge (the influence dots are now static). Call each frame. */
   tickDots(dt: number): void {
-    if (this.effect.visible) {
-      if (this.effectPulses) {
-        this.effectPulse = (this.effectPulse + dt * 4) % (Math.PI * 2);
-        this.effect.alpha = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(this.effectPulse));
-      } else {
-        this.effect.alpha = 1;
-      }
-    }
-    if (this.litDots.length === 0) return;
-    this.dotPulse = (this.dotPulse + dt * 3.5) % (Math.PI * 2);
-    const pulse = 0.5 + 0.5 * Math.sin(this.dotPulse);
-    const r = SlotView.DOT_R;
-    this.dotGlow.clear();
-    for (const d of this.litDots) {
-      const grow = 4 + pulse * 7;
-      this.dotGlow.circle(d.x, d.y, r + grow).fill({ color: d.color, alpha: 0.1 + 0.22 * pulse });
-      this.dotGlow.circle(d.x, d.y, r + grow * 0.5).stroke({ width: 2, color: d.color, alpha: 0.4 + 0.45 * pulse });
+    if (!this.effect.visible) return;
+    if (this.effectPulses) {
+      this.effectPulse = (this.effectPulse + dt * 4) % (Math.PI * 2);
+      this.effect.alpha = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(this.effectPulse));
+    } else {
+      this.effect.alpha = 1;
     }
   }
 
@@ -427,38 +468,67 @@ export class SlotView extends Container {
   }
 
   /**
-   * Draw the attack cooldown as a shrinking pie sector tucked into the tower's
-   * top-right corner: a full wedge right after firing that winds down to empty
-   * as the shot recharges. `frac` is 1 (just fired) → 0 (ready); 0 hides it.
+   * Provide the charge-bar frames (sliced from `cooldown.png`) and lay the bar out
+   * over the tower, just above the influence-dot row. Called once per slot at build
+   * (frames are shared across slots). No-op if the sheet is missing/too short.
    */
-  setCooldown(frac: number): void {
-    const g = this.cdDial;
-    g.clear();
-    if (frac <= 0.001) {
-      g.visible = false;
-      return;
-    }
-    g.visible = true;
-    const s = this.size;
-    const r = s * 0.15;
-    const cx = s / 2 - r - 6;
-    const cy = -s / 2 + r + 6;
-    // Dark disc so the wedge reads over the tower art.
-    g.circle(cx, cy, r).fill({ color: COLORS.black, alpha: 0.55 });
-    // Shrinking wedge, clockwise from the top.
-    const start = -Math.PI / 2;
-    const end = start + Math.min(frac, 0.9999) * Math.PI * 2;
-    g.moveTo(cx, cy).arc(cx, cy, r, start, end).fill({ color: this.cdColor, alpha: 0.85 });
-    // Rim.
-    g.circle(cx, cy, r).stroke({ width: 2, color: this.cdColor, alpha: 0.9 });
+  setChargeFrames(frames: Texture[]): void {
+    if (frames.length < 5) return;
+    this.chargeFrames = frames;
+    const base = frames[0]!;
+    const fw = base.width || 1;
+    const fh = base.height || 1;
+    this.barW = (this.size * 0.5) / 1.5;
+    this.barH = (fh / fw) * this.barW;
+    const scale = this.barW / fw;
+    this.cdBg.texture = base;
+    this.cdFill.texture = frames[1]!;
+    this.cdBg.scale.set(scale);
+    this.cdFill.scale.set(scale);
+    // Sit just above the influence-dot row (mirror drawDots' bottom anchoring).
+    const dia = (SlotView.DOT_R * 5.2) / 1.5;
+    const dotTopY = this.size / 2 - dia - 4;
+    this.cdBar.position.set(0, dotTopY - 6 - this.barH / 2);
   }
 
   /**
-   * Drive the net-effect badge in the tower's top-left corner (mirroring the
-   * cooldown dial). `netPct` is the tower's total modifier — all neighbor buffs
-   * and penalties plus overload, signed (v3 §9). The color encodes *composition*,
-   * not just sign: green = only bonuses, red = only penalties, yellow = both (a
-   * drop you can remove). With neither, the badge is hidden. Only redraws when the
+   * Drive the over-tower charge bar (attacking towers only): `frac` is the firing
+   * cooldown (1 just after firing → 0 ready), shown as a battery filling left→right
+   * (fill = 1 − frac) over the empty frame. The reveal color encodes the tower's
+   * current efficiency (`state`: 0 normal → blue · 1 bonus → green · 2 penalty → red
+   * · 3 both → yellow), matching the net-effect badge so efficiency reads off the bar
+   * without it. `state < 0` (a non-attacking tower) hides the bar.
+   */
+  setCharge(frac: number, state: number): void {
+    if (!this.chargeFrames || state < 0) {
+      this.hideCharge();
+      return;
+    }
+    this.cdBar.visible = true;
+    // Efficiency → color frame: blue(1) normal, green(2) bonus, yellow(3) both, red(4) penalty.
+    const colorIdx = state === 3 ? 3 : state === 2 ? 4 : state === 1 ? 2 : 1;
+    const tex = this.chargeFrames[colorIdx];
+    if (tex && this.cdFill.texture !== tex) this.cdFill.texture = tex;
+    const fill = 1 - Math.max(0, Math.min(1, frac));
+    this.cdFill.visible = fill > 0.001;
+    this.cdMask.clear();
+    if (this.cdFill.visible) {
+      this.cdMask.rect(-this.barW / 2, -this.barH / 2, this.barW * fill, this.barH).fill(0xffffff);
+    }
+  }
+
+  /** Hide the charge bar (non-attacking tower / empty slot). */
+  private hideCharge(): void {
+    this.cdBar.visible = false;
+  }
+
+  /**
+   * Drive the net-effect badge in the tower's top-left corner. `netPct` is the
+   * tower's total modifier — all neighbor buffs and penalties plus overload, signed
+   * (v3 §9). The color encodes *composition*, not just sign: green = only bonuses,
+   * red = only penalties, yellow = both (a drop you can remove). The badge is only
+   * shown while this tower is inspected ({@link setSelected}); in the running battle
+   * the same efficiency reads off the charge-bar color instead. Only redraws when the
    * state or percent changes; the pulse is driven in {@link tickDots}.
    */
   setEffect(netPct: number, hasBonus: boolean, hasPenalty: boolean): void {
@@ -467,13 +537,26 @@ export class SlotView extends Container {
     this.effectState = state;
     this.effectPct = netPct;
     this.effectPulses = state >= 2; // red/yellow pulse for attention; green stays calm
-    if (state === 0) {
-      this.effect.visible = false;
-      this.effect.alpha = 1;
-      return;
-    }
-    this.drawEffect(netPct, state);
-    this.effect.visible = true;
+    if (state !== 0) this.drawEffect(netPct, state); // keep content current for when selected
+    this.applyEffectVisibility();
+  }
+
+  /**
+   * The net-effect badge shows only while this tower is inspected, and only when
+   * there is actually a modifier to report. Driven by both {@link setEffect}
+   * (content/state changes) and {@link setSelected} (selection toggles).
+   */
+  private applyEffectVisibility(): void {
+    const show = this.selected && this.effectState !== 0;
+    this.effect.visible = show;
+    if (!show) this.effect.alpha = 1;
+  }
+
+  /** Mark this tower as the inspected one — toggles the net-effect badge. */
+  setSelected(selected: boolean): void {
+    if (this.selected === selected) return;
+    this.selected = selected;
+    this.applyEffectVisibility();
   }
 
   /** Lay out the effect badge (dark pill + state-colored rim, net-direction arrow, signed %). */

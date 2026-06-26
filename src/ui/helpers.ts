@@ -1,5 +1,5 @@
-import { Graphics, Sprite, Text, Texture, type TextStyleOptions } from 'pixi.js';
-import { COLORS, FONTS, hex } from '../theme';
+import { Graphics, Rectangle, Sprite, Text, Texture, type TextStyleOptions } from 'pixi.js';
+import { COLORS, FONTS, hex, type ElementId } from '../theme';
 
 /**
  * Scale a sprite to fit (contain) or fill (cover) a boxW×boxH area, anchored and
@@ -121,6 +121,57 @@ export function makeElementSymbol(tex: Texture, diameter: number, tint?: number)
   fitSprite(s, diameter, diameter);
   if (tint !== undefined) s.tint = tint;
   return s;
+}
+
+/**
+ * Column order (left→right) of the hand-made element-symbol sheet `Symbols.png`
+ * — a grid of `cols × 2` 42px cells: row 0 = off/unlit, row 1 = on/lit. Slicing
+ * derives the cell size from the sheet, so extending this list (and the art) is
+ * all that's needed to add an element column.
+ */
+export const SYM_SHEET_COLS: ElementId[] = ['Fire', 'Energy', 'Water', 'Electricity', 'Physical'];
+
+/** Per-element influence-dot symbols sliced from `Symbols.png`: unlit + lit frames. */
+export interface ElementSymbolFrames {
+  off: Partial<Record<ElementId, Texture>>;
+  on: Partial<Record<ElementId, Texture>>;
+}
+
+/**
+ * Slice the element-symbol sheet into per-element off (row 0) / on (row 1) frames,
+ * keyed by {@link SYM_SHEET_COLS}. Used by the placed-tower dots (PlatformGrid →
+ * SlotView) and the hand-card dot row (BattleCard) so both read crisp pre-baked
+ * symbols instead of down-scaling the 256px sym_ icons.
+ */
+export function sliceElementSymbolSheet(sheet: Texture): ElementSymbolFrames {
+  const cw = sheet.width / SYM_SHEET_COLS.length;
+  const ch = sheet.height / 2;
+  const off: Partial<Record<ElementId, Texture>> = {};
+  const on: Partial<Record<ElementId, Texture>> = {};
+  SYM_SHEET_COLS.forEach((el, c) => {
+    off[el] = new Texture({ source: sheet.source, frame: new Rectangle(c * cw, 0, cw, ch) });
+    on[el] = new Texture({ source: sheet.source, frame: new Rectangle(c * cw, ch, cw, ch) });
+  });
+  return { off, on };
+}
+
+/**
+ * Slice the vertical 5-frame charge/cooldown battery sheet `cooldown.png` into its
+ * frames, top→bottom: [0] empty (fully discharged), then the four "ready" colors
+ * [1] blue, [2] green, [3] yellow, [4] red. The placed-tower charge bar (SlotView)
+ * lays the chosen color frame over the empty frame and reveals it left→right by the
+ * recharge fraction; the color encodes the tower's efficiency (see SlotView.setCharge).
+ * Equal-height cells centre each battery within its cell, so frames stay aligned.
+ */
+export function sliceCooldownSheet(sheet: Texture): Texture[] {
+  const n = 5;
+  const fw = sheet.width;
+  const fh = sheet.height / n;
+  const frames: Texture[] = [];
+  for (let i = 0; i < n; i++) {
+    frames.push(new Texture({ source: sheet.source, frame: new Rectangle(0, i * fh, fw, fh) }));
+  }
+  return frames;
 }
 
 /** A soft radial glow disc, useful behind icons and energy beams. */

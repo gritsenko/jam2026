@@ -112,6 +112,15 @@ function resolveSlot(
   let tempoPct = 0;
   let defPct = 0;
 
+  // Soft-needs (v3 §2.Б): this tower only *uses* neighbors whose element fills one
+  // of its active desired slots (`slotElements`, gated by grade via synergySlots).
+  // A positive buff from an attacking neighbor it doesn't desire simply doesn't
+  // land — e.g. a Fire gun next to a grade-II Tesla (wants Water/Energy, not Fire)
+  // gets nothing. Support auras (Shield/Stabilizer) and penalties/drains (Railgun)
+  // are NOT element-gated — they aren't a "desired element" the tower asks for.
+  const activeWants = new Set((def.slotElements ?? []).slice(0, synergySlots(placed.grade)));
+  const desires = (el: ElementId) => activeWants.has(el);
+
   // Gather every neighbor whose broadcast reaches this slot.
   for (let j = 0; j < slots.length; j++) {
     if (j === index) continue;
@@ -124,6 +133,8 @@ function resolveSlot(
 
     const push = (stat: BuffStat, value: number) => {
       if (value === 0) return;
+      // Gate positive attacking-element buffs by desire; auras/drains pass through.
+      if (value > 0 && ndef.category === 'attacking' && !desires(ndef.element)) return;
       incoming.push({ from: j, element: ndef.element, stat, value });
       if (stat === 'damage') dmgPct += value;
       else if (stat === 'range') rangePct += value;
@@ -133,6 +144,7 @@ function resolveSlot(
 
     push(ndef.buffStat, g.buff);
     if (g.bonusDamage && ndef.buffStat !== 'damage') push('damage', g.bonusDamage);
+    // Resonance pool is unchanged: any reaching neighbor's element still mingles.
     elementSet.add(ndef.element);
   }
 

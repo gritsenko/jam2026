@@ -5,7 +5,7 @@ import { CARDS, COMPOSED_AIM_SHEETS, cardGrade, towerSeat } from '../config/card
 import type { BattleStateMock, BuffStat, CardDef, PlacedCard } from '../config/types';
 import { computeSynergy, type SlotSynergy } from '../game/synergy';
 import { gridMetrics } from '../game/platformGeometry';
-import { fitSprite, makeText } from './helpers';
+import { fitSprite, makeText, sliceCooldownSheet, sliceElementSymbolSheet } from './helpers';
 import { SlotView, type SlotHighlight } from './SlotView';
 
 /** Short suffix per broadcast stat, for the inspection badges. */
@@ -42,17 +42,27 @@ function broadcastCells(c: number, r: number, diag: boolean): { c: number; r: nu
 }
 
 /**
- * The 3x3 steampunk platform: plate art + nine SlotViews + resonance beams.
+ * The 3x3 steampunk platform: plate art + nine SlotViews.
  * Origin is the center. Exposes slot hit-testing and drop highlighting for the
  * battle scene's drag & drop. Synergy (v2 positional model) is resolved here so
- * the dots, broadcast arrows and resonance beams all read from one source.
+ * the slot influence dots and the on-demand inspect/preview arrows read from one
+ * source. There is **no** always-on broadcast web *to empty cells* — the noisy
+ * "every card → every reachable cell" arrows are drawn only while a tower is
+ * inspected or a card is being previewed for placement. But a quieter
+ * **tower↔tower link layer** is always on, drawn *on the floor* (under the towers):
+ * a small **triangle on the seam between two sockets, tinted by the source tower's
+ * element**, points toward the neighbor it actually buffs (see {@link drawLinks};
+ * a buff "exists" only when the fed tower desires the source's element — see
+ * synergy.ts soft-needs). A mutual buff shows two triangles side-by-side. Empty
+ * cells, and neighbors whose element isn't desired, get nothing.
  */
 export class PlatformGrid extends Container {
   readonly slots: SlotView[] = [];
   private plate = new Container();
-  private beams = new Graphics();
   /** Inspection visuals drawn *under* the towers (range tint, cell highlights). */
   private inspectBelow = new Container();
+  /** Always-on connectors between occupied slots that buff each other. */
+  private linkLayer = new Container();
   private slotLayer = new Container();
   /** Inspection visuals drawn *over* the towers (arrows, badges, selection ring). */
   private inspectAbove = new Container();
@@ -71,7 +81,17 @@ export class PlatformGrid extends Container {
   ) {
     super();
     this.size = size;
-    this.addChild(this.plate, this.beams, this.inspectBelow, this.slotLayer, this.inspectAbove);
+    // linkLayer sits *under* the towers ("on the floor"): the direction markers are
+    // small triangles placed on the seam between two sockets, where the floor shows
+    // between the seat sprites. Where a tower does overlap a marker, it occludes it —
+    // intended, so the markers read as floor decals, not as overlay noise.
+    this.addChild(
+      this.plate,
+      this.inspectBelow,
+      this.linkLayer,
+      this.slotLayer,
+      this.inspectAbove,
+    );
     this.buildPlate();
 
     // Geometry lives in game/platformGeometry.ts so the headless bot matches the
@@ -79,12 +99,25 @@ export class PlatformGrid extends Container {
     const m = gridMetrics(size);
     this.cell = m.cell;
     this.step = m.step;
-    // One shared element-symbol lookup for every slot's influence dots.
+    // One shared element-symbol lookup for every slot's influence dots: the
+    // pre-baked off/on frames from Symbols.png (crisp, no per-frame downscale),
+    // plus the legacy sym_ icons as the fallback for elements absent from the sheet.
     const symbols: Partial<Record<ElementId, Texture>> = {};
     for (const e of ELEMENT_IDS) symbols[e] = this.assets.get(elementSymbolKey(e));
+    const symFrames = this.assets.has('Symbols')
+      ? sliceElementSymbolSheet(this.assets.get('Symbols'))
+      : undefined;
+    // Shared charge-bar frames (cooldown.png) + dot-row backing plate (upgrade_back.png).
+    const chargeFrames = this.assets.has('cooldown')
+      ? sliceCooldownSheet(this.assets.get('cooldown'))
+      : undefined;
+    const dotPlate = this.assets.has('upgrade_back') ? this.assets.get('upgrade_back') : undefined;
     for (let i = 0; i < 9; i++) {
       const slot = new SlotView(i, this.cell);
       slot.setSymbolTextures(symbols);
+      if (symFrames) slot.setSymbolFrames(symFrames.off, symFrames.on);
+      if (dotPlate) slot.setDotPlate(dotPlate);
+      if (chargeFrames) slot.setChargeFrames(chargeFrames);
       const c = i % 3;
       const r = Math.floor(i / 3);
       slot.position.set((c - 1) * this.step, (r - 1) * this.step);
@@ -110,7 +143,7 @@ export class PlatformGrid extends Container {
     return { x: (c - 1) * this.step, y: (r - 1) * this.step };
   }
 
-  /** Render the placed cards from the mock state, resolve synergy and (re)draw beams. */
+  /** Render the placed cards from the mock state and resolve synergy. */
   applyState(state: BattleStateMock): void {
     // Cards changed → any active inspection overlay is stale.
     this.clearInspect();
@@ -143,7 +176,7 @@ export class PlatformGrid extends Container {
         slot.setEmpty();
       }
     });
-    this.drawBeams(state);
+    this.drawLinks();
   }
 
   /**
@@ -245,9 +278,9 @@ export class PlatformGrid extends Container {
   /**
    * Spotlight a placed tower: ring the inspected slot, highlight the neighbor
    * cells it feeds, and stamp each with an effect badge (e.g. '+22% DMG'). Buffs
-   * read green, drains red. The always-on resonance beams are dimmed so the
-   * selected tower's links stand out. The attack-range circle is drawn by the
-   * scene (it owns the cells→pixels grade math).
+   * read green, drains red. The synergy links (lines, arrows, badges) only appear
+   * here — the battlefield is otherwise free of them. The attack-range circle is
+   * drawn by the scene (it owns the cells→pixels grade math).
    */
   inspect(index: number): void {
     this.clearInspect();
@@ -256,7 +289,9 @@ export class PlatformGrid extends Container {
     const def = CARDS[placed.cardId];
     if (!def) return;
     this.inspectedIndex = index;
-    this.beams.alpha = 0.18; // de-emphasize the global resonance web
+    // The bright per-cell inspect arrows below supersede the quiet always-on
+    // links; hide the link layer so the two don't double up.
+    this.linkLayer.visible = false;
 
     // Selection ring on the inspected slot.
     const s = this.cell;
@@ -279,7 +314,7 @@ export class PlatformGrid extends Container {
    */
   previewBuffs(index: number, def: CardDef, grade: number, mergeToGrade?: number): void {
     this.clearInspect();
-    this.beams.alpha = 0.18;
+    this.linkLayer.visible = false;
     this.drawBuffLinks(index, def, grade);
     if (mergeToGrade !== undefined) this.drawMergeBadge(index, mergeToGrade);
   }
@@ -335,7 +370,7 @@ export class PlatformGrid extends Container {
     this.inspectedIndex = null;
     this.inspectBelow.removeChildren().forEach((c) => c.destroy());
     this.inspectAbove.removeChildren().forEach((c) => c.destroy());
-    this.beams.alpha = 1;
+    this.linkLayer.visible = true;
   }
 
   /** A bright arrow from the inspected slot toward a neighbor, stopping at its edge. */
@@ -370,6 +405,102 @@ export class PlatformGrid extends Container {
     this.inspectAbove.addChild(txt);
   }
 
+  /**
+   * Always-on, low-key connectors between two *occupied* slots that actually buff
+   * one another — the "bridge" between neighboring towers (empty cells get none).
+   * Reads {@link SlotSynergy.incoming} (each carries its source slot), merges the
+   * two directions of a pair into one link, and points an arrowhead along the flow
+   * of influence (double-headed when mutual). Hidden while a tower is inspected /
+   * a card previewed, since the brighter inspect arrows cover the same ground.
+   */
+  private drawLinks(): void {
+    this.linkLayer.removeChildren().forEach((c) => c.destroy());
+    // key "a-b" (a<b) → signed buff in each direction (a→b, b→a). 0 = no influence.
+    const pairs = new Map<string, { a: number; b: number; aToB: number; bToA: number }>();
+    for (let to = 0; to < this.synergy.length; to++) {
+      const syn = this.synergy[to];
+      if (!syn) continue;
+      const bySource = new Map<number, number>();
+      for (const buff of syn.incoming) {
+        bySource.set(buff.from, (bySource.get(buff.from) ?? 0) + buff.value);
+      }
+      for (const [from, net] of bySource) {
+        if (net === 0) continue;
+        const a = Math.min(from, to);
+        const b = Math.max(from, to);
+        const key = `${a}-${b}`;
+        let e = pairs.get(key);
+        if (!e) {
+          e = { a, b, aToB: 0, bToA: 0 };
+          pairs.set(key, e);
+        }
+        if (from === a) e.aToB += net; // a → b
+        else e.bToA += net; // b → a
+      }
+    }
+    for (const e of pairs.values()) this.drawLink(e);
+  }
+
+  /**
+   * One connector between occupied slots `a`/`b`. Each direction of influence gets
+   * a small **triangle on the seam between the two sockets**, colored by the *source*
+   * tower's element and pointing toward the tower it feeds. A mutual buff shows two
+   * triangles side-by-side (offset across the seam), one per element; a one-way buff
+   * shows a single triangle. Drawn on the floor (under the towers).
+   */
+  private drawLink(e: { a: number; b: number; aToB: number; bToA: number }): void {
+    const A = this.slotLocal(e.a);
+    const B = this.slotLocal(e.b);
+    const ang = Math.atan2(B.y - A.y, B.x - A.x);
+    const mx = (A.x + B.x) / 2; // seam midpoint = border between the two slots
+    const my = (A.y + B.y) / 2;
+    // Unit vector *along* the seam (perpendicular to the link axis). Markers are
+    // pushed out along it toward the slot edges/corners, where the floor shows
+    // between the round bases (the bases fill the cell, so the seam centre is
+    // covered). This also keeps a pair "aligned": a horizontal seam → both on the
+    // same vertical line (X = mx), a vertical seam → both on the same horizontal
+    // line (Y = my, clear of the central barrel).
+    const px = -Math.sin(ang);
+    const py = Math.cos(ang);
+    const spread = this.cell * 0.34;
+    const g = new Graphics();
+    if (e.aToB !== 0) {
+      this.drawTriangle(g, mx + px * spread, my + py * spread, ang, this.slotElement(e.a));
+    }
+    if (e.bToA !== 0) {
+      this.drawTriangle(g, mx - px * spread, my - py * spread, ang + Math.PI, this.slotElement(e.b));
+    }
+    this.linkLayer.addChild(g);
+  }
+
+  /** Element of the tower currently placed at `index` (for tinting links). */
+  private slotElement(index: number): ElementId | null {
+    const placed = this.placed[index];
+    if (!placed) return null;
+    return CARDS[placed.cardId]?.element ?? null;
+  }
+
+  /** A small, element-tinted triangle at (x,y) pointing along `ang` (sized to the cell). */
+  private drawTriangle(g: Graphics, x: number, y: number, ang: number, element: ElementId | null): void {
+    const skin = element ? ELEMENTS[element] : null;
+    const fill = skin?.base ?? COLORS.dropValid;
+    const edge = skin?.glow ?? COLORS.white;
+    const cos = Math.cos(ang);
+    const sin = Math.sin(ang);
+    const px = -sin; // unit perpendicular
+    const py = cos;
+    const tip = this.cell * 0.11; // tip ahead of center
+    const back = this.cell * 0.05; // base behind center
+    const H = this.cell * 0.09; // half-width of the base
+    const pts = [
+      x + cos * tip, y + sin * tip, // tip
+      x - cos * back + px * H, y - sin * back + py * H, // base corner 1
+      x - cos * back - px * H, y - sin * back - py * H, // base corner 2
+    ];
+    g.poly(pts).fill({ color: fill, alpha: 0.95 });
+    g.poly(pts).stroke({ width: this.cell * 0.016, color: edge, alpha: 0.85, join: 'round' });
+  }
+
   private artFor(cardId: string): ReturnType<AssetLoader['get']> {
     return this.assets.get(cardId);
   }
@@ -385,41 +516,5 @@ export class PlatformGrid extends Container {
     const board = new Sprite(this.assets.get('platform_board'));
     fitSprite(board, s, s);
     this.plate.addChild(board);
-  }
-
-  /** Always-on broadcast web: every placed card → its reachable neighbors. */
-  private drawBeams(state: BattleStateMock): void {
-    this.beams.clear();
-    state.slots.forEach((placed, i) => {
-      if (!placed) return;
-      const def = CARDS[placed.cardId];
-      if (!def) return;
-      const g = cardGrade(def, placed.grade);
-      const skin = ELEMENTS[def.element];
-      const c = i % 3;
-      const r = Math.floor(i / 3);
-      const x1 = (c - 1) * this.step;
-      const y1 = (r - 1) * this.step;
-      for (const cell of broadcastCells(c, r, g.diagonal === true)) {
-        const x2 = (cell.c - 1) * this.step;
-        const y2 = (cell.r - 1) * this.step;
-        this.beams.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 10, color: skin.glow, alpha: 0.4 });
-        this.beams.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: 4, color: COLORS.white, alpha: 0.4 });
-        const ang = Math.atan2(y2 - y1, x2 - x1);
-        const hx = x2 - Math.cos(ang) * this.cell * 0.34;
-        const hy = y2 - Math.sin(ang) * this.cell * 0.34;
-        const ah = 16;
-        this.beams
-          .poly([
-            hx + Math.cos(ang) * ah,
-            hy + Math.sin(ang) * ah,
-            hx + Math.cos(ang + 2.5) * ah,
-            hy + Math.sin(ang + 2.5) * ah,
-            hx + Math.cos(ang - 2.5) * ah,
-            hy + Math.sin(ang - 2.5) * ah,
-          ])
-          .fill({ color: skin.glow, alpha: 0.8 });
-      }
-    });
   }
 }

@@ -1,7 +1,7 @@
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
 import type { CardDef } from '../config/types';
-import { drawPanel, fitSprite, makeElementSymbol, makeText } from './helpers';
+import { drawPanel, fitSprite, makeElementSymbol, makeText, type ElementSymbolFrames } from './helpers';
 
 export interface BattleCardOptions {
   width?: number;
@@ -12,8 +12,10 @@ export interface BattleCardOptions {
   goldIcon?: Texture;
   /** Crystal texture for cards priced in crystals (modernization Overdrive). */
   crystalIcon?: Texture;
-  /** Element-symbol textures (key `sym_<element>`), for the body badge + dots. */
+  /** Element-symbol textures (key `sym_<element>`), for the body badge + dot fallback. */
   symbols?: Partial<Record<ElementId, Texture>>;
+  /** Pre-baked influence-dot symbols (off/on) sliced from `Symbols.png`. */
+  symbolFrames?: ElementSymbolFrames;
 }
 
 /**
@@ -46,8 +48,10 @@ export class BattleCard extends Container {
   // Bright element-colored ring drawn while the card is tapped/selected.
   private selectGlow = new Graphics();
 
-  // Element-symbol textures (sym_<element>) for the body badge + influence dots.
+  // Element-symbol textures (sym_<element>) for the body badge + dot fallback.
   private symbols?: Partial<Record<ElementId, Texture>>;
+  // Pre-baked off/on influence-dot symbols sliced from the element-symbol sheet.
+  private symbolFrames?: ElementSymbolFrames;
 
   constructor(def: CardDef, grade: number, art: Texture, opts: BattleCardOptions = {}) {
     super();
@@ -56,6 +60,7 @@ export class BattleCard extends Container {
     this.cardW = opts.width ?? 212;
     this.cardH = opts.height ?? 300;
     this.symbols = opts.symbols;
+    this.symbolFrames = opts.symbolFrames;
     const W = this.cardW;
     const H = this.cardH;
     const skin = ELEMENTS[def.element];
@@ -159,34 +164,49 @@ export class BattleCard extends Container {
       this.def.category === 'support'
         ? Array.from({ length: slots }, () => this.def.element)
         : Array.from({ length: slots }, (_, i) => this.def.slotElements[i] ?? this.def.element);
-    const g = new Graphics();
-    const r = 12; // 2x — matches the enlarged on-platform dots
+    const r = 12;
     const gap = r * 2.7;
     const startX = -((els.length - 1) * gap) / 2;
-    // Sit just above the name banner (bottom edge of the art): the enlarged dots
-    // no longer crowd the cost chips, and the grade preview reads up top.
+    // Sit just above the name banner (bottom edge of the art): the dots no longer
+    // crowd the cost chips, and the grade preview reads up top.
     const y = -this.cardH * 0.02;
+    const dia = r * 2.6; // symbol footprint (matches the placed-tower base size)
     els.forEach((el, i) => {
-      const skin = ELEMENTS[el];
-      const color = skin.glow;
       const x = startX + i * gap;
-      // Dark element-colored socket (off-LED look) behind the bright bulb —
-      // mirrors the placed-tower dots.
-      g.circle(x, y, r + 4).fill({ color: skin.dark, alpha: 0.95 });
-      g.circle(x, y, r + 4).stroke({ width: 2, color, alpha: 0.5 });
-      g.circle(x, y, r).fill({ color, alpha: 0.95 });
+      // The card advertises its wanted-neighbor elements — show the lit (on) frame
+      // from the same sheet the placed towers use; no procedural socket or pulse.
+      const frame = this.symbolFrames?.on[el];
+      if (frame) {
+        const sym = new Sprite(frame);
+        fitSprite(sym, dia, dia);
+        sym.position.set(x, y);
+        this.addChild(sym);
+      } else {
+        this.drawFallbackDot(x, y, el);
+      }
     });
+  }
+
+  /**
+   * Legacy procedural influence dot (element-colored LED + down-scaled sym_ icon),
+   * drawn only when the pre-baked sheet failed to load. Kept so the dot row still
+   * reads in that degraded case.
+   */
+  private drawFallbackDot(x: number, y: number, el: ElementId): void {
+    const r = 12;
+    const skin = ELEMENTS[el];
+    const color = skin.glow;
+    const g = new Graphics();
+    g.circle(x, y, r + 4).fill({ color: skin.dark, alpha: 0.95 });
+    g.circle(x, y, r + 4).stroke({ width: 2, color, alpha: 0.5 });
+    g.circle(x, y, r).fill({ color, alpha: 0.95 });
     this.addChild(g);
-    // Element symbol on each bulb (readability): the wanted-neighbor element by
-    // SHAPE, tinted dark for contrast on the bright bulb. Added after `g` so it
-    // sits on top.
-    els.forEach((el, i) => {
-      const tex = this.symbols?.[el];
-      if (!tex) return;
-      const sym = makeElementSymbol(tex, r * 1.7, ELEMENTS[el].dark);
-      sym.position.set(startX + i * gap, y);
+    const tex = this.symbols?.[el];
+    if (tex) {
+      const sym = makeElementSymbol(tex, r * 1.7, skin.dark);
+      sym.position.set(x, y);
       this.addChild(sym);
-    });
+    }
   }
 
   /**

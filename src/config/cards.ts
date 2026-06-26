@@ -23,7 +23,7 @@ export const CARDS: Record<string, CardDef> = activeGameConfig.cards;
  * turret with the base baked in — and hard-swap frames. Add an iconKey here once
  * its `_dirs` sheet is redrawn in the composed layout.
  */
-export const COMPOSED_AIM_SHEETS = new Set<string>(['plasma_shutter']);
+export const COMPOSED_AIM_SHEETS = new Set<string>(['plasma_shutter', 'railgun']);
 
 /**
  * How a tower sprite is SEATED in its slot: the base (turntable) fills the slot
@@ -44,7 +44,7 @@ export interface TowerSeat {
 export const TOWER_SEAT_DEFAULT: TowerSeat = { wFrac: 0.96, cyFrac: 0.66 };
 export const TOWER_SEATS: Record<string, TowerSeat> = {
   plasma_shutter: { wFrac: 0.7, cyFrac: 0.64 }, // composed sheet: center cell = base only
-  railgun: { wFrac: 0.71, cyFrac: 0.77 }, // old sheet: full turret per cell (long rail)
+  railgun: { wFrac: 0.66, cyFrac: 0.61 }, // composed sheet: center cell = base only (head per perimeter cell)
   frost_pulse: { wFrac: 0.88, cyFrac: 0.7 },
   storm_coil: { wFrac: 0.88, cyFrac: 0.7 },
   shield_generator: { wFrac: 0.88, cyFrac: 0.61 },
