@@ -73,6 +73,22 @@
 | Грозовая Катушка | Electricity | `sfx_shoot_storm` | `sfx_hit_storm` |
 | Тяжёлый Рельсотрон | Physical | `sfx_shoot_railgun` | `sfx_hit_railgun` |
 
+### 1.5 Гибриды фьюжна (v2 §6.5)
+
+Отдельные ключи вылета по `cardId` (см. `TOWER_SHOOT_SFX` в BattleScene). Попадание по
+умолчанию — через `ELEMENT_HIT_SFX` (стихия гибрида). Уникальные hit-клипы — стретч.
+
+| Гибрид | Вылет | Попадание (default) |
+| --- | --- | --- |
+| Паровая Пушка (`steam_cannon`) | `sfx_shoot_steam` | Water / `sfx_hit_steam` |
+| Криоразряд (`cryo_discharge`) | `sfx_shoot_cryo` | Electricity |
+| Ионный Залп (`ion_volley`) | `sfx_shoot_ion` | Fire |
+| Термокопьё (`thermo_spear`) | `sfx_shoot_thermo` | Fire / `sfx_hit_thermo` |
+| Ледобой (`icebreaker`) | `sfx_shoot_icebreaker` | Water |
+| Гаусс-Катушка (`gauss_coil`) | `sfx_shoot_gauss` | Electricity |
+
+Playbook генерации: [fusion-hybrid-assets.md](../planned/fusion-hybrid-assets.md).
+
 ## 2. Звуки на замену и недостающие (ищу готовые вручную)
 
 Подробные карточки на каждый звук: **контекст** (когда и зачем играет, какую эмоцию

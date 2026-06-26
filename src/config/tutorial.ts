@@ -170,8 +170,11 @@ export const TUTORIALS: Record<string, readonly TutorialLesson[]> = {
       id: 'mech_fusion',
       type: 'mechanic',
       title: 'Фьюжн',
-      body: ['Соедини две разные карты в руке по рецепту — получишь гибрид. Стоит золота и кристаллов.'],
-      art: { kind: 'sprite', assetKey: 'plasma_shutter' },
+      body: [
+        'Соедини две разные карты в руке по рецепту — получишь гибрид за золото и кристаллы.',
+        'У каждого гибрида свой боевой кит: паровой взрыв, цепь с Wet, встроенный шрапнель, бонус по slow/wet и т.д.',
+      ],
+      art: { kind: 'sprite', assetKey: 'steam_cannon' },
     },
   ],
 };

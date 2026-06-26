@@ -348,6 +348,7 @@
     "buffStat": "range",
     "signature": "freeze_radius",
     "hybrid": true,
+    "hybridPerks": ["steamBurst"],
     "slotElements": [
       "Electricity",
       "Fire",
@@ -383,7 +384,7 @@
       }
     ],
     "blurb": "Steam blast • dmg + slow",
-    "iconKey": "frost_pulse"
+    "iconKey": "steam_cannon"
   },
   "cryo_discharge": {
     "id": "cryo_discharge",
@@ -397,6 +398,7 @@
     "buffStat": "tempo",
     "signature": "chain_targets",
     "hybrid": true,
+    "hybridPerks": ["wetOnHit"],
     "slotElements": [
       "Water",
       "Energy",
@@ -412,24 +414,27 @@
         "damage": 22,
         "rangeCells": 2.2,
         "buff": 18,
-        "sig": 4
+        "sig": 4,
+        "sig2": 3
       },
       {
         "damage": 22,
         "rangeCells": 2.3,
         "buff": 24,
-        "sig": 6
+        "sig": 6,
+        "sig2": 3
       },
       {
         "damage": 22,
         "rangeCells": 2.5,
         "buff": 24,
         "sig": 9,
+        "sig2": 5,
         "diagonal": true
       }
     ],
     "blurb": "Chain lightning • x2 vs WET",
-    "iconKey": "storm_coil"
+    "iconKey": "cryo_discharge"
   },
   "ion_volley": {
     "id": "ion_volley",
@@ -475,7 +480,7 @@
       }
     ],
     "blurb": "Rapid fire • jumps to 2nd target",
-    "iconKey": "plasma_shutter"
+    "iconKey": "ion_volley"
   },
   "thermo_spear": {
     "id": "thermo_spear",
@@ -489,6 +494,7 @@
     "buffStat": "damage",
     "signature": "pierce_length",
     "hybrid": true,
+    "hybridPerks": ["builtInShrapnel"],
     "slotElements": [
       "Physical",
       "Water",
@@ -521,7 +527,7 @@
       }
     ],
     "blurb": "Pierces a line • detonates Fire",
-    "iconKey": "railgun"
+    "iconKey": "thermo_spear"
   },
   "icebreaker": {
     "id": "icebreaker",
@@ -535,6 +541,7 @@
     "buffStat": "range",
     "signature": "pierce_length",
     "hybrid": true,
+    "hybridPerks": ["bonusVsSlowWet"],
     "slotElements": [
       "Electricity",
       "Fire",
@@ -567,7 +574,7 @@
       }
     ],
     "blurb": "Pierces a line • chills targets",
-    "iconKey": "railgun"
+    "iconKey": "icebreaker"
   },
   "gauss_coil": {
     "id": "gauss_coil",
@@ -581,6 +588,7 @@
     "buffStat": "tempo",
     "signature": "pierce_length",
     "hybrid": true,
+    "hybridPerks": ["chainAfterPierce"],
     "slotElements": [
       "Water",
       "Energy",
@@ -596,23 +604,26 @@
         "damage": 90,
         "rangeCells": 3,
         "buff": 18,
-        "sig": 3
+        "sig": 3,
+        "sig2": 2
       },
       {
         "damage": 150,
         "rangeCells": 3.6,
         "buff": 24,
-        "sig": 3.6
+        "sig": 3.6,
+        "sig2": 3
       },
       {
         "damage": 260,
         "rangeCells": 4.4,
         "buff": 24,
         "sig": 4.4,
+        "sig2": 4,
         "diagonal": true
       }
     ],
     "blurb": "Electric pierce line • x2 vs WET",
-    "iconKey": "railgun"
+    "iconKey": "gauss_coil"
   }
 }

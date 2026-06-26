@@ -106,6 +106,12 @@ const TOWER_SHOOT_SFX: Record<string, string> = {
   frost_pulse: 'sfx_shoot_frost',
   storm_coil: 'sfx_shoot_storm',
   railgun: 'sfx_shoot_railgun',
+  steam_cannon: 'sfx_shoot_steam',
+  cryo_discharge: 'sfx_shoot_cryo',
+  ion_volley: 'sfx_shoot_ion',
+  thermo_spear: 'sfx_shoot_thermo',
+  icebreaker: 'sfx_shoot_icebreaker',
+  gauss_coil: 'sfx_shoot_gauss',
 };
 
 /**

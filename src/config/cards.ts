@@ -1,4 +1,4 @@
-import type { CardDef } from './types';
+import type { CardDef, HybridPerk } from './types';
 import { activeGameConfig } from '../data/load';
 
 /**
@@ -39,7 +39,11 @@ export function cardGrade(def: CardDef, grade: number): CardDef['grades'][number
   return def.grades[i]!;
 }
 
-/** Number of synergy slots a card exposes at a grade (= grade; v2 §2.Б). */
+/** True when a card carries a fusion hybrid perk (v2 §6.5). */
+export function hasHybridPerk(def: CardDef, perk: HybridPerk): boolean {
+  return def.hybridPerks?.includes(perk) ?? false;
+}
+
 export function synergySlots(grade: number): number {
   return Math.min(Math.max(grade, 1), 3);
 }
