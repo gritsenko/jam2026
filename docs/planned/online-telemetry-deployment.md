@@ -71,6 +71,50 @@ SQLite-файл `sim/out/telemetry.db` должен жить на **persistent v
 5. **Бэкап БД** — периодическое копирование `telemetry.db` (cron / `litestream` для
    непрерывного бэкапа в объектное хранилище — опционально).
 
+## Мини-редактор БД: удаление тестовых прогонов
+
+Тестовые прогоны (бот-раны и «свои» отладочные сессии) засоряют дашборд и портят агрегаты.
+Нужен **простой способ их удалять** — без полноценной админки, в духе джема.
+
+**Что удаляем.** В БД ([db.ts](../../sim/server/db.ts)) две таблицы: `runs` (бот-раны: `id`,
+`source`, `config`, `seed`, `policy`, `stage`, `balance_version`, `record_json`) и `events`
+(события игроков; «сессия» = группа строк с одним `session_id`). Чаще всего чистим **`runs`
+по `config`/`balance_version`** (вариант баланса, который тестировали) и отдельные **user-сессии
+по `session_id`**.
+
+**Минимальная реализация — защищённые DELETE-эндпоинты + кнопки на дашборде:**
+
+1. **Бэкенд** ([routes.ts](../../sim/server/routes.ts) + [db.ts](../../sim/server/db.ts)) —
+   добавить под **той же админ-защитой, что и `INGEST_TOKEN`** (Bearer / basic-auth; удаление
+   тоже мутация — публично открывать нельзя):
+   ```
+   GET    /admin/runs?config=&source=&stage=&limit=   -> список прогонов (id + ключевые поля) для выбора
+   DELETE /admin/runs        { ids:[...] }            -> удалить выбранные прогоны
+   DELETE /admin/runs        { config, source, stage, balanceVersion }  -> удалить по фильтру (bulk)
+   DELETE /admin/sessions    { sessionIds:[...] }     -> удалить user-события по сессиям (events)
+   ```
+   Реализация — пара prepared-statements (`DELETE FROM runs WHERE id IN (…)` /
+   `… WHERE config=?`, `DELETE FROM events WHERE session_id IN (…)`), как existing
+   `insertRuns`/`insertEvents`. Возвращать число удалённых (`info.changes`).
+2. **UI** — небольшой блок в [dashboard.ts](../../sim/server/dashboard.ts) (`DASHBOARD_HTML`):
+   список прогонов с чекбоксами и кнопкой «delete selected», плюс «delete all for config = …»
+   (массовое удаление по текущему фильтру `config`). Токен вводится один раз и шлётся в
+   заголовке. Дашборд и так за админ-защитой (см. §2 «Что добавить»).
+
+**Фолбэк «ноль инфраструктуры» (доступно уже сейчас).** БД — один файл SQLite, поэтому
+тестовые прогоны можно удалить напрямую:
+```bash
+sqlite3 sim/out/telemetry.db "DELETE FROM runs WHERE config='game_config_id000001';"
+sqlite3 sim/out/telemetry.db "DELETE FROM runs WHERE balance_version='<git-sha>';"
+sqlite3 sim/out/telemetry.db "DELETE FROM events WHERE session_id='<uuid>';"
+```
+Работает на ходу (WAL), либо остановить сервис на время правки. Этого достаточно как
+временного решения; UI-кнопки — это удобство сверху.
+
+**Альтернатива (ещё проще, без кода):** держать тестовые раны в **отдельной БД**
+(`TELEMETRY_DB=/var/lib/sgtd/telemetry-test.db` для тест-инстанса) и просто удалять файл,
+когда он не нужен — «прод»-данные при этом не трогаются.
+
 ## Готовность к прогону ботов (будущее)
 
 Ботам **не нужен публичный бэкенд по-особому** — конвейер уже совместим:
@@ -114,11 +158,15 @@ SQLite-файл `sim/out/telemetry.db` должен жить на **persistent v
 - [ ] `INGEST_TOKEN` на `/ingest/runs` (+ опц. защита дашборда).
 - [ ] rate-limit на `/ingest/events`, IP не логируется.
 - [ ] бэкап `telemetry.db`.
+- [ ] способ чистить тестовые прогоны: DELETE-эндпоинты `/admin/runs`+`/admin/sessions` за
+      админ-защитой (или фолбэк — `sqlite3 … DELETE`/отдельная тест-БД).
 
 ## Критические файлы (для будущей реализации)
 
 - [sim/server/index.ts](../../sim/server/index.ts) — HOST/PORT, CORS, (буд.) токен/rate-limit.
-- [sim/server/db.ts](../../sim/server/db.ts) — путь БД (`TELEMETRY_DB`).
+- [sim/server/db.ts](../../sim/server/db.ts) — путь БД (`TELEMETRY_DB`); (буд.) DELETE-стейтменты для чистки.
+- [sim/server/routes.ts](../../sim/server/routes.ts) — (буд.) `/admin/runs`+`/admin/sessions` (удаление).
+- [sim/server/dashboard.ts](../../sim/server/dashboard.ts) — (буд.) кнопки удаления тестовых прогонов.
 - [vite.config.ts](../../vite.config.ts) — `VITE_TELEMETRY_URL` на сборке.
 - [src/telemetry/transport.ts](../../src/telemetry/transport.ts) — клиентский endpoint.
 - Новое (инфра): `Dockerfile`/`Caddyfile`/`systemd`-юнит — пока не созданы.
