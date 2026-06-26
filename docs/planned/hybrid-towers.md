@@ -34,14 +34,17 @@ Playbook ассетов: [fusion-hybrid-assets.md](fusion-hybrid-assets.md).
 
 ### Боевая симуляция
 
-| Гибрид | Перк | Поведение в [BattleSim.ts](../../src/game/BattleSim.ts) |
-|--------|------|-----------------------------------------------------------|
-| Паровая Пушка (`steam_cannon`) | `steamBurst` | AoE-урон при попадании + slow/Wet (сигнатура `freeze_radius`) |
-| Криоразряд (`cryo_discharge`) | `wetOnHit` | Цепь вешает Wet на `sig2` сек |
-| Термокопьё (`thermo_spear`) | `builtInShrapnel` | Splash вдоль pierce-луча |
-| Ледобой (`icebreaker`) | `bonusVsSlowWet` | +35% урона по slow/wet целям |
-| Гаусс-Катушка (`gauss_coil`) | `chainAfterPierce` | Дуга на `sig2` хопов после pierce |
-| Ионный Залп (`ion_volley`) | — | Быстрый chain (2 цели), без отдельного перка |
+Фьюжн — **две разные карты в руке** по рецепту ([recipes.json](../../src/data/game_configs/default/recipes.json));
+это не мердж грейдов (I+I→II на поле или в руке).
+
+| Гибрид | Фьюжн (родители) | Перк | Поведение в [BattleSim.ts](../../src/game/BattleSim.ts) |
+|--------|------------------|------|-----------------------------------------------------------|
+| Паровая Пушка (`steam_cannon`) | Ледяная (`frost_pulse`) + Огневая (`plasma_shutter`) | `steamBurst` | AoE-урон при попадании + slow/Wet (сигнатура `freeze_radius`) |
+| Криоразряд (`cryo_discharge`) | Ледяная (`frost_pulse`) + Тесла (`storm_coil`) | `wetOnHit` | Цепь вешает Wet на `sig2` сек |
+| Ионный Залп (`ion_volley`) | Огневая (`plasma_shutter`) + Тесла (`storm_coil`) | — | Быстрый chain (2 цели), без отдельного перка |
+| Термокопьё (`thermo_spear`) | Огневая (`plasma_shutter`) + Рельсотрон (`railgun`) | `builtInShrapnel` | Splash вдоль pierce-луча |
+| Ледобой (`icebreaker`) | Ледяная (`frost_pulse`) + Рельсотрон (`railgun`) | `bonusVsSlowWet` | +35% урона по slow/wet целям |
+| Гаусс-Катушка (`gauss_coil`) | Рельсотрон (`railgun`) + Тесла (`storm_coil`) | `chainAfterPierce` | Дуга на `sig2` хопов после pierce |
 
 - `signatureLabel()` показывает перк в UI слота.
 - Headless-проверка: `npx tsx tools/verify_hybrids.ts` — все 6 spec OK.
