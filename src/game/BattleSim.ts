@@ -71,7 +71,7 @@ export interface SimEnemy {
   interruptCd: number;
   /**
    * Move-speed multiplier from nearby Resonance Motes (1 = none; capped). Recomputed
-   * each frame by {@link BattleSim.tickAuras} (docs/planned/support-enemies.md).
+   * each frame by {@link BattleSim.tickAuras} (docs/done/support-enemies.md).
    */
   hasteMult: number;
   /** Aegis-Beacon ally shield: absorbs flat damage before HP, decays when unrefreshed. */
@@ -522,7 +522,7 @@ export class BattleSim {
   }
 
   /**
-   * Support-mob auras (docs/planned/support-enemies.md): the "enemies synergize"
+   * Support-mob auras (docs/done/support-enemies.md): the "enemies synergize"
    * mirror, recomputed every frame. Resonance Mote hastes the pack (additive %,
    * globally capped — no runaway stack); Coolant Mender repairs wounded *fighters*
    * (never itself or other support mobs, so menders can't form an immortal duet);
@@ -905,7 +905,7 @@ export class BattleSim {
 
   private damageEnemy(enemy: SimEnemy, amount: number): void {
     if (!enemy.alive || amount <= 0) return;
-    // Aegis-Beacon ally shield (docs/planned/support-enemies.md) soaks flat damage
+    // Aegis-Beacon ally shield (docs/done/support-enemies.md) soaks flat damage
     // before HP — an extra pool, not a resist (damage stays flat, no type table).
     if (enemy.shield > 0) {
       const absorbed = Math.min(enemy.shield, amount);

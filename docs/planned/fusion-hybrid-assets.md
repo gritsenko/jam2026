@@ -1,8 +1,9 @@
 # Fusion hybrid assets — playbook (спрайты и звуки)
 
-> **Статус: planned.** Манифесты и роутинг в коде заведены; PNG/MP3 кладутся по этому
-> чеклисту. После полной генерации и подключения — перенести в `docs/done/` и
-> обновить [current-state.md](../working/current-state.md).
+> **Статус: спрайты готовы, звук остаётся.** Манифесты и роутинг заведены; **6 PNG
+> сгенерированы** и фоллбеки на родителей сняты из `ASSET_FALLBACKS`. Остаются **6 MP3
+> вылета** (генерируются вручную — тулзы под звук в репо нет) + стретчи. После звука —
+> перенести в `docs/done/` и обновить [current-state.md](../working/current-state.md).
 
 Источники: GDD §6.5 ([synergy-grid-td-v2.md](../backlog/synergy-grid-td-v2.md)),
 боевые перки — `hybridPerks` в `cards.json`, сим — [BattleSim.ts](../../src/game/BattleSim.ts).
@@ -45,14 +46,16 @@ flowchart LR
 | Ледобой | `icebreaker` | `railgun` | `... icebreaker frosted rail with cyan ice coating ... --ref assets/sprites/railgun.png` | стретч |
 | Гаусс-Катушка | `gauss_coil` | `railgun` | `... gauss coil magnetic rail with violet coils ... --ref assets/sprites/railgun.png` | стретч |
 
-- [ ] `steam_cannon.png`
-- [ ] `cryo_discharge.png`
-- [ ] `ion_volley.png`
-- [ ] `thermo_spear.png`
-- [ ] `icebreaker.png`
-- [ ] `gauss_coil.png`
+- [x] `steam_cannon.png`
+- [x] `cryo_discharge.png`
+- [x] `ion_volley.png`
+- [x] `thermo_spear.png`
+- [x] `icebreaker.png`
+- [x] `gauss_coil.png`
 
-Карточная иконка в руке использует тот же ключ (`iconKey`); при необходимости отдельный рендер `--category card_icon --size 256`.
+Все 6 сгенерированы `gen_sprite.py --category tower --size 512 --ref <родитель>` и подключены
+(фоллбеки сняты). Карточная иконка в руке использует тот же ключ (`iconKey`); при
+необходимости отдельный рендер `--category card_icon --size 256`.
 
 ---
 
@@ -99,5 +102,5 @@ Headless: `npx tsx tools/verify_hybrids.ts`
 ## См. также
 
 - [tower-sound-design.md](../done/tower-sound-design.md) §1.5
-- [tower-readability.md](tower-readability.md)
+- [tower-readability.md](../done/tower-readability.md)
 - [tools/README.md](../../tools/README.md)

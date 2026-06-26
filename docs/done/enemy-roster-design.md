@@ -6,10 +6,17 @@
 по сетке — теперь так же делают и враги.
 
 Опирается на боевую модель и принципы из [enemy-balance.md](../working/enemy-balance.md), ставит
-мобов в уровни из [levels-post-tutorial.md](../done/levels-post-tutorial.md) и обучающую лестницу
-из [progression-and-tech-tree.md](../done/progression-and-tech-tree.md). Детальные описания
+мобов в уровни из [levels-post-tutorial.md](levels-post-tutorial.md) и обучающую лестницу
+из [progression-and-tech-tree.md](progression-and-tech-tree.md). Детальные описания
 мобов поддержки + их внешний вид и спрайт-промпты — в
 [support-enemies.md](support-enemies.md).
+
+> **Статус: выполнено (заморожено в `done/`, 2026-06).** Все три моба поддержки
+> (Resonance Mote / Coolant Mender / Aegis Beacon) реализованы: поля ауры в `EnemyDef`
+> + архетип `support` ([types.ts](../../src/config/types.ts)), `BattleSim.tickAuras`
+> ([BattleSim.ts](../../src/game/BattleSim.ts)) и спавн в `levelCombat` всех конфигов.
+> Спрайты сгенерированы (`enemy_resonance_mote`/`enemy_coolant_mender`/`enemy_aegis_beacon`).
+> Беклог §9 (моб-сплиттер, само-реген щит, «сухой» анти-Wet) — отложен, не блокирует.
 
 ---
 
@@ -117,8 +124,8 @@
 
 ## 5. Порядок ввода (обучающая лестница)
 
-Согласовано с [progression-and-tech-tree.md](../done/progression-and-tech-tree.md) (один новый
-моб = один урок) и [levels-post-tutorial.md](../done/levels-post-tutorial.md) (саппорты —
+Согласовано с [progression-and-tech-tree.md](progression-and-tech-tree.md) (один новый
+моб = один урок) и [levels-post-tutorial.md](levels-post-tutorial.md) (саппорты —
 контент Level C, ранее помеченный там как стретч):
 
 | Где | Новый моб | Урок |
@@ -200,10 +207,10 @@ export interface EnemyDef {
 | --- | --- |
 | [enemy-balance.md](../working/enemy-balance.md) | наследует EHP=HP, `k×HP`, Core-массу; реализует рекомендацию §6 (саппорт-монстр) — расширено до трёх саппортов |
 | [support-enemies.md](support-enemies.md) | детальные карточки + внешний вид + спрайт-промпты этих трёх мобов |
-| [levels-post-tutorial.md](../done/levels-post-tutorial.md) | три саппорта = контент Level C (там помечен как стретч); `hpScale`/`bountyScale` применяются одинаково |
-| [progression-and-tech-tree.md](../done/progression-and-tech-tree.md) | один моб = один урок; порядок ввода (§5) встроен в лестницу |
-| [synergy-grid-td-v3.md](synergy-grid-td-v3.md) | Disruptor как в §2.Г; саппорты — зеркало синергии соседей (§2.А) и делают резонанс необходимым (§2.В) |
-| [sell-towers.md](sell-towers.md) | продажа = переответ на саппортов (снёс капельную турель → поставил burst/дальнобой под Mender/Beacon) |
+| [levels-post-tutorial.md](levels-post-tutorial.md) | три саппорта = контент Level C (там помечен как стретч); `hpScale`/`bountyScale` применяются одинаково |
+| [progression-and-tech-tree.md](progression-and-tech-tree.md) | один моб = один урок; порядок ввода (§5) встроен в лестницу |
+| [synergy-grid-td-v3.md](../planned/synergy-grid-td-v3.md) | Disruptor как в §2.Г; саппорты — зеркало синергии соседей (§2.А) и делают резонанс необходимым (§2.В) |
+| [sell-towers.md](../backlog/sell-towers.md) | продажа = переответ на саппортов (снёс капельную турель → поставил burst/дальнобой под Mender/Beacon) |
 
 ---
 

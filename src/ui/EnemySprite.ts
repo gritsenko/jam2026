@@ -2,7 +2,7 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { COLORS } from '../theme';
 import { fitSprite } from './helpers';
 
-/** Icy-cyan tint of the Aegis-Beacon ally-shield bubble (docs/planned/support-enemies.md). */
+/** Icy-cyan tint of the Aegis-Beacon ally-shield bubble (docs/done/support-enemies.md). */
 const SHIELD_COLOR = 0x9fe8ff;
 
 /** Support-mob aura ring (the "enemies synergize" telegraph): its element glow + true reach. */
@@ -88,7 +88,7 @@ export class EnemySprite extends Container {
   }
 
   /**
-   * Aegis-Beacon ally shield (docs/planned/support-enemies.md): show a bubble whose
+   * Aegis-Beacon ally shield (docs/done/support-enemies.md): show a bubble whose
    * opacity tracks the remaining shield. `cur`/`max` are shield HP; 0 hides it.
    */
   setShield(cur: number, max: number): void {

@@ -32,6 +32,10 @@
 - [v3-alignment.md](done/v3-alignment.md) — триаж расхождений v3 ↔ код: реализованы градуированная защита в Прерывании (§2.Г) и кристаллы с элит (§8.В), поправлен док по гейту фьюжна (§6.5/§10); per-wave направление оставлено стретчем.
 - [modernization-cards.md](done/modernization-cards.md) — карты глобальной модернизации (Изоляционный Контур / Элементальный Фокус / Экстренный Овердрайв) за флагом `mod_cards`. MVP реализован (категория `modernization`, голослой-оверлей на платформу, эффекты ёмкости/фокуса/овердрайва); стретчи §6 (предпросмотр Фокуса, анимация Контура) — нет.
 - [tower-sound-design.md](done/tower-sound-design.md) — пер-башенные звуки (вылет по `cardId`, попадание по стихии источника) + список общих SFX на замену (начало волны, утечка в Core, установка, реролл, крит, стан, апгрейд базы). Роутинг в коде; PNG-сэмплы добавляются вручную, фоллбек на общие звуки.
+- [tutorial-modals.md](done/tutorial-modals.md) — обучающие модалки на входе в уровень (реестр уроков `tutorial.ts`, «виденность» в `progress.ts`, компонент `TutorialModal` + скриптовые демки `TutorialDemos`, отложенный старт волн). MVP реализован; стретчи (отдельные PNG-иллюстрации, реплей урока, «пропустить всё», reduced-motion) — нет.
+- [tower-readability.md](done/tower-readability.md) — читаемость башен: Слой 1 (функциональные имена + лейбл стихии) и Слой 2 (символы стихий `sym_*` на карте/точках/панели) реализованы; Слои 3–4 (силуэты, эффекты выстрела) сознательно вырезаны как отдельный арт-спринт.
+- [enemy-roster-design.md](done/enemy-roster-design.md) — ростер монстров: 5 базовых без изменений + 3 моба поддержки (зеркало синергии), баланс и миграция. Все три моба реализованы (`BattleSim.tickAuras`, спавн в `levelCombat`, спрайты на диске); беклог §9 (сплиттер/реген-щит/анти-Wet) — нет.
+- [support-enemies.md](done/support-enemies.md) — карточки мобов поддержки (Resonance Mote / Coolant Mender / Aegis Beacon): внешний вид + спрайт-промпты. Логика и спрайты готовы.
 
 Сюда переезжает спека из `planned/`, когда фича **реализована**: заморозь её здесь и
 отрази поведение в `working/current-state.md`.
@@ -46,14 +50,12 @@
 
 ### planned/ — планируемые
 - [synergy-grid-td-v3.md](planned/synergy-grid-td-v3.md) — актуальный концепт-манифест + дерево технологий (мастер-вижн). В шапке — баннер статуса с отличиями от кода (спираль → пер-левел траектории; SP-дерево/Чертежи вырезаны для джема).
-- [enemy-roster-design.md](planned/enemy-roster-design.md) — ростер монстров: 5 текущих без изменений + 3 моба поддержки (зеркало синергии), баланс и миграция.
-- [support-enemies.md](planned/support-enemies.md) — карточки мобов поддержки (Resonance Mote / Coolant Mender / Aegis Beacon): внешний вид в стиле текущих врагов + спрайт-промпты.
-- [tutorial-modals.md](planned/tutorial-modals.md) — обучающие модалки на входе в уровень, где открывается новая механика/башня: реестр уроков по дельте прогрессии, компонент `TutorialModal`, «виденность» в прогрессе, иллюстрации/демки.
-- [sell-towers.md](planned/sell-towers.md) — продажа установленных башен.
 - [online-telemetry-deployment.md](planned/online-telemetry-deployment.md) — минимум для вывода телеметрии в онлайн при публично хостящейся игре (хост с постоянным диском, HTTPS, топология `/api` без CORS, `VITE_TELEMETRY_URL` на сборке, токен на ingest бот-ранов); задел под прогон ботов в тот же дашборд. Реализует [analytics-and-backend.md](backlog/analytics-and-backend.md) в проде.
 - [online-editor-deployment.md](planned/online-editor-deployment.md) — приватный (только админ) деплой [редактора геймдизайна](backlog/design-editor.md) в онлайн: бэкенд редактора — это Vite dev-плагин, поэтому поднимается сам `vite dev` за basic-auth+HTTPS; правка/`run bot` работают с живым диском, а «play this config» для нового конфига требует ребилда игры (статический `registry.ts`).
-- [hybrid-towers.md](planned/hybrid-towers.md) — доработка фьюжн-гибридов (v2 §6.5): что реализовано в коде, что осталось (PNG/MP3, `_dirs`, smoke lvl_7).
-- [fusion-hybrid-assets.md](planned/fusion-hybrid-assets.md) — playbook генерации спрайтов и звуков для 6 гибридов (манифест → gen_sprite/MP3 → smoke на lvl_7).
+- [hybrid-towers.md](planned/hybrid-towers.md) — доработка фьюжн-гибридов (v2 §6.5): логика и **6 PNG-спрайтов готовы**; осталось 6 `sfx_shoot_*` MP3 (вручную, нет тулзы) + стретчи (`_dirs`, уникальные hit-клипы, smoke lvl_7).
+- [fusion-hybrid-assets.md](planned/fusion-hybrid-assets.md) — playbook генерации спрайтов и звуков для 6 гибридов: **спрайты сгенерированы** (фоллбеки на родителей сняты); остаются MP3-звуки.
+
+> `sell-towers.md` (продажа башен) — спека лежит в [backlog/sell-towers.md](backlog/sell-towers.md).
 
 ### backlog/ — беклог
 - [concept.md](backlog/concept.md) — исходный концепт-манифест (v1, заменён v2/v3).

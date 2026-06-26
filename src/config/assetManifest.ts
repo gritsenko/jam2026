@@ -13,8 +13,8 @@ import { COLORS, ELEMENTS } from '../theme';
  * Status note (2026): the whole gameplay set was re-skinned to one style — flat
  * flash-cartoon (Iron Marines / Kingdom Rush) + dark dieselpunk metal, anchored
  * to docs/visual_refs/new_style.jpg. On disk: backgrounds, platform, 6 towers
- * (hand-made) + 2 `<id>_dirs` 3×3 aim sheets for the rotating turrets
- * (plasma_shutter, railgun; other towers are static), 5 enemies, map nodes,
+ * (hand-made) + 6 fusion-hybrid towers + 2 `<id>_dirs` 3×3 aim sheets for the
+ * rotating turrets (plasma_shutter, railgun; other towers are static), 5 enemies, map nodes,
  * icon_star, the 3 modernization cards, the sym_* element marks. The HUD chrome
  * is procedural (drawPanel /
  * PlatformGrid.buildPlate), so the legacy ui_panel/ui_button/ui_card_frame keys
@@ -292,8 +292,8 @@ export const ASSETS: AssetSpec[] = [
   // to aim at the lead enemy (see the "Turret aim sheets" block); for those the
   // in-game tower renders from the sheet, not `<id>`. Non-rotating towers
   // (frost_pulse, storm_coil, shield_generator, grid_stabilizer) are a single
-  // static sprite. Hybrids have dedicated iconKeys (see fusion-hybrid-assets.md);
-  // until PNGs land, ASSET_FALLBACKS may point at a parent tower.
+  // static sprite. Hybrids have dedicated iconKeys and now ship their own PNGs
+  // (see fusion-hybrid-assets.md); the parent ASSET_FALLBACKS were removed.
   {
     key: 'plasma_shutter',
     category: 'tower',
@@ -542,7 +542,7 @@ export const ASSETS: AssetSpec[] = [
       'menacing signal-jammer saboteur drone creature, bristling with broadcast antenna spikes, glitching red and violet disruptive energy arcs crackling around it, fast aggressive low crawling pose',
     placeholder: { shape: 'disc', tint: E, label: 'JAMMER' },
   },
-  // Support mobs (docs/planned/support-enemies.md): the "enemies synergize" mirror.
+  // Support mobs (docs/done/support-enemies.md): the "enemies synergize" mirror.
   // Silhouettes read as "I radiate, not attack" — auras, rings, emitters; no guns.
   {
     key: 'enemy_resonance_mote',
@@ -624,10 +624,6 @@ export const ASSET_FALLBACKS: Record<string, string> = {
   bg_lvl_6: 'bg_level',
   bg_lvl_7: 'bg_level',
   icon_reactor: 'ui_button_overdrive',
-  steam_cannon: 'frost_pulse',
-  cryo_discharge: 'storm_coil',
-  ion_volley: 'plasma_shutter',
-  thermo_spear: 'railgun',
-  icebreaker: 'railgun',
-  gauss_coil: 'railgun',
+  // Fusion hybrids now have dedicated PNGs on disk (steam_cannon, cryo_discharge,
+  // ion_volley, thermo_spear, icebreaker, gauss_coil), so no parent fallbacks remain.
 };

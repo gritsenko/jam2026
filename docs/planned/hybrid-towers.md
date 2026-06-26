@@ -1,8 +1,11 @@
 # Hybrid towers — доработка фьюжн-гибридов (v2 §6.5)
 
-> **Статус: частично реализовано (2026-06).** Боевая логика, данные, манифесты и
-> роутинг в коде готовы; PNG/MP3 на диске отсутствуют. После полного закрытия чеклиста
-> — перенести этот файл в `docs/done/` и обновить [current-state.md](../working/current-state.md).
+> **Статус: частично реализовано (2026-06).** Боевая логика, данные, манифесты,
+> роутинг — готовы; **6 PNG-спрайтов сгенерированы** (фоллбеки на родителей сняты из
+> `ASSET_FALLBACKS`). Осталось: **6 `sfx_shoot_*` MP3** (MVP; генерируются вручную — в
+> репо нет тулзы под звук) + стретчи (`_dirs`-шиты, уникальные hit-клипы, smoke lvl_7).
+> После закрытия звукового MVP — перенести в `docs/done/` и обновить
+> [current-state.md](../working/current-state.md).
 
 Источник дизайна: [synergy-grid-td-v2.md](../backlog/synergy-grid-td-v2.md) §6.5.
 Playbook ассетов: [fusion-hybrid-assets.md](fusion-hybrid-assets.md).
@@ -71,8 +74,9 @@ Playbook ассетов: [fusion-hybrid-assets.md](fusion-hybrid-assets.md).
 
 ### 1. Спрайты (MVP)
 
-Пока на диске **нет** `assets/sprites/<iconKey>.png` — игра рисует родителя через
-`ASSET_FALLBACKS`.
+**Готово (2026-06):** все 6 `assets/sprites/<iconKey>.png` сгенерированы (`gen_sprite.py`
+с `--ref` на родителя), и **все 6 строк убраны из `ASSET_FALLBACKS`** — игра рисует
+собственный спрайт гибрида, а не плейсхолдер родителя.
 
 | Ключ | Ref | Статична / вращается |
 |------|-----|----------------------|
@@ -83,15 +87,15 @@ Playbook ассетов: [fusion-hybrid-assets.md](fusion-hybrid-assets.md).
 | `icebreaker` | `railgun` | вращается (стретч) |
 | `gauss_coil` | `railgun` | вращается (стретч) |
 
-- [ ] `steam_cannon.png`
-- [ ] `cryo_discharge.png`
-- [ ] `ion_volley.png`
-- [ ] `thermo_spear.png`
-- [ ] `icebreaker.png`
-- [ ] `gauss_coil.png`
+- [x] `steam_cannon.png`
+- [x] `cryo_discharge.png`
+- [x] `ion_volley.png`
+- [x] `thermo_spear.png`
+- [x] `icebreaker.png`
+- [x] `gauss_coil.png`
 
-Команды и промпты — в [fusion-hybrid-assets.md](fusion-hybrid-assets.md). После каждого
-PNG: убрать строку из `ASSET_FALLBACKS`, перезапустить `npm run dev`.
+Команды и промпты — в [fusion-hybrid-assets.md](fusion-hybrid-assets.md). Спрайты на поле
+пока **статичны** даже у «вращающихся» — `_dirs`-шиты (стретч §3) ещё не нарисованы.
 
 ### 2. Звуки (MVP)
 

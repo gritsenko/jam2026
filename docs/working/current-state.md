@@ -142,6 +142,13 @@
   и шанс прохождения, и долю крит-станов, два соседних Щита (`defense` ≥ 1) — как и центр /
   слот вне досягаемости дороги — дают полный иммунитет (`defense` в
   [BattleSim.ts](../../src/game/BattleSim.ts)).
+- **Мобы поддержки** (`archetype: support`, [../done/support-enemies.md](../done/support-enemies.md)) —
+  «тёмное зеркало синергии»: **Resonance Mote** (хейст-аура соседним врагам), **Coolant Mender**
+  (хил-аура), **Aegis Beacon** (щит союзникам). Поля ауры в `EnemyDef`
+  ([types.ts](../../src/config/types.ts)), обсчёт каждый кадр — `BattleSim.tickAuras`
+  ([BattleSim.ts](../../src/game/BattleSim.ts)) с кэпами (`AURA_HASTE_CAP_PCT` и т.д. в
+  [combatRules.ts](../../src/config/combatRules.ts)); хейст лечится приоритизацией цели + AoE.
+  Спрайты на диске (`enemy_resonance_mote`/`enemy_coolant_mender`/`enemy_aegis_beacon`).
 - **Рука.** По умолчанию **3 слота** (расширяемо позже).
 - **Продажа башен (тест).** При включённом Admin-тумблере **Sell Towers**: тап по башне → панель
   → удержание **HOLD TO SELL** (~0.4с) → частичный возврат золота
@@ -193,6 +200,17 @@
   Список открываемых башен — `towersUnlockedByClearing` (разница ростеров
   соседних уровней, [progression.ts](../../src/config/progression.ts)); гейт на
   первое прохождение — `isCleared` ([progress.ts](../../src/game/progress.ts)).
+- **Туториал-модалки (онбординг механик).** Зеркало «Tech unlocked», но на **входе** в
+  уровень: при первом появлении новой механики/башни всплывает модальная карусель
+  уроков (тёмный скрим без закрытия по клику вне, иллюстрация-спрайт или скриптовая
+  демка, NEXT/ПОНЯТНО) — **волны ждут**, пока её не закрыть (`BattleSim` стоит, пока
+  `status!=='running'`). Реестр уроков по дельте прогрессии —
+  [tutorial.ts](../../src/config/tutorial.ts) (`pendingLessons` чтит Admin), «виденность»
+  персистится — `seenTutorials`/`markTutorialsSeen` ([progress.ts](../../src/game/progress.ts)),
+  компонент [TutorialModal.ts](../../src/ui/TutorialModal.ts) + демки
+  [TutorialDemos.ts](../../src/ui/TutorialDemos.ts), интеграция —
+  `startBattleOrTutorial` ([BattleScene.ts](../../src/scenes/BattleScene.ts)). Спека —
+  [../done/tutorial-modals.md](../done/tutorial-modals.md).
 - **Admin mode.** Чекбокс на карте мира и в меню: снимает гейт уровней (доступны все) и
   делает **пройденные уровни перепроходимыми** — для теста любого уровня. В Admin
   также тумблер **Sell Towers** — включает тестовую **продажу башен** (hold-to-sell в
@@ -226,7 +244,7 @@ RAILGUN); у каждой стихии своя эмблема-символ (`sy
 размеру), и **карты в руке** ([BattleCard](../../src/ui/BattleCard.ts), всегда «зажжённый»
 кадр — превью желаемых соседей). Старая процедурная точка осталась только фоллбеком на
 случай, если шит не загрузился. Реестр башен — [towers.md](towers.md); план/статус —
-[../planned/tower-readability.md](../planned/tower-readability.md) (слои 1–2 готовы,
+[../done/tower-readability.md](../done/tower-readability.md) (слои 1–2 готовы,
 силуэты/эффекты — стретчи).
 
 ## Визуальный стиль и поворот турелей
@@ -314,7 +332,7 @@ text-to-audio промпты — [audioManifest.ts](../../src/config/audioManife
 `element`). Ключи: `sfx_shoot_*`/`sfx_hit_*` для `plasma`/`frost`/`storm`/`railgun`
 ([audioManifest.ts](../../src/config/audioManifest.ts)). Поддержка снарядов не пускает
 (Щит → `sfx_barrier`); если PNG-сэмпла нет — фоллбек на общие `sfx_shoot`/`sfx_hit`.
-Спека — [done/tower-sound-design.md](done/tower-sound-design.md).
+Спека — [done/tower-sound-design.md](../done/tower-sound-design.md).
 
 **Глобальный mute** — кнопка-динамик ([MuteButton.ts](../../src/ui/MuteButton.ts)) в
 правом верхнем углу **на всех экранах (меню/карта/бой)** мгновенно глушит/включает весь
@@ -336,8 +354,11 @@ text-to-audio промпты — [audioManifest.ts](../../src/config/audioManife
   одновременные мульти-потоки) — направление пока **пер-левел**; per-wave требует
   мульти-пути в симе (per-enemy `pathId`) и path-aware выбора лидера. Спроектировано
   как «Инкремент 3» в   [../done/directional-entry.md](../done/directional-entry.md).
-- 3 новых монстра из [../planned/enemy-roster-design.md](../planned/enemy-roster-design.md)
-  (в коде 5 врагов + архетип диверсанта).
+- **Беклог §9 ростера** из [../done/enemy-roster-design.md](../done/enemy-roster-design.md) —
+  моб-сплиттер, само-реген-щит и «сухой» анти-Wet моб **не реализованы** (3 моба поддержки
+  и диверсант — уже в коде, см. выше). **Боссы** (`enemy_boss_warden`/`enemy_boss_titan`)
+  заведены в данных `bot_tune`/`bot_tune_hard`/`campaign_tight`, но **ни одна волна их не
+  спавнит** — спрайтов нет, в бою не появляются.
 
 ### Вырезано для джема (фичекат — не планируется)
 

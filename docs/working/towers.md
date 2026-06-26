@@ -16,7 +16,7 @@
 > → `SlotView.setAim`); остальные башни статичны. Подробности и пайплайн —
 > [current-state.md](current-state.md) §«Визуальный стиль и поворот турелей».
 
-> **Имена обновлены** (читаемость, [planned/tower-readability.md](../planned/tower-readability.md)):
+> **Имена обновлены** (читаемость, [done/tower-readability.md](../done/tower-readability.md)):
 > бывш. *Плазменный Затвор → Огневая Пушка (FIRE GUN)*, *Морозный Импульс → Ледяная Пушка
 > (ICE GUN)*, *Грозовая Катушка → Тесла-Пушка (TESLA GUN)*; стихия Fire-лейбл `PLASMA → FIRE`;
 > `URANIUM CELL → GRID STABILIZER`. **`id` неизменны** (`plasma_shutter`/`storm_coil` и т.д.) —
@@ -36,7 +36,7 @@
 - **Символ стихии** — у каждой стихии своя эмблема (`sym_*`): 🔥 пламя (Fire), ❄ снежинка
   (Water), ⚡ молния (Electricity), пуля (Physical), ромб (Energy). Рисуется на теле карты
   и в панели осмотра — стихия читается **формой**, не только цветом
-  (читаемость, [planned/tower-readability.md](../planned/tower-readability.md) §3). Точки
+  (читаемость, [done/tower-readability.md](../done/tower-readability.md) §3). Точки
   синергии (и на **установленных башнях**, иконки ≈1.33×, и на **картах в руке**) берут готовые
   off/on спрайты из шита `Symbols.png` (5×2, а не сжатый `sym_*`), без пульса — см. `current-state.md`.
 - Цены и нагрузка по грейдам — общая сводка в §6.

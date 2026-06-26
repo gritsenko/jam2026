@@ -68,7 +68,7 @@ export const INTERRUPT_STUN_SEC = C.INTERRUPT_STUN_SEC;
 /** Seconds a Shield barrier holds the lead enemy still; recharge after. */
 export const BARRIER_COOLDOWN_SEC = C.BARRIER_COOLDOWN_SEC;
 
-// --- Support-mob auras (docs/planned/support-enemies.md) -------------------
+// --- Support-mob auras (docs/done/support-enemies.md) -------------------
 /** Cap on the total Resonance-Mote move-speed bonus a pack can stack. */
 export const AURA_HASTE_CAP_PCT = C.AURA_HASTE_CAP_PCT;
 /** Aegis-Beacon ally shield decays this many HP/sec once no beacon refreshes it. */

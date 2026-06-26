@@ -163,7 +163,7 @@ export interface HandCard {
  * the core. A `disruptor` (Нарушитель) instead rushes the platform and *interrupts*
  * tower attacks — glitching a shot or, on a crit, briefly stunning the tower —
  * which is what finally gives the Shield's +DEF / interrupt-immunity a purpose.
- * A `support` mob (docs/planned/support-enemies.md) has no direct attack and
+ * A `support` mob (docs/done/support-enemies.md) has no direct attack and
  * instead buffs/protects nearby *allied* enemies — the "enemies synergize" mirror.
  */
 export type EnemyArchetype = 'standard' | 'disruptor' | 'support';
@@ -197,7 +197,7 @@ export interface EnemyDef {
    */
   readonly crystalBounty?: number;
   /**
-   * Support mobs (docs/planned/support-enemies.md) — the "enemies synergize"
+   * Support mobs (docs/done/support-enemies.md) — the "enemies synergize"
    * mirror. Each aura affects *other* enemies within `auraRadiusFrac` (fraction of
    * arena width). All optional, so the existing roster is untouched.
    */

@@ -1,4 +1,4 @@
-// Legacy wave-authoring rules for support mobs (docs/planned/enemy-roster-design.md).
+// Legacy wave-authoring rules for support mobs (docs/done/enemy-roster-design.md).
 // Enforced in validate.ts — supports may only appear in waves that also field a
 // large escort pack or at least one boss.
 
