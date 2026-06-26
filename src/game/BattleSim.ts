@@ -3,7 +3,7 @@ import type { CardDef, EnemyDef, ReactionId, WaveDef } from '../config/types';
 import type { Rng } from './rng';
 import { getEnemy } from '../config/enemies';
 import { buildSpawnQueue } from '../data/waveRules';
-import { cardGrade, cardLoad, hasHybridPerk } from '../config/cards';
+import { cardGrade, cardLoad, hasHybridPerk, towerMuzzleFrac } from '../config/cards';
 import {
   AOE_SPLASH_FRAC,
   AURA_HASTE_CAP_PCT,
@@ -121,6 +121,12 @@ export interface SimTower extends HitEffects {
   pierce: boolean;
   /** Plasma shockwave mode (v3 §5): a slow, non-homing round detonating at the aim point. */
   slowProjectile: boolean;
+  /**
+   * Barrel length from the slot center to the muzzle, in arena pixels. Shots and
+   * the muzzle flash spawn this far along the aim direction (so the bolt appears
+   * to leave the gun tip, not the tower center). 0 for static / center-firing towers.
+   */
+  muzzleLen: number;
   /** Holds the lead enemy still for this many seconds, then long recharge (Shield). */
   barrierSec: number;
   /** Network load this tower draws — scales its overload fire-rate penalty (v3 §3.А). */
@@ -186,7 +192,8 @@ export interface SimCallbacks {
   onEnemyDamaged?(enemy: SimEnemy, amount: number, crit: boolean, element: ElementId): void;
   /** A Disruptor jammed a tower (v3 §2.Г): `stun` = locked for a beat, else a glitched shot. */
   onTowerInterrupted?(slotIndex: number, kind: 'glitch' | 'stun', x: number, y: number): void;
-  onTowerFired?(slotIndex: number, target: SimEnemy): void;
+  /** A tower fired; `originX/originY` is the muzzle (gun tip) the shot left from. */
+  onTowerFired?(slotIndex: number, target: SimEnemy, originX: number, originY: number): void;
   /** A projectile actually connected (vs. fizzling on an already-dead target). */
   onProjectileHit?(x: number, y: number, element: ElementId): void;
   /** A chain-lightning hop / pierce beam — draw a line between two points. */
@@ -596,11 +603,13 @@ export class BattleSim {
       // Overload throttles this tower's fire rate in proportion to its own load.
       const mult = towerFireRateMult(this.overload, tower.load);
 
+      const muzzle = this.muzzleOrigin(tower, tower.aimX, tower.aimY);
+
       if (tower.barrierSec > 0) {
         // Shield: hold the lead enemy still, then a long recharge.
         target.stunUntil = Math.max(target.stunUntil, this.clock + tower.barrierSec);
         this.cb.onBarrier?.(target.x, target.y);
-        this.cb.onTowerFired?.(tower.slotIndex, target);
+        this.cb.onTowerFired?.(tower.slotIndex, target, muzzle.x, muzzle.y);
         tower.cdLeft = BARRIER_COOLDOWN_SEC / mult;
         tower.cdMax = tower.cdLeft;
         continue;
@@ -608,10 +617,10 @@ export class BattleSim {
 
       if (tower.pierce) {
         this.firePierceLine(tower, target);
-        this.cb.onTowerFired?.(tower.slotIndex, target);
+        this.cb.onTowerFired?.(tower.slotIndex, target, muzzle.x, muzzle.y);
       } else {
         this.fireProjectile(tower, target);
-        this.cb.onTowerFired?.(tower.slotIndex, target);
+        this.cb.onTowerFired?.(tower.slotIndex, target, muzzle.x, muzzle.y);
       }
       tower.cdLeft = tower.cooldown / mult;
       tower.cdMax = tower.cdLeft;
@@ -727,14 +736,30 @@ export class BattleSim {
     return best;
   }
 
+  /**
+   * Where this tower's shot leaves it (arena coords): offset from the slot center
+   * by {@link SimTower.muzzleLen} along the aim direction so a rotating turret
+   * fires from its barrel tip, not its center. Static towers (muzzleLen 0) just
+   * use the center. `tx/ty` is the point being aimed at.
+   */
+  private muzzleOrigin(tower: SimTower, tx: number, ty: number): { x: number; y: number } {
+    if (tower.muzzleLen <= 0) return { x: tower.x, y: tower.y };
+    const a = Math.atan2(ty - tower.y, tx - tower.x);
+    return {
+      x: tower.x + Math.cos(a) * tower.muzzleLen,
+      y: tower.y + Math.sin(a) * tower.muzzleLen,
+    };
+  }
+
   private fireProjectile(tower: SimTower, target: SimEnemy): void {
     // Plasma shockwave mode (v3 §5): a slow, non-homing round lobbed at where the
     // target stands now, detonating there in an area even if it has since moved.
     const slow = tower.slowProjectile;
+    const origin = this.muzzleOrigin(tower, target.x, target.y);
     this.projectiles.push({
       id: this.projSeq++,
-      x: tower.x,
-      y: tower.y,
+      x: origin.x,
+      y: origin.y,
       target,
       firePos: slow ? { x: target.x, y: target.y } : undefined,
       speed: slow ? this.projectileSpeed * PLASMA_SLOW_PROJECTILE_MULT : this.projectileSpeed,
@@ -1093,6 +1118,7 @@ export function buildTowerSpec(
     cooldown: base.cooldown / Math.max(0.1, tempoMult),
     pierce,
     slowProjectile,
+    muzzleLen: towerMuzzleFrac(def.iconKey) * cellPx,
     barrierSec,
     load: cardLoad(def, grade),
     defense,

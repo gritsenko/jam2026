@@ -418,7 +418,8 @@ export class BattleScene extends Scene {
           this.services.audio.playSfx(kind === 'stun' ? 'sfx_stun' : 'sfx_disrupt');
           this.onTowerInterrupted(slot, kind, x, y);
         },
-        onTowerFired: (slotIndex) => this.onTowerFired(slotIndex),
+        onTowerFired: (slotIndex, _target, originX, originY) =>
+          this.onTowerFired(slotIndex, originX, originY),
         onProjectileHit: (x, y, element) => this.burst(x, y, ELEMENTS[element].glow, this.arenaW * 0.03),
         onBeam: (x1, y1, x2, y2, element) => this.beam(x1, y1, x2, y2, ELEMENTS[element].glow),
         onBarrier: (x, y) => {
@@ -2436,14 +2437,15 @@ export class BattleScene extends Scene {
     );
   }
 
-  private onTowerFired(slotIndex: number): void {
+  private onTowerFired(slotIndex: number, originX: number, originY: number): void {
     const placed = this.state.slots[slotIndex];
     if (!placed) return;
     this.waveShotsByCard[placed.cardId] = (this.waveShotsByCard[placed.cardId] ?? 0) + 1;
     const def = getCard(placed.cardId);
     this.services.audio.playSfx(TOWER_SHOOT_SFX[placed.cardId] ?? 'sfx_shoot');
-    const p = this.grid.slotScenePos(slotIndex);
-    this.burst(p.x, p.y, ELEMENTS[def.element].glow, this.arenaW * 0.026);
+    // The muzzle flash blooms at the gun tip the sim fired from (sim coords ==
+    // scene coords), so it lines up with the bolt leaving a rotating turret.
+    this.burst(originX, originY, ELEMENTS[def.element].glow, this.arenaW * 0.026);
   }
 
   private onEnemyKilled(e: SimEnemy): void {
