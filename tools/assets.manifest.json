@@ -42,10 +42,8 @@
     { "key": "shield_generator", "file": "assets/sprites/shield_generator.png", "category": "tower", "size": 512, "prompt": "shield dome generator turret, a squat armored emitter projecting a translucent glowing blue energy dome, dark metal base, three-quarter top-down view" },
     { "key": "grid_stabilizer", "file": "assets/sprites/grid_stabilizer.png", "category": "tower", "size": 512, "prompt": "uranium battery stabilizer cell turret, a dark metal canister with glowing green energy rods and yellow-black hazard stripes, three-quarter top-down view" },
 
-    { "key": "plasma_shutter_dirs", "file": "assets/sprites/plasma_shutter_dirs.png", "category": "tower", "size": 2048, "_note": "packed 8-direction aim strip (8 equal cells, N->NW clockwise) built by tools/pack_dirs from per-direction frames; NOT gen_sprite. SlotView slices it to aim the turret." },
-    { "key": "frost_pulse_dirs", "file": "assets/sprites/frost_pulse_dirs.png", "category": "tower", "size": 2048, "_note": "packed 8-direction aim strip for frost_pulse; built by tools/pack_dirs, not gen_sprite" },
-    { "key": "storm_coil_dirs", "file": "assets/sprites/storm_coil_dirs.png", "category": "tower", "size": 2048, "_note": "packed 8-direction aim strip for storm_coil; built by tools/pack_dirs, not gen_sprite" },
-    { "key": "railgun_dirs", "file": "assets/sprites/railgun_dirs.png", "category": "tower", "size": 2048, "_note": "packed 8-direction aim strip for railgun; built by tools/pack_dirs, not gen_sprite" },
+    { "key": "plasma_shutter_dirs", "file": "assets/sprites/plasma_shutter_dirs.png", "category": "tower", "size": 1024, "_note": "hand-made 3x3 directional sheet (center=idle, perimeter cells point outward NW/N/NE..SW/S/SE); SlotView.sliceSheet3x3 slices it to aim. NOT gen_sprite — drop a transparent 3x3 sheet here." },
+    { "key": "railgun_dirs", "file": "assets/sprites/railgun_dirs.png", "category": "tower", "size": 1069, "_note": "hand-made 3x3 directional sheet for the gauss/railgun turret; see plasma_shutter_dirs" },
 
     { "key": "sym_fire", "file": "assets/sprites/sym_fire.png", "category": "icon", "size": 256, "prompt": "a single bold stylized flame emblem, teardrop fire shape, warm orange and yellow glow, strong dark outline, clean readable game UI symbol" },
     { "key": "sym_water", "file": "assets/sprites/sym_water.png", "category": "icon", "size": 256, "prompt": "a single bold six-point snowflake ice crystal emblem, cyan and pale white, strong dark outline, clean readable game UI symbol" },

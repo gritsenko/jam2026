@@ -1995,7 +1995,8 @@ export class BattleScene extends Scene {
       const slot = this.grid.slots[i];
       if (!slot || !slot.isOccupied) continue;
       slot.setCooldown(this.sim.cooldownFrac(i));
-      // Rotate the turret to track its lead enemy (sim coords == scene coords).
+      // Aim the turret at its lead enemy (sim coords == scene coords); null keeps
+      // the last facing. tickAim then steps it there one octant at a time.
       const aim = this.sim.towerAim(i);
       if (aim) {
         const p = this.grid.slotScenePos(i);
@@ -2003,6 +2004,7 @@ export class BattleScene extends Scene {
       } else {
         slot.setAim(null);
       }
+      slot.tickAim(dt);
       this.syncTowerBadge(slot, i, overload);
       slot.tickDots(dt);
     }

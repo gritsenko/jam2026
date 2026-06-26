@@ -12,9 +12,11 @@ import { COLORS, ELEMENTS } from '../theme';
  *
  * Status note (2026): the whole gameplay set was re-skinned to one style — flat
  * flash-cartoon (Iron Marines / Kingdom Rush) + dark dieselpunk metal, anchored
- * to docs/visual_refs/new_style.jpg. On disk: backgrounds, platform, 6 towers +
- * 4 `<id>_dirs` aim strips, 5 enemies, map nodes, icon_star, the 3 modernization
- * cards, the sym_* element marks. The HUD chrome is procedural (drawPanel /
+ * to docs/visual_refs/new_style.jpg. On disk: backgrounds, platform, 6 towers
+ * (hand-made) + 2 `<id>_dirs` 3×3 aim sheets for the rotating turrets
+ * (plasma_shutter, railgun; other towers are static), 5 enemies, map nodes,
+ * icon_star, the 3 modernization cards, the sym_* element marks. The HUD chrome
+ * is procedural (drawPanel /
  * PlatformGrid.buildPlate), so the legacy ui_panel/ui_button/ui_card_frame keys
  * are unused. Only decor_pylon (unwired) and icon_reactor (uses ui_button_overdrive
  * via ASSET_FALLBACKS) still resolve to a placeholder.
@@ -271,10 +273,12 @@ export const ASSETS: AssetSpec[] = [
   },
 
   // ---- Tower art (keyed by card id) ----------------------------------------
-  // `<id>` is the resting tower sprite (also the hand-card art). Attacking
-  // turrets additionally have an `<id>_dirs` strip of 8 facing frames that the
-  // slot swaps to aim at the lead enemy (see the "Turret aim strips" block).
-  // Supports (shield/stabilizer) don't aim. Hybrids reuse their parent's art.
+  // `<id>` is the tower's hand-card art. Rotating turrets (plasma_shutter,
+  // railgun) ALSO have an `<id>_dirs` 3×3 directional sheet that the slot slices
+  // to aim at the lead enemy (see the "Turret aim sheets" block); for those the
+  // in-game tower renders from the sheet, not `<id>`. Non-rotating towers
+  // (frost_pulse, storm_coil, shield_generator, grid_stabilizer) are a single
+  // static sprite. Hybrids reuse their parent's art (+ sheet) via iconKey.
   {
     key: 'plasma_shutter',
     category: 'tower',
@@ -318,38 +322,25 @@ export const ASSETS: AssetSpec[] = [
     placeholder: { shape: 'round', tint: N, label: 'CELL' },
   },
 
-  // ---- Turret aim strips ---------------------------------------------------
-  // 8-direction facing frames for the attacking turrets, packed as one uniform
-  // horizontal strip (8 equal cells, N→NW clockwise) by tools/pack_dirs (NOT
-  // gen_sprite — the 8 source frames are generated per direction, then packed).
-  // SlotView slices the strip and swaps cells to aim; absent → the turret is
-  // static. Prototype frames (see docs); refined later. Keyed `<iconKey>_dirs`.
+  // ---- Turret aim sheets ---------------------------------------------------
+  // Hand-made 3×3 directional sprite-sheets for the rotating turrets. Each cell
+  // points outward from center by grid position (top row NW/N/NE … bottom row
+  // SW/S/SE); the center cell is the idle facing. SlotView slices the sheet and
+  // swaps cells to aim ([SlotView.sliceSheet3x3] / [BattleSim.towerAim]). NOT
+  // generated — drop a transparent 3×3 sheet here as `<iconKey>_dirs.png`.
+  // Only rotating turrets have one (static towers omit it → no aim).
   {
     key: 'plasma_shutter_dirs',
     category: 'tower',
-    size: 2048,
-    prompt: 'packed 8-direction aim strip for the fire turret (see plasma_shutter); built by tools/pack_dirs, not gen_sprite',
+    size: 1024,
+    prompt: 'hand-made 3x3 directional sheet for the plasma turret (see plasma_shutter); not gen_sprite',
     placeholder: { shape: 'round', tint: F, label: '' },
-  },
-  {
-    key: 'frost_pulse_dirs',
-    category: 'tower',
-    size: 2048,
-    prompt: 'packed 8-direction aim strip for the ice turret (see frost_pulse); built by tools/pack_dirs, not gen_sprite',
-    placeholder: { shape: 'round', tint: W, label: '' },
-  },
-  {
-    key: 'storm_coil_dirs',
-    category: 'tower',
-    size: 2048,
-    prompt: 'packed 8-direction aim strip for the tesla turret (see storm_coil); built by tools/pack_dirs, not gen_sprite',
-    placeholder: { shape: 'round', tint: E, label: '' },
   },
   {
     key: 'railgun_dirs',
     category: 'tower',
-    size: 2048,
-    prompt: 'packed 8-direction aim strip for the railgun turret (see railgun); built by tools/pack_dirs, not gen_sprite',
+    size: 1069,
+    prompt: 'hand-made 3x3 directional sheet for the gauss/railgun turret (see railgun); not gen_sprite',
     placeholder: { shape: 'round', tint: P, label: '' },
   },
 
