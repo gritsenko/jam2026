@@ -3,6 +3,8 @@
 // under import.meta.env.DEV and tree-shaken from production. See config-as-data.md.
 
 import type { GameConfig } from './schema';
+import type { WaveDef } from '../config/types';
+import { supportEscortIssues } from './waveRules';
 
 /** Throwing check used at load time (DEV). */
 export function validateGameConfig(set: GameConfig, name: string): void {
@@ -18,6 +20,7 @@ export function collectGameConfigIssues(set: GameConfig): string[] {
   const cardIds = new Set(Object.keys(set.cards));
   const enemyIds = new Set(set.enemies.map((e) => e.id));
   const levelIds = new Set(set.levels.map((l) => l.id));
+  const enemyList = set.enemies;
 
   // Card grade tables must be exactly 3 rows (Grade I/II/III).
   for (const [id, def] of Object.entries(set.cards)) {
@@ -27,13 +30,15 @@ export function collectGameConfigIssues(set: GameConfig): string[] {
   }
 
   // Every spawned enemy id must exist.
-  const checkWaves = (waves: { groups: { enemyId: string }[] }[], where: string): void => {
+  const checkWaves = (waves: WaveDef[], where: string): void => {
     waves.forEach((w, wi) => {
+      const whereWave = `${where} wave ${wi + 1}`;
       w.groups.forEach((g) => {
         if (!enemyIds.has(g.enemyId)) {
-          issues.push(`${where} wave ${wi + 1}: unknown enemyId "${g.enemyId}"`);
+          issues.push(`${whereWave}: unknown enemyId "${g.enemyId}"`);
         }
       });
+      issues.push(...supportEscortIssues(w, enemyList, whereWave));
     });
   };
   checkWaves(set.waves, 'waves');

@@ -416,9 +416,14 @@
       {
         "groups": [
           {
-            "enemyId": "resonance_mote",
-            "count": 1,
-            "gap": 2
+            "enemyId": "volt_crawler",
+            "count": 10,
+            "gap": 0.6
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 8,
+            "gap": 0.4
           },
           {
             "enemyId": "iron_husk",
@@ -426,9 +431,9 @@
             "gap": 3.5
           },
           {
-            "enemyId": "volt_crawler",
-            "count": 8,
-            "gap": 0.6
+            "enemyId": "resonance_mote",
+            "count": 1,
+            "gap": 2
           }
         ]
       },
@@ -454,11 +459,6 @@
       {
         "groups": [
           {
-            "enemyId": "coolant_mender",
-            "count": 1,
-            "gap": 2
-          },
-          {
             "enemyId": "iron_husk",
             "count": 3,
             "gap": 3
@@ -472,6 +472,11 @@
             "enemyId": "signal_disruptor",
             "count": 3,
             "gap": 1.6
+          },
+          {
+            "enemyId": "coolant_mender",
+            "count": 1,
+            "gap": 2
           }
         ]
       },
@@ -497,11 +502,6 @@
       {
         "groups": [
           {
-            "enemyId": "aegis_beacon",
-            "count": 2,
-            "gap": 2.5
-          },
-          {
             "enemyId": "iron_husk",
             "count": 4,
             "gap": 2.5
@@ -520,6 +520,11 @@
             "enemyId": "volt_crawler",
             "count": 10,
             "gap": 0.5
+          },
+          {
+            "enemyId": "aegis_beacon",
+            "count": 2,
+            "gap": 2.5
           }
         ]
       }

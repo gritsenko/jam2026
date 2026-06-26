@@ -35,6 +35,20 @@ export function loadGameConfig(name: string): GameConfig {
   return GAME_CONFIGS[name] ?? GAME_CONFIGS[DEFAULT_GAME_CONFIG]!;
 }
 
+/** Persist config choice in the browser and reload (active config is eager at module load). */
+export function persistGameConfigName(name: string): void {
+  if (typeof window === 'undefined') return;
+  const resolved = name in GAME_CONFIGS ? name : DEFAULT_GAME_CONFIG;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, resolved);
+  } catch {
+    /* private mode */
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set('game_config', resolved);
+  window.location.assign(url.toString());
+}
+
 /** The active config for this load — single source the config layer reads from. */
 export const activeGameConfigName: string = resolveGameConfigName();
 export const activeGameConfig: GameConfig = loadGameConfig(activeGameConfigName);

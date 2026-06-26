@@ -534,6 +534,22 @@ export const ASSETS: AssetSpec[] = [
       'hovering aegis beacon drone creature, faceted hexagonal energy-shield emitter nodes, projecting translucent dome barriers outward, cool blue-gold glow, steady levitating defensive pose',
     placeholder: { shape: 'disc', tint: N, label: 'BEACON' },
   },
+  {
+    key: 'enemy_boss_warden',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'massive grid warden boss creature, towering riveted scrap-metal golem with glowing energy grid lines across its plates, slow heavy menacing walk, dieselpunk tower-defense boss silhouette',
+    placeholder: { shape: 'disc', tint: P, label: 'WARDEN' },
+  },
+  {
+    key: 'enemy_boss_titan',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'colossal overload titan boss creature, molten reactor core chest with venting orange plasma and crackling energy crown, enormous slow lumbering final-boss silhouette, dieselpunk metal limbs',
+    placeholder: { shape: 'disc', tint: F, label: 'TITAN' },
+  },
 
   // ---- World map -----------------------------------------------------------
   {

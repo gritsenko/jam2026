@@ -32,6 +32,30 @@ import aCombatRules from './game_configs/game_config_id000001/combatRules.json';
 import aBattleRules from './game_configs/game_config_id000001/battleRules.json';
 import aBattleSeed from './game_configs/game_config_id000001/battleSeed.json';
 
+import btCards from './game_configs/bot_tune/cards.json';
+import btEnemies from './game_configs/bot_tune/enemies.json';
+import btLevels from './game_configs/bot_tune/levels.json';
+import btLevelCombat from './game_configs/bot_tune/levelCombat.json';
+import btWaves from './game_configs/bot_tune/waves.json';
+import btReactions from './game_configs/bot_tune/reactions.json';
+import btRecipes from './game_configs/bot_tune/recipes.json';
+import btProgression from './game_configs/bot_tune/progression.json';
+import btCombatRules from './game_configs/bot_tune/combatRules.json';
+import btBattleRules from './game_configs/bot_tune/battleRules.json';
+import btBattleSeed from './game_configs/bot_tune/battleSeed.json';
+
+import bthCards from './game_configs/bot_tune_hard/cards.json';
+import bthEnemies from './game_configs/bot_tune_hard/enemies.json';
+import bthLevels from './game_configs/bot_tune_hard/levels.json';
+import bthLevelCombat from './game_configs/bot_tune_hard/levelCombat.json';
+import bthWaves from './game_configs/bot_tune_hard/waves.json';
+import bthReactions from './game_configs/bot_tune_hard/reactions.json';
+import bthRecipes from './game_configs/bot_tune_hard/recipes.json';
+import bthProgression from './game_configs/bot_tune_hard/progression.json';
+import bthCombatRules from './game_configs/bot_tune_hard/combatRules.json';
+import bthBattleRules from './game_configs/bot_tune_hard/battleRules.json';
+import bthBattleSeed from './game_configs/bot_tune_hard/battleSeed.json';
+
 export const DEFAULT_GAME_CONFIG = 'default';
 
 export const GAME_CONFIGS: Record<string, GameConfig> = {
@@ -60,6 +84,34 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     combatRules: aCombatRules,
     battleRules: aBattleRules,
     battleSeed: aBattleSeed,
+  }),
+  /** Bot-tuned balance: 55–70% win corridor target, spread support mobs, softer energy grid. */
+  bot_tune: toGameConfig({
+    cards: btCards,
+    enemies: btEnemies,
+    levels: btLevels,
+    levelCombat: btLevelCombat,
+    waves: btWaves,
+    reactions: btReactions,
+    recipes: btRecipes,
+    progression: btProgression,
+    combatRules: btCombatRules,
+    battleRules: btBattleRules,
+    battleSeed: btBattleSeed,
+  }),
+  /** bot_tune +30% hpScale tier; burn costs partially restored. */
+  bot_tune_hard: toGameConfig({
+    cards: bthCards,
+    enemies: bthEnemies,
+    levels: bthLevels,
+    levelCombat: bthLevelCombat,
+    waves: bthWaves,
+    reactions: bthReactions,
+    recipes: bthRecipes,
+    progression: bthProgression,
+    combatRules: bthCombatRules,
+    battleRules: bthBattleRules,
+    battleSeed: bthBattleSeed,
   }),
 };
 
