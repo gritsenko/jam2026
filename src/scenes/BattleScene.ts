@@ -4,6 +4,7 @@ import { formatGoldAmount } from '../config/battleRules';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
+import { cardShortName, elementLabel, gradeLabel, t } from '../core/i18n';
 import { createBattleState } from '../config/battleState';
 import {
   HAND_RESPAWN_SEC,
@@ -227,7 +228,7 @@ export class BattleScene extends Scene {
   private resonanceLabel = makeText('', 'label', { fontSize: 26, fill: hex(COLORS.energyOverdrive) });
   /** Resolved positional synergy per slot (v2 model), recomputed on every change. */
   private synergy: (SlotSynergy | null)[] = [];
-  private hint = makeText('Drag a card onto a slot or the Reactor', 'micro', { fontSize: 20 });
+  private hint = makeText(t('hud.dragHint'), 'micro', { fontSize: 20 });
   private waveToast = makeText('', 'title', { fontSize: 80, fill: hex(COLORS.white) });
 
   private hand: HandSlot[] = [];
@@ -523,7 +524,7 @@ export class BattleScene extends Scene {
     this.reactor.alpha = 0;
 
     this.backBtn = new Button({
-      label: 'MAP',
+      label: t('common.map'),
       width: 150,
       height: 64,
       preset: 'label',
@@ -538,7 +539,7 @@ export class BattleScene extends Scene {
     this.muteBtn = new MuteButton(this.services.audio, 64);
 
     this.rerollBtn = new Button({
-      label: `REROLL ${REROLL_BASE_COST}`,
+      label: t('battle.reroll', { cost: REROLL_BASE_COST }),
       width: 230,
       height: 64,
       preset: 'label',
@@ -1095,7 +1096,7 @@ export class BattleScene extends Scene {
     const parts = fuse
       ? this.fusionCostParts(card, fuse.target, fuse.hybridId)
       : this.moveCostParts(card, fieldDrag, overReactor, emptySlot, mergeSlot, previewGrade);
-    if (parts && resonates) parts.push({ text: 'RESONANCE', color: COLORS.synergy });
+    if (parts && resonates) parts.push({ text: t('battle.resonance'), color: COLORS.synergy });
     if (parts) {
       this.moveCost.show(parts);
       this.moveCost.position.set(this.moveCostPos.x, this.moveCostPos.y);
@@ -1145,7 +1146,7 @@ export class BattleScene extends Scene {
         ? cardLoad(card.def, previewGrade) - 2 * cardLoad(card.def, card.grade)
         : cardLoad(card.def, previewGrade) - cardLoad(card.def, card.grade);
       return [
-        { text: `→ Lv${previewGrade}`, color: COLORS.energyOverdrive },
+        { text: `→ ${gradeLabel(previewGrade)}`, color: COLORS.energyOverdrive },
         this.energyPart(energyIcon, dE),
         this.goldPart(goldIcon, card.def.costGold),
       ];
@@ -1426,7 +1427,7 @@ export class BattleScene extends Scene {
     const ring = new Graphics();
     ring.roundRect(b.x, b.y, b.width, b.height, 18).stroke({ width: 10, color: COLORS.energyOverdrive });
     slot.addChild(ring);
-    const label = makeText(`Lv${grade}`, 'title', { fontSize: 40, fill: hex(COLORS.energyOverdrive) });
+    const label = makeText(gradeLabel(grade), 'title', { fontSize: 40, fill: hex(COLORS.energyOverdrive) });
     label.anchor.set(0.5);
     slot.addChild(label);
     this.track(
@@ -1553,26 +1554,26 @@ export class BattleScene extends Scene {
     switch (def.mod) {
       case 'isolation':
         return [
-          { text: 'ISOLATION', color: COLORS.crystal },
-          { icon: energyIcon, text: `+${MOD_ISOLATION_CAPACITY} CAP`, color: COLORS.energyOk },
+          { text: t('mod.isolation'), color: COLORS.crystal },
+          { icon: energyIcon, text: t('mod.capBonus', { n: MOD_ISOLATION_CAPACITY }), color: COLORS.energyOk },
           this.goldPart(goldIcon, def.costGold),
         ];
       case 'overdrive':
         return [
-          { text: 'OVERDRIVE', color: COLORS.energyOverdrive },
+          { text: t('mod.overdrive'), color: COLORS.energyOverdrive },
           {
             icon: energyIcon,
-            text: `+${OVERDRIVE_CAPACITY_BONUS} CAP ${MOD_EMERGENCY_OVERDRIVE_SEC}s`,
+            text: t('mod.capBonusTimed', { n: OVERDRIVE_CAPACITY_BONUS, sec: MOD_EMERGENCY_OVERDRIVE_SEC }),
             color: COLORS.energyOverdrive,
           },
           this.crystalPart(crystalIcon, def.costCrystals ?? 0),
         ];
       case 'focus': {
-        const label = el ? ELEMENTS[el].label : 'PICK ELEMENT';
+        const label = el ? elementLabel(el) : t('battle.pickElement');
         const color = el ? ELEMENTS[el].glow : COLORS.textDim;
         return [
-          { text: `FOCUS ${label}`, color },
-          { text: `+${Math.round((MOD_FOCUS_DMG_MULT - 1) * 100)}% DMG`, color: COLORS.dropValid },
+          { text: t('battle.focusChip', { element: label }), color },
+          { text: t('battle.dmgPct', { pct: Math.round((MOD_FOCUS_DMG_MULT - 1) * 100) }), color: COLORS.dropValid },
           this.goldPart(goldIcon, def.costGold),
         ];
       }
@@ -1651,7 +1652,10 @@ export class BattleScene extends Scene {
   private updateFocusLabel(): void {
     if (this.focusElement) {
       const skin = ELEMENTS[this.focusElement];
-      this.focusLabel.text = `FOCUS: ${skin.label}  +${Math.round((MOD_FOCUS_DMG_MULT - 1) * 100)}%`;
+      this.focusLabel.text = t('battle.focusLabel', {
+        element: elementLabel(this.focusElement),
+        pct: Math.round((MOD_FOCUS_DMG_MULT - 1) * 100),
+      });
       this.focusLabel.style.fill = hex(skin.glow);
       this.focusLabel.alpha = 1;
     } else {
@@ -2021,7 +2025,8 @@ export class BattleScene extends Scene {
   private refreshSynergy(): void {
     this.synergy = computeSynergy(this.state.slots);
     const count = this.synergy.filter((s) => s?.resonant).length;
-    this.resonanceLabel.text = count > 1 ? `RESONANCE ×${count}` : count === 1 ? 'RESONANCE' : '';
+    this.resonanceLabel.text =
+      count > 1 ? t('battle.resonanceX', { count }) : count === 1 ? t('battle.resonance') : '';
     this.resonanceLabel.alpha = count > 0 ? 1 : 0;
     // Edge-trigger: report the set of active resonance reactions when it changes —
     // captures which resonances players actually build (dead-content analysis).
@@ -2144,7 +2149,7 @@ export class BattleScene extends Scene {
     }
     this.rerollBtn.visible = true;
     const cost = this.rerollCost();
-    this.rerollBtn.setLabel(`REROLL ${cost}`);
+    this.rerollBtn.setLabel(t('battle.reroll', { cost }));
     this.rerollBtn.setEnabled(this.state.crystals >= cost && !this.banner);
   }
 
@@ -2360,7 +2365,7 @@ export class BattleScene extends Scene {
     let target = 0;
     if (this.sim.status === 'running' && this.sim.wavePhase === 'countdown') {
       const secs = Math.max(0, Math.ceil(this.sim.countdown));
-      this.waveToast.text = `WAVE ${this.sim.nextWaveNumber}  •  ${secs}`;
+      this.waveToast.text = t('battle.waveToast', { n: this.sim.nextWaveNumber, secs });
       target = 0.95;
     }
     this.waveToast.alpha += (target - this.waveToast.alpha) * Math.min(1, dt * 8);
@@ -2669,7 +2674,7 @@ export class BattleScene extends Scene {
     this.waveInterrupts++;
     const color = kind === 'stun' ? COLORS.energyDanger : ELEMENTS.Electricity.glow;
     this.burst(x, y, color, this.arenaW * (kind === 'stun' ? 0.06 : 0.04));
-    const label = makeText(kind === 'stun' ? 'STUN!' : 'JAMMED', 'label', {
+    const label = makeText(kind === 'stun' ? t('fx.stun') : t('fx.jammed'), 'label', {
       fontSize: this.arenaW * 0.038,
       fill: hex(color),
     });
@@ -2715,9 +2720,9 @@ export class BattleScene extends Scene {
     root.alpha = 0;
     this.rewardLayer.addChild(root);
 
-    const title = makeText('WAVE REPELLED', 'display', { fontSize: 64, fill: hex(COLORS.energyOk) });
+    const title = makeText(t('banner.waveRepelled'), 'display', { fontSize: 64, fill: hex(COLORS.energyOk) });
     title.anchor.set(0.5);
-    const sub = makeText(`WAVE ${n} CLEARED`, 'label', { fontSize: 28, fill: hex(COLORS.textBright) });
+    const sub = makeText(t('banner.waveCleared', { n }), 'label', { fontSize: 28, fill: hex(COLORS.textBright) });
     sub.anchor.set(0.5);
     sub.position.set(0, 56);
     root.addChild(title, sub);
@@ -2762,7 +2767,7 @@ export class BattleScene extends Scene {
 
     // Crystal readout, well below the banner so they never overlap.
     const ROW_Y = 196;
-    const reason = makeText('PERFECT CLEAR', 'label', { fontSize: 26, fill: hex(COLORS.crystal) });
+    const reason = makeText(t('banner.perfectClear'), 'label', { fontSize: 26, fill: hex(COLORS.crystal) });
     reason.anchor.set(0.5);
     reason.position.set(0, 134);
     reason.alpha = 0;
@@ -2883,12 +2888,16 @@ export class BattleScene extends Scene {
       const unlockedCards = firstClear
         ? towersUnlockedByClearing(this.levelId).map((id) => {
             const def = getCard(id);
-            return { name: def.shortName, element: def.element, icon: this.services.assets.get(def.iconKey) };
+            return {
+              name: cardShortName(def.id, def.shortName),
+              element: def.element,
+              icon: this.services.assets.get(def.iconKey),
+            };
           })
         : [];
       opts = {
-        title: 'VICTORY',
-        subtitle: `Core ${this.sim.coreHp}/${CORE_MAX}`,
+        title: t('banner.victory'),
+        subtitle: t('banner.coreSummary', { hp: this.sim.coreHp, max: CORE_MAX }),
         accent: COLORS.energyOk,
         // 1–3★ shown as a star row (icon_star sprite) — see BattleBanner.
         stars,
@@ -2896,17 +2905,17 @@ export class BattleScene extends Scene {
         // Cards this clear opens up on the next level → "TECH UNLOCKED" reveal.
         unlockedCards,
         buttons: [
-          { label: 'WORLD MAP', primary: true, onClick: () => this.services.navigate('worldmap') },
+          { label: t('common.worldMap'), primary: true, onClick: () => this.services.navigate('worldmap') },
         ],
       };
     } else {
       opts = {
-        title: 'DEFEAT',
-        subtitle: 'The core was overrun',
+        title: t('banner.defeat'),
+        subtitle: t('banner.defeatSub'),
         accent: COLORS.energyDanger,
         buttons: [
-          { label: 'RETRY', primary: true, onClick: () => this.services.navigate('battle', { levelId: this.levelId }) },
-          { label: 'MAP', onClick: () => this.services.navigate('worldmap') },
+          { label: t('common.retry'), primary: true, onClick: () => this.services.navigate('battle', { levelId: this.levelId }) },
+          { label: t('common.map'), onClick: () => this.services.navigate('worldmap') },
         ],
       };
     }

@@ -24,6 +24,11 @@ interface FontSpec {
 
 const FONT_SPECS: readonly FontSpec[] = [
   { family: 'Lilita One', file: 'LilitaOne-Regular.ttf', descriptors: { weight: '100 900' } },
+  // Lilita One has no Cyrillic glyphs, so Russian text would silently fall back to
+  // a flat system sans. Russo One is a heavy display face with full Cyrillic — it
+  // sits *after* Lilita One in the FONTS stacks (theme.ts), so Latin keeps Lilita's
+  // rounded cartoon look and only the missing (Cyrillic) glyphs borrow Russo One.
+  { family: 'Russo One', file: 'RussoOne-Regular.ttf', descriptors: { weight: '100 900' } },
 ];
 
 /** Hashed URLs for every font file in assets/fonts/, resolved by Vite at build time. */

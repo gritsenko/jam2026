@@ -1,5 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { COLORS, hex } from '../theme';
+import { t } from '../core/i18n';
 import { drawPanel, makeText } from './helpers';
 
 /** Top-left wave readout banner ("WAVE 8 / 20"). Origin top-left. */
@@ -14,7 +15,7 @@ export class WaveBadge extends Container {
     super();
     this.addChild(this.bg);
 
-    this.waveLabel = makeText('WAVE', 'label', { fontSize: 24, fill: hex(COLORS.gold) });
+    this.waveLabel = makeText(t('hud.wave'), 'label', { fontSize: 24, fill: hex(COLORS.gold) });
     this.waveLabel.position.set(22, 14);
     this.addChild(this.waveLabel);
 

@@ -1,6 +1,7 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { COLORS, hex } from '../theme';
 import type { LevelNode, LevelState } from '../config/types';
+import { levelName } from '../core/i18n';
 import { fitSprite, glowCircle, makeText } from './helpers';
 
 /**
@@ -48,7 +49,7 @@ export class WorldMapNode extends Container {
     // Labels sit over a busy, often light desert backdrop, so the default thin
     // stroke isn't enough — give them a bright fill, a thick opaque dark outline
     // and a soft drop shadow so they read on any biome (locked stays dimmer).
-    const label = makeText(node.name, 'small', {
+    const label = makeText(levelName(node.id, node.name), 'small', {
       fontSize: 44,
       fontWeight: '800',
       fill: hex(state === 'locked' ? COLORS.textDim : COLORS.white),

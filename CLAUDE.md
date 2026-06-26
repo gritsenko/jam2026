@@ -239,6 +239,18 @@ tools/                  # gen_sprite.py + assets.manifest.json (см. tools/READ
   компоненты. Текст — `makeText(text, preset)`, панели — `drawPanel`, вписывание
   спрайта — `fitSprite`, свечение — `glowCircle` (всё в [ui/helpers.ts](src/ui/helpers.ts)).
 
+- **Локализация — никаких хардкод-строк в UI.** Любая видимая игроку строка идёт
+  через свой мини-i18n ([core/i18n.ts](src/core/i18n.ts)): `t('key', params)` для
+  UI-текста (добавляй ключ в **обе** локали `en`/`ru` в [i18n.strings.ts](src/core/i18n.strings.ts),
+  интерполяция `{name}`), `tData('key', fallback)` для **контентных** строк из JSON
+  game-config (имена/блёрбы карт, уровни, резонансы) — английский это исходник (fallback),
+  в каталоге только русские оверрайды. Хелперы `cardShortName`/`cardBlurb`/`levelName`/
+  `elementLabel`/`reactionName`/`slotEffectLabel`/`statLabel`/`gradeLabel`. Язык по
+  умолчанию **`ru`**, выбор в `localStorage['sgtd.lang']`, смена — перезагрузка;
+  переключатель ([ui/LangSwitch.ts](src/ui/LangSwitch.ts)) в меню и настройках боя.
+  Кириллица рендерится шрифтом **«Russo One»** ([core/fonts.ts](src/core/fonts.ts)) —
+  он стоит после «Lilita One» в `FONTS`, поэтому латиница в Lilita, кириллица в Russo One.
+
 - **PixiJS v8 API.** Новый Graphics-API (fluent `.roundRect(...).fill({color})`),
   `Application.init`, `Assets`, `Text({ text, style })`. Версия запинена осознанно —
   не обновляй мажор без явной причины. Рендер — WebGL (`preference: 'webgl'`), DPR

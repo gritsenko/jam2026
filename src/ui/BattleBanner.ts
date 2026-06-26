@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite, type Text, type Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, type ElementId, hex } from '../theme';
+import { t } from '../core/i18n';
 import { Button } from './Button';
 import { drawPanel, fitSprite, glowCircle, makeText } from './helpers';
 
@@ -173,7 +174,7 @@ export class BattleBanner extends Container {
   private buildUnlockSection(cards: UnlockedCardView[]): Container {
     const section = new Container();
 
-    const header = makeText('TECH UNLOCKED', 'label', { fontSize: 30, fill: hex(COLORS.gold), letterSpacing: 3 });
+    const header = makeText(t('banner.techUnlocked'), 'label', { fontSize: 30, fill: hex(COLORS.gold), letterSpacing: 3 });
     header.anchor.set(0.5);
     header.position.set(0, -78);
     section.addChild(header);

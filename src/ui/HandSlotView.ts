@@ -1,5 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { COLORS, hex } from '../theme';
+import { t } from '../core/i18n';
 import { makeText } from './helpers';
 
 /**
@@ -20,7 +21,7 @@ export class HandSlotView extends Container {
     this.h = height;
     this.addChild(this.base, this.fill);
 
-    this.chargeLabel = makeText('CHARGING', 'micro', { fontSize: 20, fill: hex(COLORS.textMuted) });
+    this.chargeLabel = makeText(t('hud.charging'), 'micro', { fontSize: 20, fill: hex(COLORS.textMuted) });
     this.chargeLabel.anchor.set(0.5);
     this.addChild(this.chargeLabel);
 

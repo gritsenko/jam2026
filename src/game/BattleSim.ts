@@ -1,5 +1,6 @@
 import type { ElementId } from '../theme';
 import type { CardDef, EnemyDef, ReactionId, WaveDef } from '../config/types';
+import { t } from '../core/i18n';
 import type { Rng } from './rng';
 import { getEnemy } from '../config/enemies';
 import { buildSpawnQueue } from '../data/waveRules';
@@ -1003,32 +1004,32 @@ export function signatureLabel(def: CardDef, grade: number): string {
   let base: string;
   switch (def.signature) {
     case 'projectile_power':
-      base = `POWER ${g.sig}`;
+      base = t('sig.power', { n: g.sig });
       break;
     case 'freeze_radius':
-      base = `SLOW ${g.sig}% • WET ${g.sig2 ?? 0}s`;
+      base = t('sig.slowWet', { n: g.sig, s: g.sig2 ?? 0 });
       break;
     case 'chain_targets':
-      base = `CHAIN ${g.sig}`;
+      base = t('sig.chain', { n: g.sig });
       break;
     case 'pierce_length':
-      base = `PIERCE ${g.sig.toFixed(1)}`;
+      base = t('sig.pierce', { n: g.sig.toFixed(1) });
       break;
     case 'barrier':
-      base = `BARRIER ${g.sig} • ${g.sig2 ?? 0}s`;
+      base = t('sig.barrier', { n: g.sig, s: g.sig2 ?? 0 });
       break;
     case 'energy_output':
-      base = `ENERGY +${g.sig}`;
+      base = t('sig.energy', { n: g.sig });
       break;
   }
-  if (hasHybridPerk(def, 'steamBurst')) return `STEAM SPLASH • ${base}`;
-  if (hasHybridPerk(def, 'wetOnHit')) return `${base} • WET ${g.sig2 ?? 0}s`;
-  if (hasHybridPerk(def, 'builtInShrapnel')) return `${base} • SHRAPNEL`;
+  if (hasHybridPerk(def, 'steamBurst')) return t('sig.steamSplash', { base });
+  if (hasHybridPerk(def, 'wetOnHit')) return t('sig.wetSuffix', { base, s: g.sig2 ?? 0 });
+  if (hasHybridPerk(def, 'builtInShrapnel')) return t('sig.shrapnelSuffix', { base });
   if (hasHybridPerk(def, 'bonusVsSlowWet')) {
     const pct = Math.round((HYBRID_SLOW_WET_BONUS - 1) * 100);
-    return `${base} • +${pct}% SLOW/WET`;
+    return t('sig.slowWetBonus', { base, pct });
   }
-  if (hasHybridPerk(def, 'chainAfterPierce')) return `${base} • ARC ${g.sig2 ?? 0}`;
+  if (hasHybridPerk(def, 'chainAfterPierce')) return t('sig.arcSuffix', { base, n: g.sig2 ?? 0 });
   return base;
 }
 

@@ -6,6 +6,15 @@ import { cardGrade } from '../config/cards';
 import { reactionFor } from '../config/resonance';
 import { SUPERCONDUCT_TEMPO_MULT } from '../config/combatRules';
 import type { SlotSynergy } from '../game/synergy';
+import {
+  cardBlurb,
+  cardShortName,
+  elementLabel,
+  gradeLabel,
+  slotEffectLabel,
+  statLabel,
+  t,
+} from '../core/i18n';
 import { drawPanel, fitSprite, makeText } from './helpers';
 
 /** Grade-resolved base stats the panel reads (mirrors game/BattleSim's ResolvedTowerStats). */
@@ -15,13 +24,6 @@ export interface InspectStats {
   rangeCells: number;
   signatureLabel: string;
 }
-
-const STAT_SUFFIX: Record<BuffStat, string> = {
-  damage: 'DMG',
-  range: 'RNG',
-  tempo: 'SPD',
-  defense: 'DEF',
-};
 
 /**
  * Top HUD plaque shown while a placed tower is inspected (or a hand card tapped).
@@ -80,13 +82,13 @@ export class TowerInfoPanel extends Container {
     this.signature = makeText('', 'label', { fontSize: 20, fill: hex(COLORS.crystal) });
     this.outgoing = makeText('', 'small', { fontSize: 20, fill: hex(COLORS.dropValid) });
     this.incoming = makeText('', 'small', { fontSize: 20, fill: hex(COLORS.textDim) });
-    this.overloadLabel = makeText('OVERLOAD', 'label', { fontSize: 15, fill: hex(COLORS.textMuted) });
+    this.overloadLabel = makeText(t('hud.overload'), 'label', { fontSize: 15, fill: hex(COLORS.textMuted) });
     this.overloadLabel.anchor.set(1, 0);
     this.overloadLabel.visible = false;
     this.overloadValue = makeText('', 'value', { fontSize: 24, fill: hex(COLORS.energyDanger) });
     this.overloadValue.anchor.set(1, 0);
     this.overloadValue.visible = false;
-    this.slotsLabel = makeText('SYNERGY SLOTS', 'label', { fontSize: 18, fill: hex(COLORS.textMuted) });
+    this.slotsLabel = makeText(t('hud.synergySlots'), 'label', { fontSize: 18, fill: hex(COLORS.textMuted) });
     this.sellLabel = makeText('', 'label', { fontSize: 22, fill: hex(COLORS.dropValid) });
     this.sellLabel.anchor.set(0.5);
     this.sellRow.addChild(this.sellBg, this.sellProgress, this.sellLabel);
@@ -131,9 +133,10 @@ export class TowerInfoPanel extends Container {
    */
   show(def: CardDef, grade: number, stats: InspectStats, synergy: SlotSynergy | null = null): void {
     const skin = ELEMENTS[def.element];
-    this.title.text = grade > 1 ? `${def.shortName}  Lv${grade}` : def.shortName;
+    const short = cardShortName(def.id, def.shortName);
+    this.title.text = grade > 1 ? `${short}  ${gradeLabel(grade)}` : short;
     this.title.style.fill = hex(skin.glow);
-    this.element.text = skin.label;
+    this.element.text = elementLabel(def.element);
     this.element.style.fill = hex(skin.base);
     const symTex = this.symbols?.[def.element];
     if (symTex) {
@@ -147,9 +150,9 @@ export class TowerInfoPanel extends Container {
     // Modernization card: a global platform upgrade, not a tower — show the effect
     // line and skip the combat / synergy readouts (they don't apply).
     if (def.category === 'modernization') {
-      this.stats.text = 'PLATFORM UPGRADE';
+      this.stats.text = t('info.platformUpgrade');
       this.stats.style.fill = hex(COLORS.crystal);
-      this.signature.text = def.blurb;
+      this.signature.text = cardBlurb(def.id, def.blurb);
       this.outgoing.text = '';
       this.incoming.text = '';
       this.slotsLabel.visible = false;
@@ -174,9 +177,9 @@ export class TowerInfoPanel extends Container {
       const cd = stats.cooldown / Math.max(0.1, tMult);
       const rng = stats.rangeCells * rMult;
       const dps = cd > 0 ? Math.round(dmg / cd) : 0;
-      this.stats.text = `DMG ${dmg}  •  CD ${cd.toFixed(1)}s  •  RNG ${rng.toFixed(1)}  •  DPS ${dps}`;
+      this.stats.text = t('info.stats', { dmg, cd: cd.toFixed(1), rng: rng.toFixed(1), dps });
     } else {
-      this.stats.text = 'SUPPORT • passive';
+      this.stats.text = t('info.supportPassive');
     }
 
     this.signature.text = stats.signatureLabel;
@@ -184,15 +187,15 @@ export class TowerInfoPanel extends Container {
     // Outgoing broadcast.
     const g = cardGrade(def, grade);
     if (g.buff !== 0 || g.bonusDamage) {
-      const verb = g.buff >= 0 ? 'Buffs' : 'Drains';
+      const verb = g.buff >= 0 ? t('info.verbBuffs') : t('info.verbDrains');
       const parts: string[] = [];
-      if (g.buff !== 0) parts.push(`${g.buff >= 0 ? '+' : ''}${g.buff}% ${STAT_SUFFIX[def.buffStat]}`);
-      if (g.bonusDamage) parts.push(`+${g.bonusDamage}% DMG`);
-      const reach = g.diagonal ? 'all neighbors' : 'orthogonal neighbors';
-      this.outgoing.text = `→ ${verb} ${reach}:  ${parts.join('  ')}`;
+      if (g.buff !== 0) parts.push(`${g.buff >= 0 ? '+' : ''}${g.buff}% ${statLabel(def.buffStat)}`);
+      if (g.bonusDamage) parts.push(`+${g.bonusDamage}% ${statLabel('damage')}`);
+      const reach = g.diagonal ? t('info.reachAll') : t('info.reachOrtho');
+      this.outgoing.text = t('info.broadcast', { verb, reach, parts: parts.join('  ') });
       this.outgoing.style.fill = hex(g.buff >= 0 ? COLORS.dropValid : COLORS.energyDanger);
     } else {
-      this.outgoing.text = `→ ${def.blurb}`;
+      this.outgoing.text = t('info.broadcastBlurb', { blurb: cardBlurb(def.id, def.blurb) });
       this.outgoing.style.fill = hex(COLORS.textDim);
     }
 
@@ -200,10 +203,10 @@ export class TowerInfoPanel extends Container {
     if (synergy && synergy.incoming.length > 0) {
       const byStat = new Map<BuffStat, number>();
       for (const b of synergy.incoming) byStat.set(b.stat, (byStat.get(b.stat) ?? 0) + b.value);
-      const parts = [...byStat.entries()].map(([s, v]) => `${v >= 0 ? '+' : ''}${v}% ${STAT_SUFFIX[s]}`);
-      this.incoming.text = `← Receiving:  ${parts.join('  ')}`;
+      const parts = [...byStat.entries()].map(([s, v]) => `${v >= 0 ? '+' : ''}${v}% ${statLabel(s)}`);
+      this.incoming.text = t('info.receiving', { parts: parts.join('  ') });
     } else {
-      this.incoming.text = synergy ? '← Receiving: none' : '';
+      this.incoming.text = synergy ? t('info.receivingNone') : '';
     }
 
     // Per-slot synergy breakdown (Slipways-style "resource" row, v2 §9).
@@ -226,7 +229,7 @@ export class TowerInfoPanel extends Container {
   /** Show hold-to-sell button with the refund preview. */
   setSell(refundGold: number, onSell: () => void): void {
     this.sellCallback = onSell;
-    this.sellLabel.text = `HOLD TO SELL  +${formatGoldAmount(refundGold)}g`;
+    this.sellLabel.text = t('info.holdToSell', { gold: formatGoldAmount(refundGold) });
     this.sellVisible = true;
     this.recalcActionHeight();
     this.sellRow.visible = true;
@@ -301,7 +304,7 @@ export class TowerInfoPanel extends Container {
     if (next === this.overloadPct) return;
     this.overloadPct = next;
     const visible = next > 0;
-    this.overloadValue.text = visible ? `-${next}% SPD` : '';
+    this.overloadValue.text = visible ? t('info.spdPenalty', { pct: next }) : '';
     this.overloadLabel.visible = visible;
     this.overloadValue.visible = visible;
     this.redraw();
@@ -320,12 +323,13 @@ export class TowerInfoPanel extends Container {
     // Support: coverage role, not resonance.
     if (def.slotElements.length === 0) {
       const cov = synergy?.coverage ?? 0;
-      const verb = def.signature === 'energy_output' ? 'Powers' : 'Shields';
-      const t = makeText(`${verb} ${cov} adjacent tower${cov === 1 ? '' : 's'}`, 'small', {
+      const verb = def.signature === 'energy_output' ? t('info.verbPowers') : t('info.verbShields');
+      const plural = cov === 1 ? t('info.coverageOne') : t('info.coverageMany');
+      const text = makeText(t('info.coverage', { verb, n: cov, plural }), 'small', {
         fontSize: 20,
         fill: hex(COLORS.textDim),
       });
-      this.slotsRow.addChild(t);
+      this.slotsRow.addChild(text);
       return;
     }
 
@@ -342,7 +346,8 @@ export class TowerInfoPanel extends Container {
       const open = k < grade;
       const active =
         open && synergy ? (reaction ? synergy.reactions.includes(reaction.id) : incoming.includes(el)) : false;
-      const effect = def.slotEffects?.[k] ?? (reaction ? reaction.name : el === 'Energy' ? 'POWER' : '+BUFF');
+      const effectEn = def.slotEffects?.[k] ?? (reaction ? reaction.name : el === 'Energy' ? 'POWER' : '+BUFF');
+      const effect = slotEffectLabel(effectEn);
 
       const cell = new Container();
       cell.position.set(k * (cellW + gap), 0);
@@ -369,11 +374,11 @@ export class TowerInfoPanel extends Container {
       cell.addChild(dot);
 
       const textX = dotX + dotR + 10;
-      const lv = makeText(`Lv${k + 1}`, 'micro', { fontSize: 15, fill: hex(open ? COLORS.textDim : COLORS.textMuted) });
+      const lv = makeText(gradeLabel(k + 1), 'micro', { fontSize: 15, fill: hex(open ? COLORS.textDim : COLORS.textMuted) });
       lv.position.set(textX, 9);
       cell.addChild(lv);
 
-      const label = makeText(open ? effect : 'LOCKED', 'label', {
+      const label = makeText(open ? effect : t('info.locked'), 'label', {
         fontSize: 19,
         fill: hex(open ? (active ? skin.glow : COLORS.textBright) : COLORS.textMuted),
       });

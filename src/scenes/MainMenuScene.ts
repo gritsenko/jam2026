@@ -2,7 +2,9 @@ import { Container, Sprite } from 'pixi.js';
 import { COLORS, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene } from '../core/scene';
+import { t } from '../core/i18n';
 import { Button } from '../ui/Button';
+import { LangSwitch } from '../ui/LangSwitch';
 import { AdminHud } from '../ui/AdminHud';
 import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
@@ -18,6 +20,7 @@ export class MainMenuScene extends Scene {
   private startBtn!: Button;
   private muteBtn!: MuteButton;
   private adminHud!: AdminHud;
+  private langSwitch!: LangSwitch;
   private t = 0;
 
   override onEnter(): void {
@@ -55,14 +58,14 @@ export class MainMenuScene extends Scene {
     const title2 = makeText('GRID', 'display', { fontSize: 150, fill: hex(COLORS.gold) });
     title2.anchor.set(0.5);
     title2.position.set(0, 56);
-    const sub = makeText('TOWER DEFENSE • MERGE', 'label', { fontSize: 30, fill: hex(COLORS.textDim) });
+    const sub = makeText(t('menu.subtitle'), 'label', { fontSize: 30, fill: hex(COLORS.textDim) });
     sub.anchor.set(0.5);
     sub.position.set(0, 150);
     this.logo.addChild(title1, title2, sub);
     this.addChild(this.logo);
 
     this.startBtn = new Button({
-      label: 'START',
+      label: t('common.play'),
       primary: true,
       width: 420,
       height: 110,
@@ -81,6 +84,11 @@ export class MainMenuScene extends Scene {
     // Global sound on/off — same control, top-right corner, on every screen.
     this.muteBtn = new MuteButton(this.services.audio, 64);
     this.addChild(this.muteBtn);
+
+    // Language picker at the start screen (the brief's "switch at the start"). Also
+    // available in the in-battle settings panel. Switching persists + reloads.
+    this.langSwitch = new LangSwitch(420, true);
+    this.addChild(this.langSwitch);
   }
 
   override layout(info: LayoutInfo): void {
@@ -90,8 +98,9 @@ export class MainMenuScene extends Scene {
     this.logo.position.set(cx, safe.y + safe.height * 0.22);
     this.platformBaseY = safe.y + safe.height * 0.56;
     this.platform.position.set(cx, this.platformBaseY);
-    this.startBtn.position.set(cx, safe.y + safe.height * 0.86);
+    this.startBtn.position.set(cx, safe.y + safe.height * 0.82);
     this.muteBtn.position.set(safe.x + safe.width - 18 - 32, safe.y + 18 + 32);
+    this.langSwitch.position.set(cx - 210, safe.y + safe.height - this.langSwitch.contentHeight - 28);
     this.adminHud.layout(info);
   }
 

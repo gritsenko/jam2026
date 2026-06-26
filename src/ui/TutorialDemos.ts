@@ -1,6 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import { COLORS, ELEMENTS } from '../theme';
 import type { TutorialDemoId } from '../config/tutorial';
+import { gradeLabel } from '../core/i18n';
 import { makeText } from './helpers';
 
 /**
@@ -95,7 +96,7 @@ function makeSynergyDemo(box: number): TutorialDemo {
 function makeMergeDemo(box: number): TutorialDemo {
   const view = new Container();
   const g = new Graphics();
-  const label = makeText('Lv2', 'value', { fontSize: Math.round(box * 0.14) });
+  const label = makeText(gradeLabel(2), 'value', { fontSize: Math.round(box * 0.14) });
   label.anchor.set(0.5);
   label.visible = false;
   view.addChild(g, label);

@@ -4,11 +4,13 @@ import type { AudioBus } from '../core/AudioBus';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Button } from './Button';
 import { Slider } from './Slider';
+import { LangSwitch } from './LangSwitch';
 import { drawPanel, makeText } from './helpers';
+import { t } from '../core/i18n';
 import * as Telemetry from '../telemetry/Telemetry';
 
 const CARD_W = 760;
-const CARD_H = 680;
+const CARD_H = 880;
 const PAD = 52;
 
 /**
@@ -51,7 +53,7 @@ export class SettingsPanel extends Container {
     this.card.eventMode = 'static';
     this.card.addChild(this.cardBg);
 
-    const title = makeText('SETTINGS', 'title', { fontSize: 46 });
+    const title = makeText(t('settings.title'), 'title', { fontSize: 46 });
     title.anchor.set(0.5, 0);
     title.position.set(CARD_W / 2, 36);
     this.card.addChild(title);
@@ -59,7 +61,7 @@ export class SettingsPanel extends Container {
     const sliderW = CARD_W - PAD * 2;
     const music = new Slider({
       width: sliderW,
-      label: 'MUSIC',
+      label: t('settings.music'),
       value: audio.getVolume('music'),
       onChange: (v) => {
         audio.setVolume('music', v);
@@ -70,7 +72,7 @@ export class SettingsPanel extends Container {
     music.position.set(PAD, 120);
     const effects = new Slider({
       width: sliderW,
-      label: 'EFFECTS',
+      label: t('settings.effects'),
       value: audio.getVolume('sfx'),
       onChange: (v) => {
         audio.setVolume('sfx', v);
@@ -81,7 +83,7 @@ export class SettingsPanel extends Container {
     effects.position.set(PAD, 220);
     const system = new Slider({
       width: sliderW,
-      label: 'SYSTEM',
+      label: t('settings.system'),
       value: audio.getVolume('ui'),
       onChange: (v) => {
         audio.setVolume('ui', v);
@@ -123,8 +125,14 @@ export class SettingsPanel extends Container {
     this.privacyBtn.position.set(CARD_W / 2, 540);
     this.card.addChild(this.privacyBtn);
 
+    // Language picker (mirrors the start-screen control). Switching persists +
+    // reloads the page, so a change applies even mid-battle.
+    const langSwitch = new LangSwitch(sliderW, true);
+    langSwitch.position.set(PAD, 624);
+    this.card.addChild(langSwitch);
+
     const closeBtn = new Button({
-      label: 'CLOSE',
+      label: t('common.close'),
       width: 280,
       height: 84,
       primary: true,
@@ -138,11 +146,11 @@ export class SettingsPanel extends Container {
   }
 
   private muteLabel(): string {
-    return this.audio.isMuted ? 'SOUND: OFF — TAP TO UNMUTE' : 'MUTE ALL';
+    return this.audio.isMuted ? t('settings.soundOff') : t('settings.muteAll');
   }
 
   private privacyLabel(): string {
-    return Telemetry.isEnabled() ? 'ANALYTICS: ON — TAP TO OPT OUT' : 'ANALYTICS: OFF';
+    return Telemetry.isEnabled() ? t('settings.analyticsOn') : t('settings.analyticsOff');
   }
 
   private close(): void {

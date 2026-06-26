@@ -7,6 +7,7 @@ import type { TweenHandle } from '../core/tween';
 import { LEVELS, levelRegion, levelsInRegion, worldMapPageCount } from '../config/levels';
 import type { LevelNode } from '../config/types';
 import * as progress from '../game/progress';
+import { t } from '../core/i18n';
 import { AdminHud } from '../ui/AdminHud';
 import { Button } from '../ui/Button';
 import { MuteButton } from '../ui/MuteButton';
@@ -77,12 +78,12 @@ export class WorldMapScene extends Scene {
   private nextBtn!: Button;
   private adminHud!: AdminHud;
   private muteBtn!: MuteButton;
-  private title = makeText('CHOOSE YOUR STAND', 'title', {
+  private title = makeText(t('worldmap.title'), 'title', {
     fill: hex(COLORS.white),
     stroke: { color: hex(COLORS.black), width: 7, alpha: 0.95 },
     dropShadow: { color: hex(COLORS.black), alpha: 0.7, blur: 5, distance: 4, angle: Math.PI / 2 },
   });
-  private regionLabel = makeText('REGION I', 'label', {
+  private regionLabel = makeText(t('worldmap.region1'), 'label', {
     fontSize: 24,
     fill: hex(COLORS.textDim),
   });
@@ -117,7 +118,7 @@ export class WorldMapScene extends Scene {
     this.addChild(this.title, this.regionLabel);
 
     this.backBtn = new Button({
-      label: 'BACK',
+      label: t('common.back'),
       width: 200,
       height: 76,
       preset: 'label',
@@ -184,7 +185,7 @@ export class WorldMapScene extends Scene {
     this.prevBtn.visible = this.pageIndex > 0;
     this.nextBtn.visible = this.pageIndex < this.pageCount - 1;
     this.regionLabel.text =
-      this.pageCount > 1 && this.pageIndex === 1 ? 'REGION II' : 'REGION I';
+      this.pageCount > 1 && this.pageIndex === 1 ? t('worldmap.region2') : t('worldmap.region1');
   }
 
   private rebuildNodes(): void {

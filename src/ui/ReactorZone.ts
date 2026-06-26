@@ -2,6 +2,7 @@ import { Container, Graphics, type PointData, Sprite, type Text } from 'pixi.js'
 import { COLORS, hex } from '../theme';
 import { formatGoldAmount } from '../config/battleRules';
 import type { AssetLoader } from '../core/AssetLoader';
+import { t } from '../core/i18n';
 import { drawPanel, fitSprite, glowCircle, makeText } from './helpers';
 import type { SlotHighlight } from './SlotView';
 
@@ -43,7 +44,7 @@ export class ReactorZone extends Container {
     });
     this.addChild(this.bg);
 
-    const title = makeText('REACTOR', 'label', { fontSize: 26, fill: hex(COLORS.reactor) });
+    const title = makeText(t('hud.reactor'), 'label', { fontSize: 26, fill: hex(COLORS.reactor) });
     title.anchor.set(0.5);
     title.position.set(0, -H / 2 + 34);
     this.addChild(title);
@@ -57,12 +58,12 @@ export class ReactorZone extends Container {
     icon.position.set(0, -6);
     this.addChild(icon);
 
-    const burn = makeText('BURN', 'title', { fontSize: 34, fill: hex(COLORS.reactor) });
+    const burn = makeText(t('hud.burn'), 'title', { fontSize: 34, fill: hex(COLORS.reactor) });
     burn.anchor.set(0.5);
     burn.position.set(0, H / 2 - 90);
     this.addChild(burn);
 
-    const sub = makeText('+2 ENERGY 15s', 'micro', { fontSize: 18, fill: hex(COLORS.energyOverdrive) });
+    const sub = makeText(t('hud.reactorBurnEffect'), 'micro', { fontSize: 18, fill: hex(COLORS.energyOverdrive) });
     sub.anchor.set(0.5);
     sub.position.set(0, H / 2 - 58);
     this.addChild(sub);

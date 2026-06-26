@@ -5,6 +5,7 @@ import type { AudioBus } from '../core/AudioBus';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { tween, Easings, type TweenHandle } from '../core/tween';
 import type { TutorialLesson } from '../config/tutorial';
+import { t, tutorialBody, tutorialTitle } from '../core/i18n';
 import { Button } from './Button';
 import { drawPanel, makeText, fitSprite, glowCircle } from './helpers';
 import { TUTORIAL_DEMOS, type TutorialDemo } from './TutorialDemos';
@@ -79,7 +80,7 @@ export class TutorialModal extends Container {
     this.illu.addChild(this.illuGlow);
 
     this.nextBtn = new Button({
-      label: 'NEXT',
+      label: t('common.next'),
       width: 320,
       height: 92,
       primary: true,
@@ -126,7 +127,7 @@ export class TutorialModal extends Container {
     const accent = lesson.accent ? ELEMENTS[lesson.accent] : null;
 
     // Title — tinted by the lesson's element accent when present.
-    const title = makeText(lesson.title.toUpperCase(), 'title', {
+    const title = makeText(tutorialTitle(lesson.id).toUpperCase(), 'title', {
       fontSize: 50,
       fill: accent ? hex(accent.glow) : hex(COLORS.textBright),
     });
@@ -142,8 +143,8 @@ export class TutorialModal extends Container {
     this.illu.position.set(0, this.illuBaseY);
     this.content.addChild(this.illu);
 
-    // Body — paragraphs joined, word-wrapped to the panel width.
-    const body = makeText(lesson.body.join('\n\n'), 'small', {
+    // Body — already paragraph-joined (i18n), word-wrapped to the panel width.
+    const body = makeText(tutorialBody(lesson.id), 'small', {
       fontSize: 28,
       fill: hex(COLORS.textBright),
       align: 'center',
@@ -204,7 +205,7 @@ export class TutorialModal extends Container {
 
   private refreshButton(): void {
     const last = this.pageIndex >= this.lessons.length - 1;
-    this.nextBtn.setLabel(last ? 'ПОНЯТНО' : 'NEXT');
+    this.nextBtn.setLabel(last ? t('common.gotIt') : t('common.next'));
   }
 
   private advance(): void {

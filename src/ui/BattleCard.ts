@@ -1,6 +1,7 @@
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
 import type { CardDef } from '../config/types';
+import { cardBlurb, cardShortName, gradeLabel, t } from '../core/i18n';
 import { drawPanel, fitSprite, makeElementSymbol, makeText, type ElementSymbolFrames } from './helpers';
 
 export interface BattleCardOptions {
@@ -107,15 +108,22 @@ export class BattleCard extends Container {
     const nameBg = new Graphics();
     nameBg.roundRect(-W / 2 + 10, nameY - 22, W - 20, 40, 10).fill({ color: COLORS.black, alpha: 0.4 });
     this.addChild(nameBg);
-    const gradeSuffix = grade > 1 ? `  Lv${grade}` : '';
-    const name = makeText(def.shortName + gradeSuffix, 'label', { fontSize: 24, fill: hex(skin.glow) });
+    const gradeSuffix = grade > 1 ? `  ${gradeLabel(grade)}` : '';
+    const name = makeText(cardShortName(def.id, def.shortName) + gradeSuffix, 'label', {
+      fontSize: 24,
+      fill: hex(skin.glow),
+    });
     name.anchor.set(0.5);
     name.position.set(0, nameY - 2);
     if (name.width > W - 26) name.scale.set((W - 26) / name.width);
     this.addChild(name);
 
     // Flavor line.
-    const blurb = makeText(def.blurb, 'micro', { fontSize: 16, fill: hex(COLORS.textDim), align: 'center' });
+    const blurb = makeText(cardBlurb(def.id, def.blurb), 'micro', {
+      fontSize: 16,
+      fill: hex(COLORS.textDim),
+      align: 'center',
+    });
     blurb.anchor.set(0.5, 0);
     blurb.position.set(0, H * 0.2);
     if (blurb.width > W - 26) blurb.scale.set((W - 26) / blurb.width);
@@ -309,7 +317,7 @@ export class BattleCard extends Container {
     veil.roundRect(-W / 2, -H / 2, W, H, 20).fill({ color: COLORS.black, alpha: 0.5 });
     veil.roundRect(-W / 2, -H / 2, W, H, 20).stroke({ width: 5, color: COLORS.energyDanger, alpha: 0.85 });
     this.lockOverlay.addChild(veil);
-    const lockText = (this.def.costCrystals ?? 0) > 0 ? 'NEED GEMS' : 'NEED GOLD';
+    const lockText = (this.def.costCrystals ?? 0) > 0 ? t('card.needGems') : t('card.needGold');
     const label = makeText(lockText, 'label', { fontSize: 26, fill: hex(COLORS.energyDanger) });
     label.anchor.set(0.5);
     if (label.width > W - 30) label.scale.set((W - 30) / label.width);

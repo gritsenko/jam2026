@@ -1,5 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { COLORS, hex } from '../theme';
+import { t } from '../core/i18n';
 import { drawPanel, makeText } from './helpers';
 
 interface GaugeState {
@@ -63,7 +64,7 @@ export class EnergyGauge extends Container {
     this.readout.anchor.set(0, 0.5);
     this.addChild(this.readout);
 
-    this.odLabel = makeText('OVERDRIVE', 'label', { fontSize: 22, fill: hex(COLORS.energyOverdrive) });
+    this.odLabel = makeText(t('hud.overdrive'), 'label', { fontSize: 22, fill: hex(COLORS.energyOverdrive) });
     this.odLabel.anchor.set(1, 0.5);
     this.addChild(this.odLabel);
 

@@ -2,19 +2,12 @@ import { Container, Graphics, Sprite, Texture, type PointData } from 'pixi.js';
 import { COLORS, ELEMENTS, ELEMENT_IDS, elementSymbolKey, hex, type ElementId } from '../theme';
 import type { AssetLoader } from '../core/AssetLoader';
 import { CARDS, COMPOSED_AIM_SHEETS, cardGrade, towerSeat } from '../config/cards';
-import type { BattleStateMock, BuffStat, CardDef, PlacedCard } from '../config/types';
+import type { BattleStateMock, CardDef, PlacedCard } from '../config/types';
 import { computeSynergy, type SlotSynergy } from '../game/synergy';
 import { gridMetrics } from '../game/platformGeometry';
+import { gradeLabel, statLabel, t } from '../core/i18n';
 import { fitSprite, makeText, sliceCooldownSheet, sliceElementSymbolSheet } from './helpers';
 import { SlotView, type SlotHighlight } from './SlotView';
-
-/** Short suffix per broadcast stat, for the inspection badges. */
-const STAT_SUFFIX: Record<BuffStat, string> = {
-  damage: 'DMG',
-  range: 'RNG',
-  tempo: 'SPD',
-  defense: 'DEF',
-};
 
 /** Neighbor cells a card at (c,r) broadcasts to: orthogonal always, +diagonals when `diag`. */
 function broadcastCells(c: number, r: number, diag: boolean): { c: number; r: number }[] {
@@ -323,7 +316,10 @@ export class PlatformGrid extends Container {
   private drawMergeBadge(index: number, grade: number): void {
     const s = this.cell;
     const origin = this.slotLocal(index);
-    const txt = makeText(`MERGE → Lv${grade}`, 'small', { fontSize: 28, fill: hex(COLORS.energyOverdrive) });
+    const txt = makeText(t('battle.mergeTo', { grade: gradeLabel(grade) }), 'small', {
+      fontSize: 28,
+      fill: hex(COLORS.energyOverdrive),
+    });
     txt.anchor.set(0.5);
     const w = txt.width + 26;
     const h = txt.height + 14;
@@ -348,7 +344,7 @@ export class PlatformGrid extends Container {
     const s = this.cell;
     const origin = this.slotLocal(index);
     const accent = g.buff >= 0 ? COLORS.dropValid : COLORS.energyDanger;
-    const label = `${g.buff >= 0 ? '+' : ''}${g.buff}% ${STAT_SUFFIX[def.buffStat]}`;
+    const label = `${g.buff >= 0 ? '+' : ''}${g.buff}% ${statLabel(def.buffStat)}`;
     const c = index % 3;
     const r = Math.floor(index / 3);
 

@@ -78,10 +78,13 @@ export const COLORS = {
 } as const;
 
 export const FONTS = {
+  // "Russo One" is the Cyrillic fallback: Lilita One carries no Cyrillic glyphs, so
+  // Latin renders in Lilita (rounded cartoon) and Russian borrows Russo One (a heavy
+  // display face) per-glyph instead of dropping to a flat system sans. See core/fonts.ts.
   /** Chunky display face for titles, wave counter, big numbers. */
-  display: '"Lilita One", "Trebuchet MS", "Segoe UI", system-ui, sans-serif',
+  display: '"Lilita One", "Russo One", "Trebuchet MS", "Segoe UI", system-ui, sans-serif',
   /** Readable body face for card text and labels. */
-  body: '"Lilita One", "Segoe UI", Roboto, system-ui, sans-serif',
+  body: '"Lilita One", "Russo One", "Segoe UI", Roboto, system-ui, sans-serif',
 } as const;
 
 /** Layout reference. Everything is authored in this portrait coordinate space. */

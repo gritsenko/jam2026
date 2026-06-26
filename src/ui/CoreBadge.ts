@@ -1,5 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { COLORS, hex } from '../theme';
+import { t } from '../core/i18n';
 import { drawPanel, makeText } from './helpers';
 
 /**
@@ -20,7 +21,7 @@ export class CoreBadge extends Container {
     this.max = Math.max(1, max);
     this.addChild(this.bg);
 
-    this.caption = makeText('CORE', 'label', { fontSize: 22, fill: hex(COLORS.energyOk) });
+    this.caption = makeText(t('hud.core'), 'label', { fontSize: 22, fill: hex(COLORS.energyOk) });
     this.caption.position.set(20, 8);
     this.addChild(this.caption);
 
