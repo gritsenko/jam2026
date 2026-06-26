@@ -56,6 +56,21 @@ export function towerSeat(iconKey: string): TowerSeat {
   return TOWER_SEATS[iconKey] ?? TOWER_SEAT_DEFAULT;
 }
 
+/**
+ * Barrel length from the base center to the muzzle, as a fraction of the cell
+ * size. Used to spawn a tower's projectile (and its muzzle flash) at the gun
+ * tip along the aim direction instead of the slot center. Only meaningful for
+ * rotating-turret towers whose barrel points at the target; 0 / no entry =>
+ * the shot originates from the slot center (static towers).
+ */
+export const TOWER_MUZZLE: Record<string, number> = {
+  plasma_shutter: 0.5, // подбирается на глаз под plasma_shutter_dirs.png
+  railgun: 0.34,
+};
+export function towerMuzzleFrac(iconKey: string): number {
+  return TOWER_MUZZLE[iconKey] ?? 0;
+}
+
 export const CARD_LIST: CardDef[] = Object.values(CARDS);
 
 export function getCard(id: string): CardDef {
