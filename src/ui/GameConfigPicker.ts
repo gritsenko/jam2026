@@ -33,7 +33,7 @@ export class GameConfigPicker {
     ].join(';');
 
     const caption = document.createElement('span');
-    caption.textContent = 'CONFIG';
+    caption.textContent = `CONFIG (${GAME_CONFIG_NAMES.length})`;
     caption.style.cssText = [
       'font-size:11px',
       'letter-spacing:0.2em',

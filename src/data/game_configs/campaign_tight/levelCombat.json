@@ -438,51 +438,77 @@
     "waves": [
       {
         "groups": [
-          { "enemyId": "magma_brute", "count": 5, "gap": 1.05 },
-          { "enemyId": "volt_crawler", "count": 8, "gap": 0.58 }
+          { "enemyId": "magma_brute", "count": 6, "gap": 0.95 },
+          { "enemyId": "volt_crawler", "count": 6, "gap": 0.6 }
+        ]
+      },
+      {
+        "groups": [
+          { "enemyId": "volt_crawler", "count": 10, "gap": 0.5 },
+          { "enemyId": "frost_wisp", "count": 9, "gap": 0.38 },
+          { "enemyId": "resonance_mote", "count": 1, "gap": 2.8 }
+        ]
+      },
+      {
+        "groups": [
+          { "enemyId": "magma_brute", "count": 5, "gap": 1 },
+          { "enemyId": "volt_crawler", "count": 7, "gap": 0.58 },
+          { "enemyId": "iron_husk", "count": 2, "gap": 3.5 },
+          { "enemyId": "coolant_mender", "count": 1, "gap": 3 }
+        ]
+      },
+      {
+        "groups": [
+          { "enemyId": "frost_wisp", "count": 9, "gap": 0.4 },
+          { "enemyId": "magma_brute", "count": 5, "gap": 0.95 },
+          { "enemyId": "signal_disruptor", "count": 3, "gap": 1.8 }
+        ]
+      },
+      {
+        "groups": [
+          { "enemyId": "volt_crawler", "count": 8, "gap": 0.55 },
+          { "enemyId": "frost_wisp", "count": 7, "gap": 0.4 },
+          { "enemyId": "magma_brute", "count": 4, "gap": 1.05 },
+          { "enemyId": "grid_warden", "count": 1, "gap": 4.5 },
+          { "enemyId": "resonance_mote", "count": 1, "gap": 2.6 },
+          { "enemyId": "signal_disruptor", "count": 2, "gap": 2 }
         ]
       },
       {
         "groups": [
           { "enemyId": "volt_crawler", "count": 12, "gap": 0.48 },
-          { "enemyId": "frost_wisp", "count": 10, "gap": 0.34 }
-        ]
-      },
-      {
-        "groups": [
-          { "enemyId": "volt_crawler", "count": 10, "gap": 0.55 },
-          { "enemyId": "magma_brute", "count": 6, "gap": 0.95 },
-          { "enemyId": "iron_husk", "count": 1, "gap": 3.2 }
+          { "enemyId": "frost_wisp", "count": 8, "gap": 0.38 },
+          { "enemyId": "iron_husk", "count": 2, "gap": 3.2 },
+          { "enemyId": "aegis_beacon", "count": 1, "gap": 2.6 }
         ]
       },
       {
         "groups": [
           { "enemyId": "magma_brute", "count": 7, "gap": 0.85 },
-          { "enemyId": "frost_wisp", "count": 10, "gap": 0.38 },
-          { "enemyId": "signal_disruptor", "count": 3, "gap": 1.5 }
+          { "enemyId": "frost_wisp", "count": 10, "gap": 0.35 },
+          { "enemyId": "coolant_mender", "count": 1, "gap": 2.8 },
+          { "enemyId": "signal_disruptor", "count": 3, "gap": 2 }
         ]
       },
       {
         "groups": [
-          { "enemyId": "volt_crawler", "count": 12, "gap": 0.48 },
-          { "enemyId": "iron_husk", "count": 2, "gap": 2.6 },
-          { "enemyId": "coolant_mender", "count": 2, "gap": 2 }
-        ]
-      },
-      {
-        "groups": [
-          { "enemyId": "magma_brute", "count": 7, "gap": 0.82 },
-          { "enemyId": "frost_wisp", "count": 10, "gap": 0.32 },
-          { "enemyId": "signal_disruptor", "count": 4, "gap": 1.35 }
-        ]
-      },
-      {
-        "groups": [
-          { "enemyId": "volt_crawler", "count": 14, "gap": 0.45 },
+          { "enemyId": "volt_crawler", "count": 9, "gap": 0.48 },
           { "enemyId": "magma_brute", "count": 6, "gap": 0.85 },
-          { "enemyId": "iron_husk", "count": 3, "gap": 2.4 },
-          { "enemyId": "signal_disruptor", "count": 3, "gap": 1.4 },
-          { "enemyId": "aegis_beacon", "count": 2, "gap": 2 }
+          { "enemyId": "frost_wisp", "count": 7, "gap": 0.38 },
+          { "enemyId": "iron_husk", "count": 3, "gap": 2.8 },
+          { "enemyId": "aegis_beacon", "count": 2, "gap": 2.4 },
+          { "enemyId": "signal_disruptor", "count": 3, "gap": 1.6 }
+        ]
+      },
+      {
+        "groups": [
+          { "enemyId": "volt_crawler", "count": 8, "gap": 0.5 },
+          { "enemyId": "frost_wisp", "count": 6, "gap": 0.38 },
+          { "enemyId": "magma_brute", "count": 5, "gap": 0.9 },
+          { "enemyId": "aegis_beacon", "count": 2, "gap": 3 },
+          { "enemyId": "coolant_mender", "count": 1, "gap": 2.6 },
+          { "enemyId": "overload_titan", "count": 1, "gap": 5 },
+          { "enemyId": "signal_disruptor", "count": 3, "gap": 1.5 }
         ]
       }
     ]

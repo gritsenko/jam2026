@@ -92,5 +92,27 @@
     "archetype": "support",
     "auraRadiusFrac": 0.15,
     "allyShieldHp": 60
+  },
+  {
+    "id": "grid_warden",
+    "name": "Grid Warden",
+    "element": "Physical",
+    "iconKey": "enemy_boss_warden",
+    "maxHp": 8000,
+    "speed": 0.031,
+    "bounty": 30,
+    "coreDamage": 4,
+    "crystalBounty": 3
+  },
+  {
+    "id": "overload_titan",
+    "name": "Overload Titan",
+    "element": "Fire",
+    "iconKey": "enemy_boss_titan",
+    "maxHp": 20000,
+    "speed": 0.02,
+    "bounty": 50,
+    "coreDamage": 10,
+    "crystalBounty": 5
   }
 ]
