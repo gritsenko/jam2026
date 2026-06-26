@@ -24,8 +24,6 @@ __pycache__/
 *.pyc
 .DS_Store
 
-# Local Cursor skills (per-machine copy of gamejam-spark)
-gamejam-spark/
 
 # Local Claude Code settings (per-machine)
 .claude/settings.local.json

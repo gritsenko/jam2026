@@ -11,12 +11,33 @@ import { CARD_LIST } from '../../src/config/cards';
 import type { PlacedCard } from '../../src/config/types';
 import { makeRng } from './rng';
 
-export type PolicyName = 'seeded' | 'greedyFill' | 'randomBoard';
-export const POLICIES: PolicyName[] = ['seeded', 'greedyFill', 'randomBoard'];
+export type PolicyName = 'seeded' | 'greedyFill' | 'randomBoard' | 'smart';
+export const POLICIES: PolicyName[] = ['seeded', 'greedyFill', 'randomBoard', 'smart'];
+
+/** Human labels for the design editor policy picker. */
+export const POLICY_LABELS: Record<PolicyName, string> = {
+  smart: 'smart — играет (merge/burn/reroll/fusion)',
+  seeded: 'seeded — стартовая доска',
+  greedyFill: 'greedyFill — заполнить все слоты',
+  randomBoard: 'randomBoard — случайная доска',
+};
+
+/** Resolve POLICY env / editor body: one policy, or all when omitted / `all`. */
+export function policiesToRun(filter?: string): PolicyName[] {
+  const f = filter?.trim();
+  if (!f || f === 'all') return [...POLICIES];
+  if ((POLICIES as string[]).includes(f)) return [f as PolicyName];
+  throw new Error(`unknown policy: ${f} (expected ${POLICIES.join('|')} or all)`);
+}
 
 /** Whether a policy varies by seed (so the seed sweep is meaningful). */
 export function isStochastic(policy: PolicyName): boolean {
-  return policy === 'randomBoard';
+  return policy === 'randomBoard' || policy === 'smart';
+}
+
+/** Whether a policy plays actively over time (SmartController) vs a static board. */
+export function isActive(policy: PolicyName): boolean {
+  return policy === 'smart';
 }
 
 /** The board a policy plays for `levelId` (seed only matters for stochastic policies). */

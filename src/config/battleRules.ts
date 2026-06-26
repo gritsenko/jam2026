@@ -1,4 +1,4 @@
-import { CARD_LIST } from './cards';
+import { CARD_LIST, getCard } from './cards';
 import type { HandCard } from './types';
 import { activeGameConfig } from '../data/load';
 
@@ -9,6 +9,19 @@ import { activeGameConfig } from '../data/load';
  * Functions and CARD_LIST-derived pools below stay computed in TS.
  */
 const B = activeGameConfig.battleRules;
+
+/** Fallbacks when a config JSON predates newer battleRules keys. */
+const BR_DEFAULTS = {
+  OVERDRIVE_BASE_COST: 20,
+  OVERDRIVE_STEP: 20,
+  SELL_REFUND_RATE: 0.5,
+  FIELD_BURN_COST_MULT: 2,
+} as const;
+
+function brNum(key: keyof typeof BR_DEFAULTS): number {
+  const v = B[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : BR_DEFAULTS[key];
+}
 
 /** Default number of hand positions (the hand layout scales to any count). */
 export const HAND_SIZE = B.HAND_SIZE;
@@ -21,12 +34,13 @@ export const OVERDRIVE_SEC = B.OVERDRIVE_SEC;
  * Reactor burn (Overdrive) gold cost (v3 §3.Г): first burn costs OVERDRIVE_BASE_COST,
  * each further burn adds OVERDRIVE_STEP (20 → 40 → 60…). Per-battle cumulative.
  */
-export const OVERDRIVE_BASE_COST = B.OVERDRIVE_BASE_COST;
-export const OVERDRIVE_STEP = B.OVERDRIVE_STEP;
+export const OVERDRIVE_BASE_COST = brNum('OVERDRIVE_BASE_COST');
+export const OVERDRIVE_STEP = brNum('OVERDRIVE_STEP');
 
 /** Gold cost of the next burn given how many cards were already burned this battle. */
 export function overdriveCost(burnsDone: number): number {
-  return OVERDRIVE_BASE_COST + burnsDone * OVERDRIVE_STEP;
+  const burns = Number.isFinite(burnsDone) ? Math.max(0, Math.floor(burnsDone)) : 0;
+  return OVERDRIVE_BASE_COST + burns * OVERDRIVE_STEP;
 }
 
 /**
@@ -68,6 +82,38 @@ export const MOD_CARD_POOL: string[] = CARD_LIST.filter((c) => c.category === 'm
  * background of the hand. Under tuning at playtest.
  */
 export const MOD_DRAW_CHANCE = B.MOD_DRAW_CHANCE;
+
+/** Fraction of invested gold returned when selling a placed tower (test: 0.5 max). */
+export const SELL_REFUND_RATE = brNum('SELL_REFUND_RATE');
+
+/** Gold spent to reach a tower's current grade (tracked on instance, or derived). */
+export function towerGoldInvested(cardId: string, grade: number, tracked?: number): number {
+  if (tracked !== undefined && Number.isFinite(tracked)) return Math.max(0, tracked);
+  const cost = getCard(cardId).costGold;
+  const base = Number.isFinite(cost) ? cost : 0;
+  const g = Number.isFinite(grade) ? Math.max(1, Math.floor(grade)) : 1;
+  return base * 2 ** (g - 1);
+}
+
+/** Refund from selling a tower at the configured rate. */
+export function sellRefundAmount(invested: number): number {
+  const inv = Number.isFinite(invested) ? Math.max(0, invested) : 0;
+  return Math.floor(inv * SELL_REFUND_RATE);
+}
+
+/** Gold mult when burning a placed tower (Reactor) vs a hand card. */
+export const FIELD_BURN_COST_MULT = brNum('FIELD_BURN_COST_MULT');
+
+/** Gold cost to burn a tower on the field (2× the next hand-card burn price). */
+export function fieldBurnCost(burnsDone: number): number {
+  return overdriveCost(burnsDone) * FIELD_BURN_COST_MULT;
+}
+
+/** Safe gold integer for HUD cost labels (never NaN). */
+export function formatGoldAmount(gold: number): string {
+  if (!Number.isFinite(gold)) return '0';
+  return String(Math.max(0, Math.round(gold)));
+}
 
 /**
  * Roll a fresh hand card (grade 1) from the draw pool. `seq` makes the instance

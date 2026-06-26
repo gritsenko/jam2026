@@ -65,6 +65,10 @@ export interface BattleRules {
   MOD_FOCUS_DMG_MULT: number;
   MOD_EMERGENCY_OVERDRIVE_SEC: number;
   MOD_DRAW_CHANCE: number;
+  /** Fraction of invested gold returned when selling a tower (0..1). */
+  SELL_REFUND_RATE: number;
+  /** Gold mult for burning a placed tower in the Reactor (vs hand-card burn). */
+  FIELD_BURN_COST_MULT: number;
 }
 
 export interface GameConfig {

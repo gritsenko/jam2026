@@ -3,6 +3,7 @@ import { COLORS, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene } from '../core/scene';
 import { Button } from '../ui/Button';
+import { AdminHud } from '../ui/AdminHud';
 import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
 import { fitSprite, glowCircle, makeText } from '../ui/helpers';
@@ -16,10 +17,12 @@ export class MainMenuScene extends Scene {
   private platformBaseY = 0;
   private startBtn!: Button;
   private muteBtn!: MuteButton;
+  private adminHud!: AdminHud;
   private t = 0;
 
   override onEnter(): void {
     const { assets } = this.services;
+    this.sortableChildren = true;
     // Intro is intentionally silent — kill any track carried over from the map.
     this.services.audio.stopMusic();
 
@@ -72,6 +75,9 @@ export class MainMenuScene extends Scene {
     });
     this.addChild(this.startBtn);
 
+    this.adminHud = new AdminHud('menu');
+    this.addChild(this.adminHud);
+
     // Global sound on/off — same control, top-right corner, on every screen.
     this.muteBtn = new MuteButton(this.services.audio, 64);
     this.addChild(this.muteBtn);
@@ -86,6 +92,7 @@ export class MainMenuScene extends Scene {
     this.platform.position.set(cx, this.platformBaseY);
     this.startBtn.position.set(cx, safe.y + safe.height * 0.86);
     this.muteBtn.position.set(safe.x + safe.width - 18 - 32, safe.y + 18 + 32);
+    this.adminHud.layout(info);
   }
 
   override update(dt: number): void {

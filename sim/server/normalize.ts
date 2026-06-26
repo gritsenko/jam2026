@@ -183,6 +183,9 @@ export function attemptFromRun(run: RunRow): AttemptSummary {
   a.durationSec = num(rec.durationSec);
   a.wavesCleared = num(rec.wavesCleared);
   a.perfectWaves = num(rec.perfectWaves);
+  a.rerolls = num(rec.rerolls);
+  a.burns = num(rec.burns);
+  a.fusions = num(rec.fusions);
   const f = rec.faucets as { gold?: unknown; crystals?: unknown } | undefined;
   if (f) {
     mergeInto(a.faucets.gold, f.gold);

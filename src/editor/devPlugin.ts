@@ -3,12 +3,13 @@
 //   GET  /__editor/game_configs        -> { configs: string[] }
 //   GET  /__editor/game_config/<name>  -> { name, files: { <file>: <json> } }
 //   POST /__editor/save                -> body { name, files } writes src/data/game_configs/<name>/*.json
-//   POST /__editor/run-bot             -> body { name } runs the bot harness for that config
+//   POST /__editor/run-bot             -> body { name, seeds?, policy? } runs the bot harness
 // `apply: 'serve'` keeps it out of production builds. See docs/backlog/design-editor.md.
 
 import { readdirSync, readFileSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { policiesToRun } from '../../sim/bot/policies';
 import type { Plugin } from 'vite';
 
 const CONFIGS_DIR = fileURLToPath(new URL('../data/game_configs/', import.meta.url));
@@ -73,6 +74,12 @@ export function editorDevPlugin(): Plugin {
     name: 'sgtd-editor',
     apply: 'serve',
     configureServer(server) {
+      // Vite does NOT put .env(.local) VITE_* vars into process.env, so read the
+      // resolved env here to find the telemetry endpoint for run-bot pushes.
+      const telemetryUrl =
+        (server.config.env.VITE_TELEMETRY_URL as string | undefined) ??
+        process.env.VITE_TELEMETRY_URL ??
+        '';
       server.middlewares.use('/__editor', (req, res) => {
         const url = new URL(req.url ?? '', 'http://localhost');
         const parts = url.pathname.split('/').filter(Boolean); // after /__editor
@@ -93,27 +100,47 @@ export function editorDevPlugin(): Plugin {
             req.on('data', (c) => (raw += c));
             req.on('end', () => {
               let name = 'default';
+              let seeds = 30;
+              let policy = 'smart';
               try {
-                name = (JSON.parse(raw) as { name?: string }).name ?? 'default';
+                const body = JSON.parse(raw) as { name?: string; seeds?: number; policy?: string };
+                name = body.name ?? 'default';
+                if (body.seeds != null) seeds = Math.max(1, Math.min(1000, Math.floor(Number(body.seeds)) || 1));
+                if (body.policy != null) policy = body.policy;
               } catch {
-                /* default */
+                /* defaults */
               }
               if (!NAME_RE.test(name)) return json(res, 400, { error: 'invalid config name' });
-              // Spawn the headless bot harness for this config; push to the telemetry
-              // backend if VITE_TELEMETRY_URL is configured.
+              let policies: string[];
+              try {
+                policies = policiesToRun(policy);
+              } catch (e) {
+                return json(res, 400, { error: String(e) });
+              }
               const child = spawn(TSX_BIN, [BOT_SCRIPT], {
                 cwd: PROJECT_ROOT,
                 env: {
                   ...process.env,
                   GAME_CONFIG: name,
-                  INGEST_URL: process.env.VITE_TELEMETRY_URL ?? '',
+                  INGEST_URL: telemetryUrl,
+                  SEEDS: String(seeds),
+                  POLICY: policy,
                 },
               });
               let out = '';
               child.stdout.on('data', (d) => (out += d));
               child.stderr.on('data', (d) => (out += d));
               child.on('error', (e) => json(res, 500, { error: String(e) }));
-              child.on('close', (code) => json(res, 200, { ok: code === 0, code, output: out.slice(-4000) }));
+              child.on('close', (code) =>
+                json(res, 200, {
+                  ok: code === 0,
+                  code,
+                  seeds,
+                  policy,
+                  policies,
+                  output: out.slice(-4000),
+                }),
+              );
             });
             return;
           }

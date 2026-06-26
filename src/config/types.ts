@@ -147,6 +147,8 @@ export interface PlacedCard {
   readonly cardId: string;
   /** Merge grade 1..3. */
   readonly grade: number;
+  /** Gold actually spent to reach this grade (place/merge/fusion); used for sell refund. */
+  readonly goldInvested?: number;
 }
 
 /** A card held in the bottom hand. */
@@ -238,6 +240,10 @@ export interface LevelNode {
   /** Position on the world map, normalized 0..1 in the portrait design space. */
   readonly nx: number;
   readonly ny: number;
+  /** World-map page (1 = first screen, 2 = east region). Defaults to 1. */
+  readonly region?: number;
+  /** Battle starts with an empty 3×3 platform (hand/resources from battleSeed). */
+  readonly emptyStart?: boolean;
 }
 
 /** Mock snapshot of the battle HUD state — drives the UI, no simulation. */

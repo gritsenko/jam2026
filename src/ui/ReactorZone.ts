@@ -1,5 +1,6 @@
 import { Container, Graphics, type PointData, Sprite, type Text } from 'pixi.js';
 import { COLORS, hex } from '../theme';
+import { formatGoldAmount } from '../config/battleRules';
 import type { AssetLoader } from '../core/AssetLoader';
 import { drawPanel, fitSprite, glowCircle, makeText } from './helpers';
 import type { SlotHighlight } from './SlotView';
@@ -83,7 +84,7 @@ export class ReactorZone extends Container {
 
   /** Update the live burn price (escalates per burn) and colour it by affordability. */
   setCost(cost: number, affordable: boolean): void {
-    this.costText.text = `-${cost}`;
+    this.costText.text = `-${formatGoldAmount(cost)}`;
     this.costText.style.fill = hex(affordable ? COLORS.gold : COLORS.energyDanger);
   }
 

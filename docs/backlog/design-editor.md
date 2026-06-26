@@ -15,6 +15,8 @@
 > с `GAME_CONFIG`, пушит в бэкенд через `INGEST_URL=VITE_TELEMETRY_URL`, показывает сводку
 > winrate). Проверено: эндпоинты, save-round-trip, рендер (15 карт/7 уровней/40 волн),
 > валидация, прод-сборка без редактора, run-bot возвращает сводку, typecheck.
+> **Обновление 2026-06-26:** run-bot принимает **policy** (smart/seeded/greedyFill/
+> randomBoard/all) и **seeds** (1–1000) из UI редактора → `POLICY`/`SEEDS` в харнессе.
 
 **Статус:** план реализации (без кода). **Зависит от**
 [config-as-data.md](config-as-data.md) — без JSON-слоя редактору нечего читать/писать.
@@ -78,9 +80,11 @@ recipes↔cards, unlocks↔levels; длины/диапазоны). Ошибки 
 - **«Играть этот конфиг»** → открыть игру с `?game_config=<name>` (резолвер `resolveGameConfigName()` из
   [config-as-data](config-as-data.md) подхватит сет).
 - **«Прогнать ботом»** → запустить sim-харнесс с `GAME_CONFIG=<name>` (см.
-  [autotest-system-impl-plan.md](autotest-system-impl-plan.md)); результат смотреть на
-  дашборде (см. [analytics-and-backend.md](analytics-and-backend.md)), сравнивая
-  `meta.balanceVersion`/сет с дефолтом.
+  [autotest-system-impl-plan.md](autotest-system-impl-plan.md)); в UI редактора выбираются
+  **политика** (`smart` / baseline / `all`) и **число сидов** (1–1000; для детерминированных
+  политик сид игнорируется). Результат смотреть на дашборде (см.
+  [analytics-and-backend.md](analytics-and-backend.md)), сравнивая `meta.balanceVersion`/сет
+  с дефолтом.
 
 ## Критические файлы
 

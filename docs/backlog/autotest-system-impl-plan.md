@@ -11,7 +11,7 @@
 [analytics-and-backend.md](analytics-and-backend.md) (бэкенд `sim/server/` + телеметрия
 реальных игроков; `runs.jsonl` и события игроков сходятся в единый `aggregate`).
 
-> **Статус реализации (обновлено):** baseline-бот РЕАЛИЗОВАН (`sim/bot/`) и проверен —
+> **Статус реализации (обновлено 2026-06-26):** baseline-бот РЕАЛИЗОВАН (`sim/bot/`) и проверен —
 > headless, **без полного `BattleCore`**: гоняет реальный `BattleSim` напрямую, собирая
 > башни как сцена (`syncTowers`) через вынесенную чистую геометрию
 > [src/game/platformGeometry.ts](../../src/game/platformGeometry.ts) (её же теперь
@@ -25,9 +25,11 @@
 > **`BattleCore` РЕАЛИЗОВАН** ([src/game/BattleCore.ts](../../src/game/BattleCore.ts)) —
 > headless движок решений+экономики (place/merge/burn/reroll/fusion/modernization +
 > энергосеть/синергия/tower-spec, обёртка над seeded `BattleSim`); бот переведён на него,
-> паритет точный (SEEDS=10 и 1000 совпали байт-в-поведение). **Не сделано:** политики бота
-> по действиям во времени + обучение/поиск, играбельный `SandboxScene`, миграция
-> продакшн-`BattleScene` на `BattleCore`, анализатор коридоров/диагнозов и генератор
+> паритет точный (SEEDS=10 и 1000 совпали байт-в-поведение). **Стадия 1 (доп.):** `smart`-политика,
+> live-дашборд с фильтром/compare по `config`, фикс телеметрии `rerolls/burns/fusions` в пайплайне
+> бота. **Не сделано:** обогащение Run record для агента L4–L7 (стадия 1.5 —
+> [telemetry-enrichment.md](../plan/telemetry-enrichment.md)), играбельный `SandboxScene`,
+> миграция продакшн-`BattleScene` на `BattleCore`, анализатор коридоров/диагнозов и генератор
 > change-request (стадии 2–4).
 
 ## Контекст
@@ -194,6 +196,30 @@ makeRng(seed: number) -> { next(): number /*[0,1)*/, fork(salt: number): Rng }
   сложность/винрейт, экономика-краны, прогрессия-стоки, пейсинг; вердикт по коридору;
   сравнение версий по `meta.balanceVersion`).
 - **Объём: средний.** **Дрифт: нулевой** (вся логика — в BattleCore).
+
+### Стадия 1.5 — Обогащение телеметрии (агент L4–L7)
+
+**Даёт:** Run record и `AttemptSummary` с per-wave бюджетом, `damageByCard`,
+`resonanceFired`, `balanceVersion` = sha снимка конфига; бот тестирует фьюжн.
+
+Полная спека-инкремент: [telemetry-enrichment.md](../plan/telemetry-enrichment.md)
+(основание — gap-анализ 2026-06-26, рабочая копия в `sim/out/telemetry-gap-analysis.md`).
+
+Кратко:
+
+- **`waves: WaveSlice[]`** — incomingEHP / dealtDamage / leaks / goldNet по волне
+  (бот + user normalize из `wave_combat_summary`).
+- **`damageByCard`** — атрибуция урона в колбэке `onEnemyDamaged` (slotIndex/cardId).
+- **`resonanceFired`** — счётчики трёх резонансов при proc в BattleSim.
+- **`balanceVersion`** — git short sha + config id или hash JSON ConfigSet (не только имя
+  `default`).
+- **`SmartController`** — осознанный fuse; рекомендуемая сетка `SEEDS=30` × 4 политики.
+
+**Гейт перед стадией 2 (полный набор диагнозов):** L1–L3 можно запускать на стадии 1;
+диагнозы «волна N пробита», «резонанс не срабатывает», compare до/после правки конфига —
+после 1.5.
+
+- **Объём: средний.** **Дрифт: минимальный** (опциональные поля колбэков BattleSim).
 
 ### Стадия 2 — Анализатор: коридоры + диагнозы
 - `sim/analyze/aggregate.ts` (группировка по (stage, policy): winRate, avgWaveReached,

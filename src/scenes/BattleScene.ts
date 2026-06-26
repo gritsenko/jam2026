@@ -1,5 +1,6 @@
 import { Container, type FederatedPointerEvent, Graphics, type PointData, Sprite, type Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, ELEMENT_IDS, type ElementId, elementSymbolKey, hex } from '../theme';
+import { formatGoldAmount } from '../config/battleRules';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
@@ -12,9 +13,12 @@ import {
   MOD_ISOLATION_CAPACITY,
   OVERDRIVE_SEC,
   overdriveCost,
+  fieldBurnCost,
   REROLL_BASE_COST,
   REROLL_STEP,
   rollHandCard,
+  sellRefundAmount,
+  towerGoldInvested,
 } from '../config/battleRules';
 import {
   CAPACITY_PER_WAVE,
@@ -68,6 +72,7 @@ import { ResourceChip } from '../ui/ResourceChip';
 import { SceneBackground } from '../ui/SceneBackground';
 import type { SlotView } from '../ui/SlotView';
 import { TowerInfoPanel } from '../ui/TowerInfoPanel';
+import { hideConfigPicker } from '../ui/adminTools';
 import { WaveBadge } from '../ui/WaveBadge';
 import { WaveTelegraph } from '../ui/WaveTelegraph';
 import { fitSprite, glowCircle, makeText, sliceElementSymbolSheet, type ElementSymbolFrames } from '../ui/helpers';
@@ -293,6 +298,7 @@ export class BattleScene extends Scene {
   }
 
   override onEnter(params?: SceneParams): void {
+    hideConfigPicker();
     this.levelId = typeof params?.levelId === 'string' ? params.levelId : 'lvl_1';
     // Per-level combat: this level's own wave script + difficulty tier (levelCombat.ts).
     this.levelCombat = combatForLevel(this.levelId);
@@ -303,7 +309,7 @@ export class BattleScene extends Scene {
     this.mechanics = unlockedMechanicsForLevel(this.levelId);
     this.drawPool = DRAW_POOL.filter((id) => unlocked.has(id));
     this.services.audio.playMusic('music_battle');
-    this.state = createBattleState(unlocked);
+    this.state = createBattleState(unlocked, this.levelId);
     this.burnsThisBattle = 0; // burn price escalates per battle, fresh each entry (§3.Г)
     this.fusionsThisBattle = 0;
     this.battleElapsed = 0;
@@ -678,6 +684,7 @@ export class BattleScene extends Scene {
     this.inspectedCard = card;
     card.setSelected(true);
     this.infoPanel.setWidth(this.infoPanelWidth);
+    this.infoPanel.clearSell();
     this.infoPanel.show(card.def, card.grade, towerStats(card.def, card.grade));
     this.infoPanel.position.set(this.infoPanelPos.x, this.infoPanelPos.y);
   }
@@ -759,8 +766,14 @@ export class BattleScene extends Scene {
     this.grid.inspect(index); // neighbor cells, arrows, effect badges
     this.drawInspectRange(index, def, placed.grade); // attack radius over the road
     this.infoPanel.setWidth(this.infoPanelWidth);
+    this.infoPanel.clearTowerActions();
     this.infoPanel.show(def, placed.grade, towerStats(def, placed.grade), this.synergy[index] ?? null);
     this.infoPanel.setOverload(this.towerOverloadPct(index));
+    if (progress.isSellEnabled()) {
+      const invested = towerGoldInvested(placed.cardId, placed.grade, placed.goldInvested);
+      const refund = sellRefundAmount(invested);
+      this.infoPanel.setSell(refund, () => this.sellTower(index));
+    }
     this.infoPanel.position.set(this.infoPanelPos.x, this.infoPanelPos.y);
   }
 
@@ -792,6 +805,58 @@ export class BattleScene extends Scene {
     this.infoPanel.hide();
   }
 
+  /** Sell a placed tower: partial gold refund, free slot, instant load drop. */
+  private sellTower(index: number): void {
+    if (!progress.isSellEnabled()) return;
+    const placed = this.state.slots[index];
+    if (!placed) return;
+    const def = getCard(placed.cardId);
+    const invested = towerGoldInvested(placed.cardId, placed.grade, placed.goldInvested);
+    const refund = sellRefundAmount(invested);
+    this.state.slots[index] = null;
+    this.addReward(refund, 'sell');
+    this.refreshEnergy();
+    this.grid.applyState(this.state);
+    this.refreshSynergy();
+    this.syncTowers();
+    Telemetry.track('sell', { cardId: def.id, grade: placed.grade, refund, slot: index });
+    this.services.audio.playSfx('sfx_click');
+    this.clearInspect();
+  }
+
+  /**
+   * Burn a placed tower in the Reactor (admin test): drag field → Reactor, 2× hand-burn
+   * gold, same Overdrive payoff, frees the slot.
+   */
+  private burnTowerField(index: number, avatar?: BattleCard): void {
+    if (!progress.isBurnFieldEnabled()) return;
+    const placed = this.state.slots[index];
+    if (!placed) return;
+    const cost = fieldBurnCost(this.burnsThisBattle);
+    if (this.state.gold < cost) return;
+    const def = getCard(placed.cardId);
+    this.services.audio.playSfx('sfx_burn');
+    this.spendGold(cost, 'burn_field');
+    this.burnsThisBattle++;
+    this.overdriveStacks.push(OVERDRIVE_SEC);
+    this.state.slots[index] = null;
+    this.refreshEnergy();
+    this.grid.applyState(this.state);
+    this.refreshSynergy();
+    this.syncTowers();
+    Telemetry.track('burn_field', {
+      cardId: def.id,
+      grade: placed.grade,
+      costGold: cost,
+      burnsThisBattle: this.burnsThisBattle,
+      slot: index,
+      capacityAfter: this.effectiveCapacity,
+    });
+    this.flash(this.reactor, COLORS.reactor);
+    if (avatar && !avatar.destroyed) this.animateBurn(avatar);
+    else this.clearInspect();
+  }
+
   /** Draw the inspected tower's attack/barrier radius over the road. */
   private drawInspectRange(index: number, def: CardDef, grade: number): void {
     this.inspectRange.clear();
@@ -817,12 +882,17 @@ export class BattleScene extends Scene {
     return overdriveCost(this.burnsThisBattle);
   }
 
-  private showReactor(): void {
+  /** Gold cost shown on the Reactor for the current drag (hand vs field tower). */
+  private reactorBurnCost(fieldDrag: boolean): number {
+    return fieldDrag && progress.isBurnFieldEnabled()
+      ? fieldBurnCost(this.burnsThisBattle)
+      : this.burnCost();
+  }
+
+  private showReactor(burnGold = this.burnCost()): void {
     this.reactorTween?.stop();
     this.reactor.visible = true;
-    // Push the current (escalating) burn price + affordability onto the slot.
-    const cost = this.burnCost();
-    this.reactor.setCost(cost, this.state.gold >= cost);
+    this.reactor.setCost(burnGold, this.state.gold >= burnGold);
     this.reactorTween = this.track(
       tween({ duration: 0.18, onUpdate: (t) => { if (!this.reactor.destroyed) this.reactor.alpha = t; } }),
     );
@@ -911,6 +981,10 @@ export class BattleScene extends Scene {
     this.cardGhosted = false;
 
     this.grid.showMergeTargets(def.id, placed.grade, slot.index);
+    if (progress.isBurnFieldEnabled()) {
+      this.showReactor(fieldBurnCost(this.burnsThisBattle));
+      this.reactor.setHighlight('valid');
+    }
     this.hint.alpha = 0.95;
   }
 
@@ -927,8 +1001,9 @@ export class BattleScene extends Scene {
     }
 
     const fieldDrag = this.fieldDragFrom !== null;
-    // Reactor is only a target for hand cards (you can't burn a placed tower).
-    const overReactor = !fieldDrag && this.reactor.visible && this.reactor.containsGlobal(e.global);
+    const fieldBurn = fieldDrag && progress.isBurnFieldEnabled();
+    const overReactor =
+      this.reactor.visible && this.reactor.containsGlobal(e.global) && (!fieldDrag || fieldBurn);
     const hit = overReactor ? null : this.grid.slotAtGlobal(e.global);
     // A field-drag can never target its own origin slot.
     const slot = hit && hit.index !== this.fieldDragFrom ? hit : null;
@@ -942,7 +1017,11 @@ export class BattleScene extends Scene {
 
     // Reactor hover charges the gauge (previewing the burn payoff); otherwise
     // the reactor sits as a plain valid target.
-    if (!fieldDrag) {
+    if (!fieldDrag || fieldBurn) {
+      if (fieldBurn) {
+        const cost = fieldBurnCost(this.burnsThisBattle);
+        this.reactor.setCost(cost, this.state.gold >= cost);
+      }
       this.reactor.setHighlight(overReactor ? 'hover' : 'valid');
       this.gauge.setCharging(overReactor);
     }
@@ -1051,7 +1130,7 @@ export class BattleScene extends Scene {
       return [
         { text: 'BURN', color: COLORS.energyOverdrive },
         { icon: energyIcon, text: `+${OVERDRIVE_CAPACITY_BONUS} CAP ${OVERDRIVE_SEC}s`, color: COLORS.energyOverdrive },
-        this.goldPart(goldIcon, this.burnCost()),
+        this.goldPart(goldIcon, this.reactorBurnCost(fieldDrag)),
       ];
     }
     if (emptySlot) {
@@ -1081,7 +1160,8 @@ export class BattleScene extends Scene {
 
   /** A gold-cost chip, red when the player can't currently afford it. */
   private goldPart(icon: Texture, cost: number): CostPart {
-    return { icon, text: `-${cost}`, color: this.state.gold >= cost ? COLORS.gold : COLORS.energyDanger };
+    const gold = Number.isFinite(cost) ? Math.max(0, Math.round(cost)) : 0;
+    return { icon, text: `-${formatGoldAmount(gold)}`, color: this.state.gold >= gold ? COLORS.gold : COLORS.energyDanger };
   }
 
   /**
@@ -1140,9 +1220,17 @@ export class BattleScene extends Scene {
 
     const slot = this.grid.slotAtGlobal(e.global);
 
-    // Field-to-field merge: a lifted tower only drops onto a matching same-grade
-    // tower (not its origin); anything else glides it back home.
+    // Field drag: burn on Reactor (2× gold) or merge onto a matching tower.
     if (fromIndex !== null) {
+      const fieldBurn = progress.isBurnFieldEnabled();
+      if (fieldBurn && this.reactor.visible && this.reactor.containsGlobal(e.global)) {
+        this.hideReactor();
+        const cost = fieldBurnCost(this.burnsThisBattle);
+        if (this.state.gold >= cost) this.burnTowerField(fromIndex, card);
+        else this.returnFieldTower(card, fromIndex);
+        return;
+      }
+      if (fieldBurn) this.hideReactor();
       if (slot && slot.index !== fromIndex && this.canMerge(card.def.id, card.grade, slot.index)) {
         this.mergeFieldTower(fromIndex, slot.index, card);
       } else {
@@ -1198,7 +1286,7 @@ export class BattleScene extends Scene {
       this.returnCardHome(card);
       return;
     }
-    this.state.slots[slot.index] = { cardId: def.id, grade: card.grade };
+    this.state.slots[slot.index] = { cardId: def.id, grade: card.grade, goldInvested: def.costGold };
     this.spendGold(def.costGold, 'place');
     this.refreshEnergy(); // load grows by this card's base step
     this.grid.applyState(this.state); // renders the tower + redraws broadcast beams
@@ -1234,7 +1322,12 @@ export class BattleScene extends Scene {
       return;
     }
     const newGrade = Math.min(3, placed.grade + 1);
-    this.state.slots[slot.index] = { cardId: placed.cardId, grade: newGrade };
+    const prevInvested = towerGoldInvested(placed.cardId, placed.grade, placed.goldInvested);
+    this.state.slots[slot.index] = {
+      cardId: placed.cardId,
+      grade: newGrade,
+      goldInvested: prevInvested + def.costGold,
+    };
     this.spendGold(def.costGold, 'merge');
     this.refreshEnergy(); // higher grade draws more load; capacity also grows (§3.В)
     this.grid.applyState(this.state);
@@ -1273,7 +1366,11 @@ export class BattleScene extends Scene {
       return;
     }
     const newGrade = Math.min(3, target.grade + 1);
-    this.state.slots[toIndex] = { cardId: target.cardId, grade: newGrade };
+    const invested =
+      towerGoldInvested(source.cardId, source.grade, source.goldInvested) +
+      towerGoldInvested(target.cardId, target.grade, target.goldInvested) +
+      cost;
+    this.state.slots[toIndex] = { cardId: target.cardId, grade: newGrade, goldInvested: invested };
     this.state.slots[fromIndex] = null; // the consumed tower leaves the platform
     this.spendGold(cost, 'merge');
     this.refreshEnergy();
@@ -2992,6 +3089,7 @@ export class BattleScene extends Scene {
 
     // Keep the inspected tower's overload readout in step with load/capacity.
     if (this.inspectedIndex !== null) this.infoPanel.setOverload(this.towerOverloadPct(this.inspectedIndex));
+    this.infoPanel.tick(dt);
 
     // Overdrive countdown: tick each burn stack; resync capacity when one expires.
     if (this.overdriveStacks.length > 0) {
