@@ -1,7 +1,7 @@
 import { Container, Graphics, Texture, type PointData } from 'pixi.js';
 import { COLORS, ELEMENTS, ELEMENT_IDS, elementSymbolKey, hex, type ElementId } from '../theme';
 import type { AssetLoader } from '../core/AssetLoader';
-import { CARDS, cardGrade } from '../config/cards';
+import { CARDS, COMPOSED_AIM_SHEETS, cardGrade } from '../config/cards';
 import type { BattleStateMock, BuffStat, CardDef, PlacedCard } from '../config/types';
 import { computeSynergy, type SlotSynergy } from '../game/synergy';
 import { makeText } from './helpers';
@@ -122,6 +122,7 @@ export class PlatformGrid extends Container {
         if (def) {
           // Aim frames live under `<iconKey>_dirs` (hybrids share their parent's
           // strip via iconKey); absent for supports/un-generated art → static.
+          // Composed sheets (COMPOSED_AIM_SHEETS) split base/head and crossfade.
           const dirsKey = `${def.iconKey}_dirs`;
           const dirStrip = this.assets.has(dirsKey) ? this.assets.get(dirsKey) : undefined;
           slot.setPlaced(
@@ -131,6 +132,7 @@ export class PlatformGrid extends Container {
             syn?.dots ?? [],
             syn?.resonant ?? false,
             dirStrip,
+            COMPOSED_AIM_SHEETS.has(def.iconKey),
           );
         } else slot.setEmpty();
       } else {

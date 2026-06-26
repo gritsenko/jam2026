@@ -47,7 +47,11 @@ export class SlotView extends Container {
   private occupied = false;
   /** Element-symbol textures (sym_<element>) overlaid on the influence dots. */
   private symbols?: Partial<Record<ElementId, Texture>>;
-  /** The placed tower's main sprite (swapped to the current facing frame). */
+  /**
+   * The placed tower's rotating sprite — the head on a composed sheet (over a
+   * static {@link sliceCenter3x3} base), the whole turret on an old-layout sheet,
+   * or the single static art otherwise. Hard-swapped to the current facing frame.
+   */
   private towerSprite?: Sprite;
   /** 8 directional aim frames (d0=N, d1=NE … d7=NW clockwise) from an `<id>_dirs` 3×3 sheet. */
   private dirFrames?: Texture[];
@@ -55,12 +59,28 @@ export class SlotView extends Container {
   private spriteFitBox = 0;
   /** Default facing on build and before the first target: South-East. */
   private static readonly DEFAULT_OCTANT = 3;
-  /** Seconds per 45° step — the turret turns one octant at a time, not instantly. */
-  private static readonly ROT_STEP_SEC = 0.06;
+  /**
+   * Seconds per 45° step — the turret turns ONE octant at a time, leisurely, by
+   * hard-swapping the facing frame (no crossfade: blending two 45°-apart frames
+   * dips the head to semi-transparent mid-fade, which reads as a flicker).
+   */
+  private static readonly ROT_STEP_SEC = 0.11;
+  /**
+   * Debounce: a freshly-aimed octant must persist this long before the turret
+   * commits to turning there, so a rapidly-flipping lead enemy doesn't jerk the
+   * head back and forth (firing is independent of facing — see BattleSim).
+   */
+  private static readonly AIM_DEBOUNCE_SEC = 0.22;
   /** Octant currently SHOWN (0–7). The turret steps toward {@link targetOctant}. */
   private displayOctant = SlotView.DEFAULT_OCTANT;
-  /** Octant the turret WANTS to face (last aim; retained when no target is in range). */
+  /** Octant the turret has COMMITTED to face (only updated after the debounce). */
   private targetOctant = SlotView.DEFAULT_OCTANT;
+  /** Latest raw octant from {@link setAim} (pre-debounce; retained when no target). */
+  private desiredOctant = SlotView.DEFAULT_OCTANT;
+  /** Candidate octant being debounced toward {@link targetOctant}. */
+  private pendingOctant = SlotView.DEFAULT_OCTANT;
+  /** How long {@link pendingOctant} has held steady (toward {@link AIM_DEBOUNCE_SEC}). */
+  private pendingTimer = 0;
   /** Time banked toward the next one-octant rotation step. */
   private aimTimer = 0;
 
@@ -92,6 +112,9 @@ export class SlotView extends Container {
     this.spriteFitBox = 0;
     this.displayOctant = SlotView.DEFAULT_OCTANT;
     this.targetOctant = SlotView.DEFAULT_OCTANT;
+    this.desiredOctant = SlotView.DEFAULT_OCTANT;
+    this.pendingOctant = SlotView.DEFAULT_OCTANT;
+    this.pendingTimer = 0;
     this.aimTimer = 0;
     this.setCooldown(0);
     this.setEffect(0, false, false);
@@ -111,6 +134,7 @@ export class SlotView extends Container {
     dots: readonly SynergyDot[] = [],
     resonant = false,
     dirStrip?: Texture,
+    composedBase = false,
   ): void {
     this.occupied = true;
     this.content.removeChildren().forEach((c) => c.destroy());
@@ -124,26 +148,41 @@ export class SlotView extends Container {
     this.base.roundRect(-s / 2, -s / 2, s, s, 16).stroke({ width: 4, color: skin.base });
     this.base.roundRect(-s / 2 + 5, -s / 2 + 5, s - 10, s - 10, 12).stroke({ width: 2, color: skin.glow, alpha: 0.4 });
 
+    this.displayOctant = SlotView.DEFAULT_OCTANT;
+    this.targetOctant = SlotView.DEFAULT_OCTANT;
+    this.desiredOctant = SlotView.DEFAULT_OCTANT;
+    this.pendingOctant = SlotView.DEFAULT_OCTANT;
+    this.pendingTimer = 0;
+    this.aimTimer = 0;
+
     // Turret aim sheet: a 3×3 directional sprite-sheet (`<id>_dirs`); the 8
-    // perimeter cells are the compass aims. A rotating turret renders entirely
-    // from the sheet — it builds facing South-East ({@link DEFAULT_OCTANT}) and
-    // turns one octant at a time toward its target (see setAim/tickAim). Towers
-    // without a sheet (supports, statics) just show `art`.
-    const sprite = new Sprite(art);
+    // perimeter cells are the compass aims. A rotating turret builds facing
+    // South-East ({@link DEFAULT_OCTANT}) and turns one octant at a time toward
+    // its target (see setAim/tickAim). Towers without a sheet (supports, statics)
+    // just show `art`.
+    let mainSprite: Sprite;
     if (dirStrip) {
       this.dirFrames = this.sliceSheet3x3(dirStrip);
       this.spriteFitBox = s; // sheet cells include their own margin → fit cell to the slot
-      this.displayOctant = SlotView.DEFAULT_OCTANT;
-      this.targetOctant = SlotView.DEFAULT_OCTANT;
-      this.aimTimer = 0;
-      sprite.texture = this.dirFrames[this.displayOctant]!;
+
+      if (composedBase) {
+        // Composed layout: the CENTER cell is a STATIONARY base, drawn once
+        // underneath; the 8 perimeter cells are the rotating head only. The base
+        // never moves — only the head sprite hard-swaps to the aimed octant.
+        const base = new Sprite(this.sliceCenter3x3(dirStrip));
+        fitSprite(base, s, s);
+        this.content.addChild(base);
+      }
+      // Composed → head; old layout → the whole turret (base baked into each cell).
+      mainSprite = new Sprite(this.dirFrames[this.displayOctant]!);
     } else {
       this.dirFrames = undefined;
       this.spriteFitBox = s * 0.82;
+      mainSprite = new Sprite(art);
     }
-    fitSprite(sprite, this.spriteFitBox, this.spriteFitBox);
-    this.content.addChild(sprite);
-    this.towerSprite = sprite;
+    fitSprite(mainSprite, this.spriteFitBox, this.spriteFitBox);
+    this.content.addChild(mainSprite);
+    this.towerSprite = mainSprite;
 
     this.drawDots(dots);
     this.drawResonance(resonant, skin.glow);
@@ -152,8 +191,10 @@ export class SlotView extends Container {
   /**
    * Slice a 3×3 directional sheet into the 8 compass aim frames (d0 = N, then
    * clockwise to d7 = NW). Each cell points outward from center by its grid
-   * position (top row NW/N/NE, etc.); the center cell is unused. Equal cells →
-   * no jump when swapping. Future per-state/per-grade variants = separate sheets.
+   * position (top row NW/N/NE, etc.). The center cell is the stationary base on
+   * a composed sheet ({@link sliceCenter3x3}); on an old-layout sheet it is the
+   * idle facing and goes unused. Equal-size cells → no scale jump when swapping.
+   * Future per-state/per-grade variants = separate sheets.
    */
   private sliceSheet3x3(sheet: Texture): Texture[] {
     const cw = sheet.width / 3;
@@ -172,27 +213,51 @@ export class SlotView extends Container {
     ];
   }
 
-  /**
-   * Set the turret's DESIRED facing from a scene-space aim angle (radians, screen
-   * convention: 0 = east, +PI/2 = south) — snapped to the nearest of 8 octants
-   * (0 = north, clockwise). The sprite doesn't jump here; {@link tickAim} steps it
-   * there. `null` keeps the last desired facing (turret holds its last aim when no
-   * enemy is in range). No-op for towers without a directional sheet.
-   */
-  setAim(angle: number | null): void {
-    if (!this.dirFrames || angle === null) return;
-    this.targetOctant = ((Math.round(((angle + Math.PI / 2) / (Math.PI * 2)) * 8) % 8) + 8) % 8;
+  /** The center cell of a 3×3 sheet — the stationary base of a composed aim sheet. */
+  private sliceCenter3x3(sheet: Texture): Texture {
+    const cw = sheet.width / 3;
+    const ch = sheet.height / 3;
+    return new Texture({ source: sheet.source, frame: new Rectangle(cw, ch, cw, ch) });
   }
 
   /**
-   * Advance the shown facing one octant at a time toward {@link targetOctant},
-   * one step per {@link ROT_STEP_SEC}, taking the shorter way around the ring so
-   * it passes through every intermediate octant rather than snapping. Call each frame.
+   * Record the turret's DESIRED facing from a scene-space aim angle (radians,
+   * screen convention: 0 = east, +PI/2 = south) — snapped to the nearest of 8
+   * octants (0 = north, clockwise). This is the *raw* aim; {@link tickAim}
+   * debounces it before the turret commits to turning (so a flickering lead
+   * enemy doesn't jerk the head). `null` keeps the last desired facing (turret
+   * holds its aim when no enemy is in range). No-op without a directional sheet.
+   */
+  setAim(angle: number | null): void {
+    if (!this.dirFrames || angle === null) return;
+    this.desiredOctant = ((Math.round(((angle + Math.PI / 2) / (Math.PI * 2)) * 8) % 8) + 8) % 8;
+  }
+
+  /**
+   * Debounce the raw aim, then advance the shown facing one octant at a time
+   * toward the committed {@link targetOctant} — one hard frame-swap per {@link
+   * ROT_STEP_SEC}, the shorter way around the ring so it passes through every
+   * intermediate octant rather than snapping. Call each frame.
    */
   tickAim(dt: number): void {
     const frames = this.dirFrames;
     const sprite = this.towerSprite;
-    if (!frames || !sprite || this.displayOctant === this.targetOctant) return;
+    if (!frames || !sprite) return;
+
+    // Debounce: only commit a new facing once the desired octant has held steady
+    // for AIM_DEBOUNCE_SEC. A target that keeps flipping resets the timer, so the
+    // turret stays put instead of jittering (it still fires regardless of facing).
+    if (this.desiredOctant !== this.targetOctant) {
+      if (this.desiredOctant === this.pendingOctant) {
+        this.pendingTimer += dt;
+        if (this.pendingTimer >= SlotView.AIM_DEBOUNCE_SEC) this.targetOctant = this.pendingOctant;
+      } else {
+        this.pendingOctant = this.desiredOctant;
+        this.pendingTimer = 0;
+      }
+    }
+
+    if (this.displayOctant === this.targetOctant) return;
     this.aimTimer += dt;
     let changed = false;
     while (this.aimTimer >= SlotView.ROT_STEP_SEC && this.displayOctant !== this.targetOctant) {

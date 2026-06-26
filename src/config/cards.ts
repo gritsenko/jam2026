@@ -341,6 +341,17 @@ export const CARDS: Record<string, CardDef> = {
   },
 };
 
+/**
+ * iconKeys whose `<iconKey>_dirs` 3×3 aim sheet uses the COMPOSED layout: the
+ * center cell is a *stationary base* and the 8 perimeter cells are the rotating
+ * *head only*. SlotView draws the base once underneath and crossfades the head
+ * between octants for a smooth turn (the base stays outside the crossfade, so it
+ * never ghosts). Sheets NOT listed here use the old layout — each cell is a full
+ * turret with the base baked in — and hard-swap frames. Add an iconKey here once
+ * its `_dirs` sheet is redrawn in the composed layout.
+ */
+export const COMPOSED_AIM_SHEETS = new Set<string>(['plasma_shutter']);
+
 export const CARD_LIST: CardDef[] = Object.values(CARDS);
 
 export function getCard(id: string): CardDef {

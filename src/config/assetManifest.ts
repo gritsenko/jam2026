@@ -323,12 +323,17 @@ export const ASSETS: AssetSpec[] = [
   },
 
   // ---- Turret aim sheets ---------------------------------------------------
-  // Hand-made 3×3 directional sprite-sheets for the rotating turrets. Each cell
-  // points outward from center by grid position (top row NW/N/NE … bottom row
-  // SW/S/SE); the center cell is the idle facing. SlotView slices the sheet and
-  // swaps cells to aim ([SlotView.sliceSheet3x3] / [BattleSim.towerAim]). NOT
-  // generated — drop a transparent 3×3 sheet here as `<iconKey>_dirs.png`.
-  // Only rotating turrets have one (static towers omit it → no aim).
+  // Hand-made 3×3 directional sprite-sheets for the rotating turrets. The 8
+  // perimeter cells point outward by grid position (top row NW/N/NE … bottom row
+  // SW/S/SE). Two layouts (see COMPOSED_AIM_SHEETS in cards.ts): COMPOSED sheets
+  // (plasma_shutter) put a STATIONARY base in the center cell and the rotating
+  // head-only on the perimeter — SlotView draws the base once and rotates just
+  // the head; OLD sheets (railgun) bake a full turret into every cell (center =
+  // idle) and rotate the whole sprite. Either way the facing frame is hard-
+  // swapped (no crossfade) one octant at a time. SlotView slices the sheet and
+  // aims it ([SlotView.sliceSheet3x3] / [BattleSim.towerAim]). NOT generated —
+  // drop a transparent 3×3 sheet here as `<iconKey>_dirs.png`. Only rotating
+  // turrets have one (static towers omit it → no aim).
   {
     key: 'plasma_shutter_dirs',
     category: 'tower',
