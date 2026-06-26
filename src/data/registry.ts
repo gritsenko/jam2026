@@ -56,6 +56,18 @@ import bthCombatRules from './game_configs/bot_tune_hard/combatRules.json';
 import bthBattleRules from './game_configs/bot_tune_hard/battleRules.json';
 import bthBattleSeed from './game_configs/bot_tune_hard/battleSeed.json';
 
+import ctCards from './game_configs/campaign_tight/cards.json';
+import ctEnemies from './game_configs/campaign_tight/enemies.json';
+import ctLevels from './game_configs/campaign_tight/levels.json';
+import ctLevelCombat from './game_configs/campaign_tight/levelCombat.json';
+import ctWaves from './game_configs/campaign_tight/waves.json';
+import ctReactions from './game_configs/campaign_tight/reactions.json';
+import ctRecipes from './game_configs/campaign_tight/recipes.json';
+import ctProgression from './game_configs/campaign_tight/progression.json';
+import ctCombatRules from './game_configs/campaign_tight/combatRules.json';
+import ctBattleRules from './game_configs/campaign_tight/battleRules.json';
+import ctBattleSeed from './game_configs/campaign_tight/battleSeed.json';
+
 export const DEFAULT_GAME_CONFIG = 'default';
 
 export const GAME_CONFIGS: Record<string, GameConfig> = {
@@ -112,6 +124,20 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     combatRules: bthCombatRules,
     battleRules: bthBattleRules,
     battleSeed: bthBattleSeed,
+  }),
+  /** Tighter campaign: empty board lvl 1–3, denser waves, lvl_7 rebalance. */
+  campaign_tight: toGameConfig({
+    cards: ctCards,
+    enemies: ctEnemies,
+    levels: ctLevels,
+    levelCombat: ctLevelCombat,
+    waves: ctWaves,
+    reactions: ctReactions,
+    recipes: ctRecipes,
+    progression: ctProgression,
+    combatRules: ctCombatRules,
+    battleRules: ctBattleRules,
+    battleSeed: ctBattleSeed,
   }),
 };
 

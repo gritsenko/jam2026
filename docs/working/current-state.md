@@ -19,6 +19,16 @@
   [../done/levels-post-tutorial.md](../done/levels-post-tutorial.md); туториальные 1–3
   и финал 7 дописаны под доступный на уровне ростер. Общий `WAVES`
   ([waves.ts](../../src/config/waves.ts)) остался дефолтным фоллбеком.
+  **Саппорт-враги** (`archetype: support`) в одной волне с эскортом спавнятся **в
+  середине** потока грантов (`buildSpawnQueue` в [waveRules.ts](../../src/data/waveRules.ts),
+  вызывается из [BattleSim.startNextWave](../../src/game/BattleSim.ts)) — не в начале
+  волны, чтобы их нельзя было сразу снести до накопления эскорта.
+- **Варианты баланса (config-as-data).** JSON-пакеты в
+  `src/data/game_configs/<name>/`; переключение — `?game_config=`, Admin HUD, `GAME_CONFIG`
+  (бот/сим). Помимо `default` / `bot_tune` / `bot_tune_hard` есть **`campaign_tight`**:
+  пустая доска на ур. 1–3 (`emptyStart`), плотнее волны и выше `hpScale` на туториале,
+  пересобран финал ур. 7 (боссы не в лиде волны, саппорты в escort-паках). Валидация —
+  [validate.ts](../../src/data/validate.ts).
 - **Направление входа — пер-левел.** Враги заходят с **разной стороны** в зависимости
   от уровня: шаблоны путей `ENEMY_PATHS` (`bottom`/`top`/`left`/`right`) в
   [combatRules.ts](../../src/config/combatRules.ts), выбор — `LevelCombat.pathId`.

@@ -1,0 +1,87 @@
+[
+  {
+    "id": "lvl_1",
+    "name": "Sunbaked Gulch",
+    "nx": 0.28,
+    "ny": 0.82,
+    "emptyStart": true
+  },
+  {
+    "id": "lvl_2",
+    "name": "Rusted Spillway",
+    "nx": 0.62,
+    "ny": 0.72,
+    "emptyStart": true
+  },
+  {
+    "id": "lvl_3",
+    "name": "Static Mesa",
+    "nx": 0.4,
+    "ny": 0.6,
+    "emptyStart": true
+  },
+  {
+    "id": "lvl_4",
+    "name": "Ember Hollow",
+    "nx": 0.7,
+    "ny": 0.49
+  },
+  {
+    "id": "lvl_5",
+    "name": "Glass Dunes",
+    "nx": 0.34,
+    "ny": 0.39
+  },
+  {
+    "id": "lvl_6",
+    "name": "Coolant Ridge",
+    "nx": 0.64,
+    "ny": 0.28
+  },
+  {
+    "id": "lvl_7",
+    "name": "Overload Spire",
+    "nx": 0.46,
+    "ny": 0.16
+  },
+  {
+    "id": "lvl_8",
+    "name": "Fractured Coil",
+    "nx": 0.28,
+    "ny": 0.82,
+    "region": 2,
+    "emptyStart": true
+  },
+  {
+    "id": "lvl_9",
+    "name": "Null Sector",
+    "nx": 0.62,
+    "ny": 0.7,
+    "region": 2,
+    "emptyStart": true
+  },
+  {
+    "id": "lvl_10",
+    "name": "Storm Vise",
+    "nx": 0.38,
+    "ny": 0.55,
+    "region": 2,
+    "emptyStart": true
+  },
+  {
+    "id": "lvl_11",
+    "name": "Burn Scar",
+    "nx": 0.66,
+    "ny": 0.4,
+    "region": 2,
+    "emptyStart": true
+  },
+  {
+    "id": "lvl_12",
+    "name": "Singularity Gate",
+    "nx": 0.48,
+    "ny": 0.18,
+    "region": 2,
+    "emptyStart": true
+  }
+]

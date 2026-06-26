@@ -51,3 +51,30 @@ export function supportEscortIssues(
     `${where}: support mob(s) need escort ≥${SUPPORT_MIN_ESCORT} or a boss (got ${escort})`,
   ];
 }
+
+export interface SpawnQueueEntry {
+  def: EnemyDef;
+  gap: number;
+}
+
+/**
+ * Flatten a wave into a spawn queue. Support mobs are inserted at the midpoint of
+ * the non-support stream so they arrive mid-wave (not at the front where towers
+ * can snipe them before escorts stack).
+ */
+export function buildSpawnQueue(
+  wave: WaveDef,
+  resolve: (id: string) => EnemyDef,
+): SpawnQueueEntry[] {
+  const grunt: SpawnQueueEntry[] = [];
+  const support: SpawnQueueEntry[] = [];
+  for (const group of wave.groups) {
+    if (group.count <= 0) continue;
+    const def = resolve(group.enemyId);
+    const bucket = def.archetype === 'support' ? support : grunt;
+    for (let i = 0; i < group.count; i++) bucket.push({ def, gap: group.gap });
+  }
+  if (support.length === 0) return grunt;
+  const mid = Math.floor(grunt.length / 2);
+  return [...grunt.slice(0, mid), ...support, ...grunt.slice(mid)];
+}

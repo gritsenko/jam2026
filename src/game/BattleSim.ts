@@ -2,6 +2,7 @@ import type { ElementId } from '../theme';
 import type { CardDef, EnemyDef, ReactionId, WaveDef } from '../config/types';
 import type { Rng } from './rng';
 import { getEnemy } from '../config/enemies';
+import { buildSpawnQueue } from '../data/waveRules';
 import { cardGrade, cardLoad, hasHybridPerk } from '../config/cards';
 import {
   AOE_SPLASH_FRAC,
@@ -420,12 +421,7 @@ export class BattleSim {
       this.wavePhase = 'active';
       return;
     }
-    this.spawnQueue = [];
-    for (const group of wave.groups) {
-      if (group.count <= 0) continue;
-      const def = getEnemy(group.enemyId);
-      for (let i = 0; i < group.count; i++) this.spawnQueue.push({ def, gap: group.gap });
-    }
+    this.spawnQueue = buildSpawnQueue(wave, getEnemy);
     this.cb.onWaveStart?.(this.waveNumber);
     if (this.spawnQueue.length === 0) {
       // Degenerate wave (no groups / all zero-count): nothing to spawn — treat it
