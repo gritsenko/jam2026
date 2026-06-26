@@ -2,7 +2,7 @@ import type { EnemyDef } from './types';
 import { activeGameConfig } from '../data/load';
 
 /**
- * The enemy roster. Data lives in JSON (src/data/sets/<set>/enemies.json) via the
+ * The enemy roster. Data lives in JSON (src/data/game_configs/<config>/enemies.json) via the
  * active ConfigSet (docs/backlog/config-as-data.md); this module keeps the id lookup.
  *
  * `speed` is in laps-per-second (1/speed = seconds to complete the ring), which

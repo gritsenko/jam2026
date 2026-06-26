@@ -2,11 +2,11 @@
 
 > **Статус реализации (обновлено):** контент-слайс РЕАЛИЗОВАН и проверен.
 > На JSON переведены **карты, враги, уровни, levelCombat, волны, резонанс, рецепты,
-> прогрессия-анлоки** (`src/data/sets/<name>/*.json`); инфраструктура — `src/data/`
-> (`schema.ts`/`registry.ts`/`load.ts` с `activeSet`, dev-`validate.ts`). Существующие
-> `src/config/*.ts` остались точками входа (читают `activeSet.*`), вычисляемые функции/
-> кэши не тронуты. Есть второй сет `variant-A` (копия) + переключение `?config=` /
-> `localStorage` / `CONFIG_SET`. Проверено: typecheck зелёный, JSON byte-в-byte
+> прогрессия-анлоки** (`src/data/game_configs/<name>/*.json`); инфраструктура — `src/data/`
+> (`schema.ts`/`registry.ts`/`load.ts` с `activeGameConfig`, dev-`validate.ts`). Существующие
+> `src/config/*.ts` остались точками входа (читают `activeGameConfig.*`), вычисляемые функции/
+> кэши не тронуты. Есть второй конфиг `game_config_id000001` (копия) + переключение `?game_config=` /
+> `localStorage` / `GAME_CONFIG`. Проверено: typecheck зелёный, JSON byte-в-byte
 > (round-trip дампа), игра грузится и играет идентично, dev-валидатор проходит.
 > **Обновление:** числовые tunables `combatRules`/`battleRules` и стартовый `battleSeed`
 > ТЕПЕРЬ тоже в JSON (ключи = имена TS-экспортов, byte-в-byte через дамп; `ENEMY_PATH`/
@@ -39,10 +39,10 @@
 
 ## Решение
 
-- Чистые **данные** → JSON в `src/data/sets/<name>/`. Чистые **функции/производные**
+- Чистые **данные** → JSON в `src/data/game_configs/<name>/`. Чистые **функции/производные**
   остаются в TS и работают поверх загруженных данных.
 - Существующие `src/config/*.ts` **остаются точками входа** с теми же экспортами — меняется
-  только источник значения (`CARDS = activeSet.cards`). Консьюмеры (12 файлов, `BattleSim`,
+  только источник значения (`CARDS = activeGameConfig.cards`). Консьюмеры (12 файлов, `BattleSim`,
   `BattleScene`, `synergy`, UI…) **не трогаем**.
 - **Синхронный eager-импорт** JSON через статический реестр → порядок инициализации
   ES-модулей сохраняется, top-level производные (`DRAW_POOL`, `BY_PAIR`, `LEVEL_ORDER`,
@@ -55,15 +55,16 @@
 
 ```
 src/data/
-  sets/
+  game_configs/
     default/
       cards.json   enemies.json   levels.json   levelCombat.json
       waves.json   resonance.json fusion.json   progression.json
       combatRules.json  battleRules.json  battleSeed.json
-    variant-A/          # копия default с другим балансом (пример)
-  registry.ts           # статические импорты всех сетов + доменные аннотации (валидация tsc)
-  load.ts               # activeSet, loadConfigSet(name), resolveSetName()
-  schema.ts             # тип ConfigSet + DTO-нарроверы (tuple/union) + CombatRules/BattleRules
+    game_config_id000001/   # копия default с другим балансом (пример; редактор
+                            # автогенерит id вида game_config_id<N>)
+  registry.ts           # статические импорты всех конфигов + доменные аннотации (валидация tsc)
+  load.ts               # activeGameConfig, loadGameConfig(name), resolveGameConfigName()
+  schema.ts             # тип GameConfig + DTO-нарроверы (tuple/union) + CombatRules/BattleRules
   validate.ts           # dev-only кросс-ссылочные ассерты (под import.meta.env.DEV)
 ```
 
@@ -111,15 +112,15 @@ JSON храним `{x,y}[]` — структурно совместимо с `Po
 
 ## Активный конфиг и переключение (load.ts)
 
-`load.ts` экспортирует `const activeSet: ConfigSet` (вычислен **синхронно** на загрузке
-модуля) и `loadConfigSet(name): ConfigSet`. Имя активного сета — `resolveSetName()` по
+`load.ts` экспортирует `const activeGameConfig: GameConfig` (вычислен **синхронно** на загрузке
+модуля) и `loadGameConfig(name): GameConfig`. Имя активного конфига — `resolveGameConfigName()` по
 приоритету:
 
-1. явный параметр (`loadConfigSet('variant-A')`) — для сима/бота/редактора;
-2. браузер: `?config=variant-A` → `localStorage['sgtd.configSet']` → `default`;
-3. Node/tsx: `process.env.CONFIG_SET` → `default`.
+1. явный параметр (`loadGameConfig('game_config_id000001')`) — для сима/бота/редактора;
+2. браузер: `?game_config=game_config_id000001` → `localStorage['sgtd.gameConfig']` → `default`;
+3. Node/tsx: `process.env.GAME_CONFIG` → `default`.
 
-`registry.ts` импортирует все сеты статически (eager) → `activeSet` готов раньше любого
+`registry.ts` импортирует все конфиги статически (eager) → `activeGameConfig` готов раньше любого
 `config/*.ts`, который его читает. Резолвер не должен тянуть DOM на Node-пути (гард по
 `typeof window`/`process`), чтобы tsx-сим импортировал `config/*` без браузера. **Не
 используем `import.meta.glob`** на Node-пути — ручной реестр изоморфен (Vite + tsx).
@@ -127,15 +128,15 @@ JSON храним `{x,y}[]` — структурно совместимо с `Po
 После рефактора, например:
 ```ts
 // src/config/cards.ts
-import { activeSet } from '../data/load';
-export const CARDS = activeSet.cards;          // было: литерал
+import { activeGameConfig } from '../data/load';
+export const CARDS = activeGameConfig.cards;   // было: литерал
 export const CARD_LIST = Object.values(CARDS); // производное — без изменений
 export function getCard(...) { /* без изменений */ }
 ```
 
-Переключение в рантайме браузера = `localStorage.setItem('sgtd.configSet', x)` + reload
-(сет фиксируется на загрузку — балансы переключают редко). Для сима — другой
-`CONFIG_SET`/параметр на старте процесса.
+Переключение в рантайме браузера = `localStorage.setItem('sgtd.gameConfig', x)` + reload
+(конфиг фиксируется на загрузку — балансы переключают редко). Для сима — другой
+`GAME_CONFIG`/параметр на старте процесса.
 
 ## Валидация JSON против типов (без рантайм-зависимостей)
 
@@ -159,7 +160,7 @@ export function getCard(...) { /* без изменений */ }
 
 0. `schema.ts` с типами `ConfigSet`/`CombatRules`/`BattleRules` (ничего не подключено).
 1. **proof:** вынести `enemies.json` (простой массив), создать `registry.ts`+`load.ts` с одним
-   полем, в `enemies.ts` заменить литерал на `activeSet.enemies` с аннотацией.
+   полем, в `enemies.ts` заменить литерал на `activeGameConfig.enemies` с аннотацией.
 2. Лёгкие наборы: `levels`, `waves`, `reactions`, `recipes`, `levelUnlocks`, `startingTowers`,
    числовые `combatRules`/`battleRules`/`battleSeed` — каждый мини-коммитом.
 3. **Риск:** `cards` (tuple `grades` + union-литералы) — через нарроверы `schema.ts` +
@@ -167,7 +168,7 @@ export function getCard(...) { /* без изменений */ }
    `createBattleState` (самые eager-зависимые).
 4. `levelCombat` (фоллбек `combatForLevel`→`WAVES` сохранить).
 5. Дописать кросс-ссылочные ассерты в `validate.ts`, дернуть из `load.ts` под DEV.
-6. **Мульти-конфиг:** `resolveSetName()` (query/localStorage/env) + второй сет `variant-A`.
+6. **Мульти-конфиг:** `resolveGameConfigName()` (query/localStorage/env) + второй конфиг `game_config_id000001`.
 7. **sim-готовность:** убедиться, что `load.ts` не тянет браузер-специфику на Node-пути.
 
 ## Критические файлы
@@ -178,16 +179,16 @@ export function getCard(...) { /* без изменений */ }
 - [src/config/combatRules.ts](../../src/config/combatRules.ts),
   [src/config/battleRules.ts](../../src/config/battleRules.ts) — числовые наборы.
 - [src/config/battleState.ts](../../src/config/battleState.ts) — seed-фабрика.
-- Новые: `src/data/{registry,load,schema,validate}.ts`, `src/data/sets/<name>/*.json`.
+- Новые: `src/data/{registry,load,schema,validate}.ts`, `src/data/game_configs/<name>/*.json`.
 
 ## Верификация
 
 1. `npm run typecheck` зелёный после каждого шага.
-2. **«Байт-в-байт»:** при дефолт-сете поведение не меняется; разовый dev-ассерт
-   `JSON.stringify(activeSet.cards) === JSON.stringify(OLD_CARDS)` локально подтверждает
+2. **«Байт-в-байт»:** при дефолт-конфиге поведение не меняется; разовый dev-ассерт
+   `JSON.stringify(activeGameConfig.cards) === JSON.stringify(OLD_CARDS)` локально подтверждает
    точность сериализации.
-3. **Варианты:** `?config=variant-A` (игра) и `CONFIG_SET=variant-A` (сим) дают другой баланс
-   без правки кода.
+3. **Варианты:** `?game_config=game_config_id000001` (игра) и `GAME_CONFIG=game_config_id000001`
+   (сим) дают другой баланс без правки кода.
 
 ## Открытые развилки
 

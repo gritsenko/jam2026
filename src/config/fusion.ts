@@ -5,7 +5,7 @@ import { activeGameConfig } from '../data/load';
  * unobtainable on the field — a horizontal "craft", distinct from the vertical
  * field merge of two identical cards.
  *
- * Recipe data lives in JSON (src/data/sets/<set>/recipes.json) via the active
+ * Recipe data lives in JSON (src/data/game_configs/<config>/recipes.json) via the active
  * ConfigSet (docs/backlog/config-as-data.md), keyed by the sorted "a|b" pair key.
  */
 

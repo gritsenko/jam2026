@@ -4,7 +4,7 @@ import { activeGameConfig } from '../data/load';
 
 /**
  * Tunables for the battle interaction loop (placing / burning / spawning). Data
- * lives in JSON (src/data/sets/<set>/battleRules.json) via the active ConfigSet
+ * lives in JSON (src/data/game_configs/<config>/battleRules.json) via the active ConfigSet
  * (docs/backlog/config-as-data.md); same named exports, only the source changed.
  * Functions and CARD_LIST-derived pools below stay computed in TS.
  */

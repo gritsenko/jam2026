@@ -49,8 +49,8 @@
 - Конфиг-слой ([src/config/](../../src/config/)) — чистые типизированные экспорты =
   готовые «семейства переменных» для `change-request`. После
   [config-as-data.md](config-as-data.md) эти данные живут в JSON-сетах
-  (`src/data/sets/<name>/`): бот/сим читают активный сет через `src/data/load.ts`
-  (`loadConfigSet(name)` / `CONFIG_SET=<name>`) → **разные балансы тестируются «из
+  (`src/data/game_configs/<name>/`): бот/сим читают активный конфиг через `src/data/load.ts`
+  (`loadGameConfig(name)` / `GAME_CONFIG=<name>`) → **разные балансы тестируются «из
   коробки»**, а `change-request` правит JSON выбранного сета.
 
 **Два препятствия:**
@@ -186,8 +186,8 @@ makeRng(seed: number) -> { next(): number /*[0,1)*/, fork(salt: number): Rng }
 - `sim/core/recorder.ts` (маппинг колбэков → Run record, см. ниже).
 - `sim/policies/`: `mono.ts` + `random.ts` (baseline) сразу; `synergyPair.ts`,
   `greedyDps.ts` следом. Политика = `(state, unlocks, rng) -> Action` каждый ход.
-- `sim/run.ts` — цикл (configSet ×) levels × seeds × policies, фикс-dt, append в
-  `out/runs.jsonl` (`CONFIG_SET=<name>` выбирает баланс — [config-as-data.md](config-as-data.md)).
+- `sim/run.ts` — цикл (gameConfig ×) levels × seeds × policies, фикс-dt, append в
+  `out/runs.jsonl` (`GAME_CONFIG=<name>` выбирает баланс — [config-as-data.md](config-as-data.md)).
   `runs.jsonl` импортируется в бэкенд (`sim/server/import.ts`,
   [analytics-and-backend.md](analytics-and-backend.md)) рядом с телеметрией реальных игроков.
 - `sim/dashboard/build.ts` — `aggregate.json` → `out/dashboard.html` (4 пласта §6:

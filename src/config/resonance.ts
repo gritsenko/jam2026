@@ -20,7 +20,7 @@ export interface Reaction {
 }
 
 /**
- * The Resonance Table (v2 §7). Data lives in JSON (src/data/sets/<set>/reactions.json)
+ * The Resonance Table (v2 §7). Data lives in JSON (src/data/game_configs/<config>/reactions.json)
  * via the active ConfigSet (docs/backlog/config-as-data.md). A reaction triggers on
  * a turret when its element pool contains both elements of a pair — gated to Grade
  * II+ by the "different sources" rule (§2.В).

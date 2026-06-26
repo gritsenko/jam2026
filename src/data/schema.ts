@@ -1,6 +1,6 @@
 // Shape of a GameConfig — the editable game-design data, loaded from JSON
-// (src/data/sets/<name>/). Functions and derived caches stay in src/config/*.ts
-// and operate on top of the active set. See docs/backlog/config-as-data.md.
+// (src/data/game_configs/<name>/). Functions and derived caches stay in src/config/*.ts
+// and operate on top of the active config. See docs/backlog/config-as-data.md.
 
 import type { BattleStateMock, CardDef, EnemyDef, LevelNode, PathId, WaveDef } from '../config/types';
 import type { Reaction } from '../config/resonance';

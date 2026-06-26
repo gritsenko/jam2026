@@ -166,11 +166,11 @@ tools/                  # gen_sprite.py + assets.manifest.json (см. tools/READ
   ([types.ts](src/config/types.ts) — источник всех типов). Рендер-компоненты их
   только читают. Новую игровую сущность заводи там, а не в сцене/компоненте.
   **Контент-дизайн вынесен в JSON** (config-as-data): карты/враги/уровни/levelCombat/
-  волны/резонанс/рецепты/прогрессия лежат в `src/data/sets/<name>/*.json` и грузятся
-  через `activeSet` ([src/data/load.ts](src/data/load.ts)); `src/config/*.ts` остались
-  точками входа (читают `activeSet.*`) с теми же экспортами + вычисляемыми функциями.
+  волны/резонанс/рецепты/прогрессия лежат в `src/data/game_configs/<name>/*.json` и грузятся
+  через `activeGameConfig` ([src/data/load.ts](src/data/load.ts)); `src/config/*.ts` остались
+  точками входа (читают `activeGameConfig.*`) с теми же экспортами + вычисляемыми функциями.
   Правишь баланс этих сущностей → правь JSON (или через будущий редактор), не TS-литерал.
-  Переключение сетов: `?config=<name>` / `localStorage['sgtd.configSet']` / `CONFIG_SET`.
+  Переключение конфигов: `?game_config=<name>` / `localStorage['sgtd.gameConfig']` / `GAME_CONFIG`.
   Числовые tunables тоже в JSON (`combatRules`/`battleRules`/`battleSeed` — ключи = имена
   TS-экспортов); вычисляемые функции/производные остаются в TS.
   Спека и статус — [docs/backlog/config-as-data.md](docs/backlog/config-as-data.md).

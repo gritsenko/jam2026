@@ -33,11 +33,11 @@ export default defineConfig({
   server: {
     host: true,
     open: false,
-    // The editor writes ConfigSet JSON under src/data/sets/. Don't let Vite
+    // The editor writes GameConfig JSON under src/data/game_configs/. Don't let Vite
     // full-reload pages on those writes (it would wipe the editor's in-progress
-    // edits / "saved" status). The game picks up the latest set on a fresh load
-    // ("play this set" opens a new tab), so live-watching them isn't needed.
-    watch: { ignored: ['**/src/data/sets/**'] },
+    // edits / "saved" status). The game picks up the latest config on a fresh load
+    // ("play this config" opens a new tab), so live-watching them isn't needed.
+    watch: { ignored: ['**/src/data/game_configs/**'] },
   },
   build: {
     target: 'es2022',

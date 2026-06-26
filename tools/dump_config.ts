@@ -1,6 +1,6 @@
 // One-off helper: serialize the current TS design constants into the default
-// ConfigSet JSON (src/data/sets/default/). Run with tsx. Safe to re-run — after
-// the config-as-data migration it reads the same values back (activeSet) and
+// GameConfig JSON (src/data/game_configs/default/). Run with tsx. Safe to re-run — after
+// the config-as-data migration it reads the same values back (activeGameConfig) and
 // regenerates byte-identical JSON, which doubles as a fidelity check.
 //
 //   sim/server/node_modules/.bin/tsx tools/dump_config.ts
@@ -25,7 +25,7 @@ import * as BR from '../src/config/battleRules';
 import { createBattleState } from '../src/config/battleState';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outDir = resolve(here, '../src/data/sets/default');
+const outDir = resolve(here, '../src/data/game_configs/default');
 mkdirSync(outDir, { recursive: true });
 
 // Fusion recipes: the source RECIPES const is module-private and keyed by a

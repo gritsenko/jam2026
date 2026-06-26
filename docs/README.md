@@ -43,6 +43,7 @@
 - [tutorial-modals.md](planned/tutorial-modals.md) — обучающие модалки на входе в уровень, где открывается новая механика/башня: реестр уроков по дельте прогрессии, компонент `TutorialModal`, «виденность» в прогрессе, иллюстрации/демки.
 - [sell-towers.md](planned/sell-towers.md) — продажа установленных башен.
 - [online-telemetry-deployment.md](planned/online-telemetry-deployment.md) — минимум для вывода телеметрии в онлайн при публично хостящейся игре (хост с постоянным диском, HTTPS, топология `/api` без CORS, `VITE_TELEMETRY_URL` на сборке, токен на ingest бот-ранов); задел под прогон ботов в тот же дашборд. Реализует [analytics-and-backend.md](backlog/analytics-and-backend.md) в проде.
+- [online-editor-deployment.md](planned/online-editor-deployment.md) — приватный (только админ) деплой [редактора геймдизайна](backlog/design-editor.md) в онлайн: бэкенд редактора — это Vite dev-плагин, поэтому поднимается сам `vite dev` за basic-auth+HTTPS; правка/`run bot` работают с живым диском, а «play this config» для нового конфига требует ребилда игры (статический `registry.ts`).
 
 ### backlog/ — беклог
 - [concept.md](backlog/concept.md) — исходный концепт-манифест (v1, заменён v2/v3).

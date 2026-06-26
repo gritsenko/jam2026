@@ -16,7 +16,7 @@ import { activeGameConfig } from '../data/load';
  */
 export function createBattleState(unlocked?: ReadonlySet<string>): BattleStateMock {
   const allowed = (cardId: string) => !unlocked || unlocked.has(cardId);
-  // Clone the seed from the active ConfigSet (src/data/sets/<set>/battleSeed.json)
+  // Clone the seed from the active GameConfig (src/data/game_configs/<config>/battleSeed.json)
   // so callers can freely mutate it without touching the shared template.
   const base: BattleStateMock = structuredClone(activeGameConfig.battleSeed);
 

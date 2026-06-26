@@ -4,7 +4,7 @@ import { activeGameConfig } from '../data/load';
 
 /**
  * Per-level combat config — the wave script and difficulty tier for each campaign
- * node. The data now lives in JSON (src/data/sets/<set>/levelCombat.json) via the
+ * node. The data now lives in JSON (src/data/game_configs/<config>/levelCombat.json) via the
  * active ConfigSet (docs/backlog/config-as-data.md); the spawn applies the tier
  * multipliers per-instance (see BattleSim). Design: docs/done/levels-post-tutorial.md.
  */

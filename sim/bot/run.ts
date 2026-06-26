@@ -4,7 +4,7 @@
 // big sweep yields a real distribution. Optionally pushes to the telemetry backend.
 //
 //   tsx sim/bot/run.ts
-//   SEEDS=1000 CONFIG_SET=default tsx sim/bot/run.ts
+//   SEEDS=1000 GAME_CONFIG=default tsx sim/bot/run.ts
 //   SEEDS=1000 INGEST_URL=http://127.0.0.1:8787 tsx sim/bot/run.ts
 // (or import the file: tsx sim/server/import.ts sim/out/runs.jsonl)
 

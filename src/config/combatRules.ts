@@ -4,7 +4,7 @@ import { activeGameConfig } from '../data/load';
 
 /**
  * Tunables for the battle *simulation* (waves, tower fire, projectiles, core,
- * statuses & resonance). Data lives in JSON (src/data/sets/<set>/combatRules.json)
+ * statuses & resonance). Data lives in JSON (src/data/game_configs/<config>/combatRules.json)
  * via the active ConfigSet — see docs/backlog/config-as-data.md. This module keeps
  * the same named exports (consumers unchanged); only the source is the JSON now.
  * The hand/placement loop tunables live in battleRules.ts; per-card stat tables in cards.ts.

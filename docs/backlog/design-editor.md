@@ -2,17 +2,17 @@
 
 > **Статус реализации (обновлено):** PR-E1 РЕАЛИЗОВАН и проверен. Подстраница
 > `editor.html` + `src/editor/` (dev-only, в прод-сборку не попадает — гейт
-> `BUILD_EDITOR=1`); dev-эндпоинты чтения/записи сетов — `src/editor/devPlugin.ts`
-> (`/__editor/sets|set/<name>|save`, `apply:'serve'`). Редактирование: таблицы
+> `BUILD_EDITOR=1`); dev-эндпоинты чтения/записи конфигов — `src/editor/devPlugin.ts`
+> (`/__editor/game_configs|game_config/<name>|save`, `apply:'serve'`). Редактирование: таблицы
 > **врагов** (ключевые статы) и **уровней**, формы **levelCombat** (hpScale/bountyScale/
 > pathId + waves-JSON), **карт** (скаляры + грейды-JSON), и raw-JSON для
-> reactions/recipes/progression. Кнопки **save** (пишет JSON-сет на диск, без
-> перезагрузки — `server.watch.ignored` на `src/data/sets`), **new (copy)**, **play
-> this set ▶** (открывает игру `?config=<name>`). **PR-E2 добавил:** грейды карт
+> reactions/recipes/progression. Кнопки **save** (пишет JSON-конфиг на диск, без
+> перезагрузки — `server.watch.ignored` на `src/data/game_configs`), **new (copy)**, **play
+> this config ▶** (открывает игру `?game_config=<name>`). **PR-E2 добавил:** грейды карт
 > формами, **визуальный билдер волн** (add/remove волн и групп, enemy-select/count/gap),
-> **валидацию перед save** (`collectConfigIssues` из `src/data/validate.ts` блокирует
-> битый сет), и кнопку **run bot ▶** (`POST /__editor/run-bot` спавнит `sim/bot/run.ts`
-> с `CONFIG_SET`, пушит в бэкенд через `INGEST_URL=VITE_TELEMETRY_URL`, показывает сводку
+> **валидацию перед save** (`collectGameConfigIssues` из `src/data/validate.ts` блокирует
+> битый конфиг), и кнопку **run bot ▶** (`POST /__editor/run-bot` спавнит `sim/bot/run.ts`
+> с `GAME_CONFIG`, пушит в бэкенд через `INGEST_URL=VITE_TELEMETRY_URL`, показывает сводку
 > winrate). Проверено: эндпоинты, save-round-trip, рендер (15 карт/7 уровней/40 волн),
 > валидация, прод-сборка без редактора, run-bot возвращает сводку, typecheck.
 
@@ -27,7 +27,7 @@
 поэтому редактор делаем **отдельным dev-инструментом**, который не попадает в продакшн-билд
 и не тянет UI-фреймворки в игру.
 
-После [config-as-data](config-as-data.md) дизайн живёт в `src/data/sets/<name>/*.json`, а
+После [config-as-data](config-as-data.md) дизайн живёт в `src/data/game_configs/<name>/*.json`, а
 формы типов — в [types.ts](../../src/config/types.ts). Редактор — это типизированный CRUD
 поверх `ConfigSet`.
 
@@ -65,19 +65,19 @@ recipes↔cards, unlocks↔levels; длины/диапазоны). Ошибки 
 1. **Выбрать сет** (`default`/`variant-*`) или «создать вариант копией».
 2. **Править** в формах/таблицах (живой in-memory `ConfigSet`).
 3. **Валидация** (`validate.ts`) → список проблем; сохранение блокируется до их устранения.
-4. **Сохранить** как существующий/новый сет → запись `src/data/sets/<name>/*.json`.
+4. **Сохранить** как существующий/новый конфиг → запись `src/data/game_configs/<name>/*.json`.
 
 **Сохранение (развилка, рекомендация):** маленький **dev-эндпоинт записи файлов** —
 плагин Vite dev-server (`configureServer`, middleware на `POST /__editor/save`), пишущий JSON
-в `src/data/sets/`. Это даёт сохранение «в один клик» в dev. Фолбэк/альтернатива —
+в `src/data/game_configs/`. Это даёт сохранение «в один клик» в dev. Фолбэк/альтернатива —
 **экспорт-скачивание JSON** и ручной коммит (нулевая инфраструктура, ручной шаг). Dev-эндпоинт
 живёт только в dev-конфиге Vite и в прод-игру не попадает.
 
 ## Тестирование варианта
 
-- **«Играть этот сет»** → открыть игру с `?config=<name>` (резолвер `resolveSetName()` из
+- **«Играть этот конфиг»** → открыть игру с `?game_config=<name>` (резолвер `resolveGameConfigName()` из
   [config-as-data](config-as-data.md) подхватит сет).
-- **«Прогнать ботом»** → запустить sim-харнесс с `CONFIG_SET=<name>` (см.
+- **«Прогнать ботом»** → запустить sim-харнесс с `GAME_CONFIG=<name>` (см.
   [autotest-system-impl-plan.md](autotest-system-impl-plan.md)); результат смотреть на
   дашборде (см. [analytics-and-backend.md](analytics-and-backend.md)), сравнивая
   `meta.balanceVersion`/сет с дефолтом.
@@ -93,6 +93,6 @@ recipes↔cards, unlocks↔levels; длины/диапазоны). Ошибки 
 
 1. `/editor.html` открывается в dev; грузит `default`, показывает башни/монстры/уровни.
 2. Правка + сохранение пишет валидный JSON-сет; невалидный — блокируется с понятной ошибкой.
-3. «Играть этот сет» открывает игру с применённым балансом (`?config=<name>`); «прогнать
+3. «Играть этот конфиг» открывает игру с применённым балансом (`?game_config=<name>`); «прогнать
    ботом» наполняет дашборд по этому сету.
 4. Прод-сборка игры (`npm run build`) **не содержит** редактор и не тянет его зависимости.

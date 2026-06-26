@@ -16,7 +16,7 @@ export const LEVEL_ORDER: string[] = LEVELS.map((l) => l.id);
 /**
  * Towers the player starts with before clearing anything (§2: Plasma + Frost) and
  * what clearing each level unlocks *forever* (§2 table). Data lives in JSON
- * (src/data/sets/<set>/progression.json) via the active ConfigSet
+ * (src/data/game_configs/<config>/progression.json) via the active ConfigSet
  * (docs/backlog/config-as-data.md). `towers` are card ids added to the draw pool;
  * `mechanics` are systemic flags the battle reads to gate features (reroll, fusion…).
  */
