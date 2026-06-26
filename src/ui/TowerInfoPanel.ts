@@ -1,5 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
+import { formatGoldAmount } from '../config/battleRules';
 import type { BuffStat, CardDef } from '../config/types';
 import { cardGrade } from '../config/cards';
 import { reactionFor } from '../config/resonance';
@@ -225,7 +226,7 @@ export class TowerInfoPanel extends Container {
   /** Show hold-to-sell button with the refund preview. */
   setSell(refundGold: number, onSell: () => void): void {
     this.sellCallback = onSell;
-    this.sellLabel.text = `HOLD TO SELL  +${refundGold}g`;
+    this.sellLabel.text = `HOLD TO SELL  +${formatGoldAmount(refundGold)}g`;
     this.sellVisible = true;
     this.recalcActionHeight();
     this.sellRow.visible = true;

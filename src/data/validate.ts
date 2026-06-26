@@ -60,5 +60,13 @@ export function collectGameConfigIssues(set: GameConfig): string[] {
     if (!cardIds.has(t)) issues.push(`startingTowers: unknown tower "${t}"`);
   }
 
+  const br = set.battleRules;
+  for (const key of ['OVERDRIVE_BASE_COST', 'OVERDRIVE_STEP', 'SELL_REFUND_RATE', 'FIELD_BURN_COST_MULT'] as const) {
+    const v = br[key];
+    if (typeof v !== 'number' || !Number.isFinite(v)) {
+      issues.push(`battleRules.${key}: expected finite number, got ${String(v)}`);
+    }
+  }
+
   return issues;
 }

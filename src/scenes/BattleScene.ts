@@ -1,5 +1,6 @@
 import { Container, type FederatedPointerEvent, Graphics, type PointData, Sprite, type Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, ELEMENT_IDS, type ElementId, elementSymbolKey, hex } from '../theme';
+import { formatGoldAmount } from '../config/battleRules';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
@@ -1144,7 +1145,8 @@ export class BattleScene extends Scene {
 
   /** A gold-cost chip, red when the player can't currently afford it. */
   private goldPart(icon: Texture, cost: number): CostPart {
-    return { icon, text: `-${cost}`, color: this.state.gold >= cost ? COLORS.gold : COLORS.energyDanger };
+    const gold = Number.isFinite(cost) ? Math.max(0, Math.round(cost)) : 0;
+    return { icon, text: `-${formatGoldAmount(gold)}`, color: this.state.gold >= gold ? COLORS.gold : COLORS.energyDanger };
   }
 
   /**

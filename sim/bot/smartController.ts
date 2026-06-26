@@ -187,7 +187,7 @@ export class SmartController {
     }
 
     // Field burn: 2× gold, frees a slot + Overdrive (admin test mechanic).
-    if (progress.isBurnFieldEnabled() && over > 0 && core.gold >= core.fieldBurnCost()) {
+    if (progress.isBurnFieldEnabled() && over > 0 && core.gold >= core.fieldBurnGold()) {
       const w = weakestSlot(slots, cap);
       if (w >= 0 && core.burnFieldTower(w)) return;
     }

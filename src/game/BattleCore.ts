@@ -387,7 +387,8 @@ export class BattleCore {
     return !!placed && placed.cardId === cardId && placed.grade === grade && placed.grade < 3;
   }
   burnCost(): number { return overdriveCost(this.burnsThisBattle); }
-  fieldBurnCost(): number { return fieldBurnCost(this.burnsThisBattle); }
+  /** Next field-tower Reactor burn gold (2× hand burn). */
+  fieldBurnGold(): number { return fieldBurnCost(this.burnsThisBattle); }
   rerollCost(): number { return REROLL_BASE_COST + this.rerollsThisWave * REROLL_STEP; }
   get effectiveCapacity(): number {
     return (
