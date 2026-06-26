@@ -38,7 +38,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
   CREATE INDEX IF NOT EXISTS idx_events_type_level ON events(type, level);
   CREATE INDEX IF NOT EXISTS idx_events_source ON events(source);
-  CREATE INDEX IF NOT EXISTS idx_events_config ON events(config);
 
   CREATE TABLE IF NOT EXISTS runs (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,10 +50,10 @@ db.exec(`
     record_json     TEXT    NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_runs_source_stage ON runs(source, stage);
-  CREATE INDEX IF NOT EXISTS idx_runs_config ON runs(config);
 `);
 
-// Migrate older DBs created before the `config` column existed (idempotent).
+// Migrate older DBs created before the `config` column existed (idempotent) — must
+// run BEFORE the config indexes, since an old table won't have the column yet.
 for (const t of ['events', 'runs']) {
   try {
     db.exec(`ALTER TABLE ${t} ADD COLUMN config TEXT`);
@@ -62,6 +61,10 @@ for (const t of ['events', 'runs']) {
     /* column already exists */
   }
 }
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_events_config ON events(config);
+  CREATE INDEX IF NOT EXISTS idx_runs_config ON runs(config);
+`);
 
 // INSERT OR IGNORE makes ingest idempotent: a re-flushed batch (same session_id+seq)
 // is silently dropped instead of duplicated. result.changes is 1 on insert, 0 on dup.

@@ -4,6 +4,9 @@
 
 import type { SimEnemy, SimStatus } from '../../src/game/BattleSim';
 import type { PlacedCard } from '../../src/config/types';
+import { CORE_MAX } from '../../src/config/combatRules';
+
+type Ledger = { gold: Record<string, number>; crystals: Record<string, number> };
 
 /** Minimal end-state view — satisfied by both BattleSim and BattleCore. */
 interface EndState {
@@ -11,7 +14,6 @@ interface EndState {
   coreHp: number;
   waveNumber: number;
 }
-import { WAVE_CLEAR_BONUS, PERFECT_CLEAR_CRYSTALS, CORE_MAX } from '../../src/config/combatRules';
 
 export interface RunRecord {
   stage: string;
@@ -47,16 +49,29 @@ export interface Recorder {
     onTowerFired(slotIndex: number): void;
     onWaveCleared(n: number, perfect: boolean): void;
   };
-  finish(sim: EndState, durationSec: number, ctx: { seed: number; policy: string; config: string; balanceVersion: string }): RunRecord;
+  finish(
+    sim: EndState,
+    durationSec: number,
+    ctx: { seed: number; policy: string; config: string; balanceVersion: string; faucets: Ledger; sinks: Ledger },
+  ): RunRecord;
 }
 
-/** Build a recorder for one run. `slots` resolves tower-fired slot → cardId. */
-export function createRecorder(stage: string, slots: (PlacedCard | null)[]): Recorder {
+/** Mutable holder for the live board, so the recorder resolves tower-fired events
+ *  against the current card even after placements/merges. */
+export interface SlotsRef {
+  slots: readonly (PlacedCard | null)[];
+}
+
+/**
+ * Build a recorder for one run. `ref.slots` is the LIVE board (BattleCore.state.slots).
+ * Economy (faucets/sinks) comes from BattleCore's ledger at finish — the recorder
+ * only tracks combat detail (kills/leaks/damage/shots) the engine doesn't.
+ */
+export function createRecorder(stage: string, ref: SlotsRef): Recorder {
   const kills: Record<string, number> = {};
   const leaks: Record<string, number> = {};
   const damageByElement: Record<string, number> = {};
   const shotsByCard: Record<string, number> = {};
-  const faucets = { gold: {} as Record<string, number>, crystals: {} as Record<string, number> };
   let wavesCleared = 0;
   let perfectWaves = 0;
 
@@ -64,9 +79,6 @@ export function createRecorder(stage: string, slots: (PlacedCard | null)[]): Rec
     callbacks: {
       onEnemyKilled(e) {
         bump(kills, e.def.id);
-        bump(faucets.gold, 'kill_bounty', e.bounty);
-        const cb = e.def.crystalBounty ?? 0;
-        if (cb > 0) bump(faucets.crystals, 'elite_drop', cb);
       },
       onEnemyLeaked(e) {
         bump(leaks, e.def.id);
@@ -75,16 +87,12 @@ export function createRecorder(stage: string, slots: (PlacedCard | null)[]): Rec
         bump(damageByElement, element, amount);
       },
       onTowerFired(slotIndex) {
-        const placed = slots[slotIndex];
+        const placed = ref.slots[slotIndex];
         if (placed) bump(shotsByCard, placed.cardId);
       },
       onWaveCleared(_n, perfect) {
         wavesCleared += 1;
-        bump(faucets.gold, 'wave_clear', WAVE_CLEAR_BONUS);
-        if (perfect) {
-          perfectWaves += 1;
-          bump(faucets.crystals, 'perfect_clear', PERFECT_CLEAR_CRYSTALS);
-        }
+        if (perfect) perfectWaves += 1;
       },
     },
     finish(sim, durationSec, ctx) {
@@ -101,8 +109,8 @@ export function createRecorder(stage: string, slots: (PlacedCard | null)[]): Rec
         durationSec: Math.round(durationSec * 10) / 10,
         wavesCleared,
         perfectWaves,
-        faucets,
-        sinks: { gold: {}, crystals: {} }, // baseline policies don't model economy spend
+        faucets: ctx.faucets,
+        sinks: ctx.sinks,
         kills,
         leaks,
         damageByElement,

@@ -11,12 +11,17 @@ import { CARD_LIST } from '../../src/config/cards';
 import type { PlacedCard } from '../../src/config/types';
 import { makeRng } from './rng';
 
-export type PolicyName = 'seeded' | 'greedyFill' | 'randomBoard';
-export const POLICIES: PolicyName[] = ['seeded', 'greedyFill', 'randomBoard'];
+export type PolicyName = 'seeded' | 'greedyFill' | 'randomBoard' | 'smart';
+export const POLICIES: PolicyName[] = ['seeded', 'greedyFill', 'randomBoard', 'smart'];
 
 /** Whether a policy varies by seed (so the seed sweep is meaningful). */
 export function isStochastic(policy: PolicyName): boolean {
-  return policy === 'randomBoard';
+  return policy === 'randomBoard' || policy === 'smart';
+}
+
+/** Whether a policy plays actively over time (SmartController) vs a static board. */
+export function isActive(policy: PolicyName): boolean {
+  return policy === 'smart';
 }
 
 /** The board a policy plays for `levelId` (seed only matters for stochastic policies). */

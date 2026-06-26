@@ -15,6 +15,7 @@ import { ENEMY_PATHS, CORE_MAX, CAPACITY_PER_WAVE, OVERDRIVE_CAPACITY_BONUS, WAV
 import {
   OVERDRIVE_SEC, overdriveCost, REROLL_BASE_COST, REROLL_STEP, rollHandCard,
   DRAW_POOL, MOD_CARD_POOL, MOD_DRAW_CHANCE, MOD_ISOLATION_CAPACITY, MOD_FOCUS_DMG_MULT, MOD_EMERGENCY_OVERDRIVE_SEC,
+  HAND_SIZE, HAND_RESPAWN_SEC,
 } from '../config/battleRules';
 import { fusionResult, fusionGoldCost, FUSION_CRYSTAL_COST } from '../config/fusion';
 import { unlockedMechanicsForLevel, unlockedTowersForLevel } from '../config/progression';
@@ -53,6 +54,8 @@ export class BattleCore {
   private readonly mechanics: ReadonlySet<string>;
   private readonly drawPool: string[];
   private instanceSeq = 0;
+  /** The hand: HAND_SIZE slots, each a drawn card or an empty slot recharging. */
+  private handSlots: { card: HandCard | null; cooldown: number }[] = [];
 
   readonly faucets: Ledger = { gold: {}, crystals: {} };
   readonly sinks: Ledger = { gold: {}, crystals: {} };
@@ -104,12 +107,22 @@ export class BattleCore {
         },
       },
     });
+    // Seed the hand from the starting snapshot; empty slots fill on the first tick.
+    this.handSlots = Array.from({ length: HAND_SIZE }, (_, i) => ({
+      card: this.state.hand[i] ?? null,
+      cooldown: 0,
+    }));
+
     this.refreshSynergy();
     this.refreshEnergy();
     this.syncTowers();
   }
 
   // --- read-through state ----------------------------------------------------
+  hasMechanic(m: string): boolean { return this.mechanics.has(m); }
+  /** Current hand cards (null = a slot still recharging). */
+  get hand(): readonly (HandCard | null)[] { return this.handSlots.map((s) => s.card); }
+  get focusedElement(): ElementId | null { return this.focusElement; }
   get status(): SimStatus { return this.sim.status; }
   get coreHp(): number { return this.sim.coreHp; }
   get coreMax(): number { return CORE_MAX; }
@@ -121,8 +134,18 @@ export class BattleCore {
   // --- lifecycle -------------------------------------------------------------
   start(): void { this.sim.start(); }
 
-  /** Advance one fixed step: feed overload (like BattleScene.update) then tick the sim. */
+  /** Advance one fixed step: hand respawn + overload feed (like BattleScene.update), then tick the sim. */
   tick(dt: number): void {
+    // Hand respawn: an emptied slot recharges then deals a fresh card.
+    for (const s of this.handSlots) {
+      if (s.card === null) {
+        s.cooldown -= dt;
+        if (s.cooldown <= 0) {
+          s.card = this.rollHandCard();
+          s.cooldown = 0;
+        }
+      }
+    }
     // Overdrive burn windows expire.
     if (this.overdriveStacks.length > 0) {
       for (let i = this.overdriveStacks.length - 1; i >= 0; i--) {
@@ -196,16 +219,57 @@ export class BattleCore {
     if (this.state.crystals < cost) return false;
     this.spendCrystals(cost, 'reroll');
     this.rerollsThisWave++;
-    this.state.hand = this.state.hand.map(() => this.rollHandCard());
+    for (const s of this.handSlots) {
+      s.card = this.rollHandCard();
+      s.cooldown = 0;
+    }
     return true;
   }
 
-  /** Fuse two hand cards (by instanceId) into a hybrid (v2 §6.5). */
-  fusion(aInstanceId: string, bInstanceId: string): boolean {
-    if (!this.mechanics.has('fusion')) return false;
-    const a = this.state.hand.find((h) => h.instanceId === aInstanceId);
-    const b = this.state.hand.find((h) => h.instanceId === bInstanceId);
-    if (!a || !b || a === b) return false;
+  // --- hand-driven actions (used by the bot; consume the played hand slot) ----
+  /** Empty a hand slot and start its recharge. */
+  private consumeHand(i: number): void {
+    const s = this.handSlots[i];
+    if (s) {
+      s.card = null;
+      s.cooldown = HAND_RESPAWN_SEC;
+    }
+  }
+
+  placeFromHand(i: number, slot: number): boolean {
+    const c = this.handSlots[i]?.card;
+    if (!c || !this.place(c.cardId, c.grade, slot)) return false;
+    this.consumeHand(i);
+    return true;
+  }
+
+  mergeFromHand(i: number, slot: number): boolean {
+    const c = this.handSlots[i]?.card;
+    if (!c || !this.mergeHand(c.cardId, c.grade, slot)) return false;
+    this.consumeHand(i);
+    return true;
+  }
+
+  burnFromHand(i: number): boolean {
+    const c = this.handSlots[i]?.card;
+    if (!c || !this.burn()) return false;
+    this.consumeHand(i);
+    return true;
+  }
+
+  modernizationFromHand(i: number, element?: ElementId): boolean {
+    const c = this.handSlots[i]?.card;
+    if (!c || !this.modernization(c.cardId, element)) return false;
+    this.consumeHand(i);
+    return true;
+  }
+
+  /** Fuse two hand cards (by slot index) into a hybrid; the crafted hybrid lands in slot j. */
+  fuse(i: number, j: number): boolean {
+    if (!this.mechanics.has('fusion') || i === j) return false;
+    const a = this.handSlots[i]?.card;
+    const b = this.handSlots[j]?.card;
+    if (!a || !b) return false;
     const hybridId = fusionResult(a.cardId, b.cardId);
     if (!hybridId) return false;
     const goldCost = fusionGoldCost(a.grade, b.grade);
@@ -213,10 +277,8 @@ export class BattleCore {
     this.spendGold(goldCost, 'fusion');
     this.spendCrystals(FUSION_CRYSTAL_COST, 'fusion');
     this.fusionsThisBattle++;
-    // Source consumed; target becomes the crafted hybrid.
-    this.state.hand = this.state.hand
-      .filter((h) => h.instanceId !== aInstanceId)
-      .map((h) => (h.instanceId === bInstanceId ? { instanceId: h.instanceId, cardId: hybridId, grade: 1 } : h));
+    this.handSlots[j]!.card = { instanceId: `fuse-${this.instanceSeq++}`, cardId: hybridId, grade: 1 };
+    this.consumeHand(i);
     return true;
   }
 

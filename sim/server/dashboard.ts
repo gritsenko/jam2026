@@ -58,6 +58,8 @@ export const DASHBOARD_HTML = `<!doctype html>
   var root = document.getElementById('root');
   var meta = document.getElementById('meta');
   var sourceSel = document.getElementById('source');
+  var configSel = document.getElementById('config');
+  var configBSel = document.getElementById('configB');
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -237,16 +239,67 @@ export const DASHBOARD_HTML = `<!doctype html>
     root.appendChild(contentSection(agg.stages));
   }
 
+  // Fill the config + compare selects from the aggregate's config list, preserving
+  // the current selection. configSel: all + configs. configBSel: '—' (off) + configs.
+  function populateConfigs(configs) {
+    var keepA = configSel.value, keepB = configBSel.value;
+    configSel.innerHTML = '';
+    configSel.appendChild(el('option', null, 'all')).value = 'all';
+    configBSel.innerHTML = '';
+    var off = el('option', null, '—'); off.value = ''; configBSel.appendChild(off);
+    configs.forEach(function (c) {
+      var a = el('option', null, c); a.value = c; configSel.appendChild(a);
+      var b = el('option', null, c); b.value = c; configBSel.appendChild(b);
+    });
+    configSel.value = keepA && (keepA === 'all' || configs.indexOf(keepA) >= 0) ? keepA : 'all';
+    configBSel.value = keepB && configs.indexOf(keepB) >= 0 ? keepB : '';
+  }
+
+  function fetchAgg(config) {
+    return fetch('/aggregate?source=' + encodeURIComponent(sourceSel.value) + '&config=' + encodeURIComponent(config))
+      .then(function (r) { return r.json(); });
+  }
+
+  // Compare two configs: difficulty + pacing tables side by side, labeled by config.
+  function renderCompare(aggA, nameA, aggB, nameB) {
+    meta.textContent = 'compare · ' + nameA + ' (' + aggA.meta.totalAttempts + ') vs ' +
+      nameB + ' (' + aggB.meta.totalAttempts + ') · ' + new Date().toLocaleTimeString();
+    root.innerHTML = '';
+    function column(name, agg) {
+      var col = el('div');
+      col.appendChild(el('h2', null, name));
+      col.appendChild(difficultyTable(agg.stages));
+      col.appendChild(actionsTable(agg.stages));
+      return col;
+    }
+    var grid = el('div');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = '1fr 1fr';
+    grid.style.gap = '10px';
+    grid.appendChild(column(nameA, aggA));
+    grid.appendChild(column(nameB, aggB));
+    root.appendChild(grid);
+  }
+
   function load() {
-    var src = sourceSel.value;
-    fetch('/aggregate?source=' + encodeURIComponent(src))
-      .then(function (r) { return r.json(); })
-      .then(render)
+    var cfgA = configSel.value || 'all';
+    var cfgB = configBSel.value;
+    fetchAgg(cfgA)
+      .then(function (aggA) {
+        populateConfigs(aggA.meta.configs || []);
+        if (cfgB && cfgB !== cfgA) {
+          fetchAgg(cfgB).then(function (aggB) { renderCompare(aggA, cfgA, aggB, cfgB); });
+        } else {
+          render(aggA);
+        }
+      })
       .catch(function (err) { root.innerHTML = ''; root.appendChild(el('div', 'empty', String(err))); });
   }
 
   document.getElementById('refresh').addEventListener('click', load);
   sourceSel.addEventListener('change', load);
+  configSel.addEventListener('change', load);
+  configBSel.addEventListener('change', load);
   load();
 })();
 </script>

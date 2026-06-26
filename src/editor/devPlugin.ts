@@ -73,6 +73,12 @@ export function editorDevPlugin(): Plugin {
     name: 'sgtd-editor',
     apply: 'serve',
     configureServer(server) {
+      // Vite does NOT put .env(.local) VITE_* vars into process.env, so read the
+      // resolved env here to find the telemetry endpoint for run-bot pushes.
+      const telemetryUrl =
+        (server.config.env.VITE_TELEMETRY_URL as string | undefined) ??
+        process.env.VITE_TELEMETRY_URL ??
+        '';
       server.middlewares.use('/__editor', (req, res) => {
         const url = new URL(req.url ?? '', 'http://localhost');
         const parts = url.pathname.split('/').filter(Boolean); // after /__editor
@@ -106,7 +112,8 @@ export function editorDevPlugin(): Plugin {
                 env: {
                   ...process.env,
                   GAME_CONFIG: name,
-                  INGEST_URL: process.env.VITE_TELEMETRY_URL ?? '',
+                  INGEST_URL: telemetryUrl,
+                  SEEDS: process.env.SEEDS ?? '30', // meaningful sample from one click
                 },
               });
               let out = '';
