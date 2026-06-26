@@ -59,6 +59,13 @@
   (Fire+Physical).
 - **Мердж и фьюжн.** Мердж одинаковых карт в грейды (поле II+II→III, рука I+I→II);
   фьюжн разных карт в руке — 6 гибридов ([fusion.ts](../../src/config/fusion.ts)).
+  Гибриды несут встроенные перки `hybridPerks` в [cards.json](../../src/data/game_configs/default/cards.json)
+  (сим: [BattleSim.buildTowerSpec](../../src/game/BattleSim.ts)): **Паровая Пушка**
+  (`steamBurst` — урон по площади + slow/Wet), **Криоразряд** (`wetOnHit` — цепь вешает
+  Wet), **Термокопьё** (`builtInShrapnel` — детонация вдоль pierce), **Ледобой**
+  (`bonusVsSlowWet` — +35% по slow/wet), **Гаусс-Катушка** (`chainAfterPierce` — дуга
+  после луча), **Ионный Залп** — быстрый chain без отдельного перка. Гейт `fusion_recipes`
+  по звёздам **не реализован** (все рецепты доступны с ур.7).
 - **Карты-поддержка.** Барьер Щита держит лидера ([BattleSim.ts](../../src/game/BattleSim.ts));
   Стабилизатор даёт соседним **башням** модификатор темпа через таблицу синергий
   ([synergy.ts](../../src/game/synergy.ts)).
@@ -210,7 +217,8 @@ Kingdom Rush) + тёмный дизельпанк-металл, якорь `docs
 `iconKey` в `COMPOSED_AIM_SHEETS`, и он автоматически получит неподвижную базу.
 
 Остальные башни (Ледяная `frost_pulse`, Тесла `storm_coil`, Щит, Стабилизатор)
-**статичны** (без `_dirs`); гибриды берут шит родителя по `iconKey`.
+**статичны** (без `_dirs`); гибриды — собственные `iconKey` (`steam_cannon`, …) с
+фоллбеком на родителя до PNG ([fusion-hybrid-assets.md](../planned/fusion-hybrid-assets.md)).
 `<iconKey>.png` — арт для карточки в руке. Пайплайн доработки: положить новый 3×3-шит
 `assets/sprites/<iconKey>_dirs.png` (фон прозрачный) → перезапуск dev-сервера. Будущие
 состояния (idle/attack/loading) и грейд-версии — отдельными шитами `<iconKey>_*`.

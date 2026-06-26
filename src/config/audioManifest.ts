@@ -189,6 +189,65 @@ export const AUDIO: AudioSpec[] = [
     prompt:
       'high-velocity slug piercing through, hard kinetic thud with a brief metallic ring-out, satisfying and heavy, 0.35 seconds',
   },
+
+  // ---- Fusion hybrid towers (v2 §6.5) — see fusion-hybrid-assets.md ----------
+  {
+    key: 'sfx_shoot_steam',
+    kind: 'sfx',
+    volume: 0.5,
+    prompt:
+      'steam cannon firing a pressurized water-frost bolt, soft hissing whoosh with a warm vapor puff and gentle crystalline tail, smooth not harsh, 0.35 seconds',
+  },
+  {
+    key: 'sfx_hit_steam',
+    kind: 'sfx',
+    volume: 0.55,
+    prompt:
+      'steam burst impact, satisfying wet hiss with soft scalding puff and frosty shimmer, warm and airy, 0.35 seconds',
+  },
+  {
+    key: 'sfx_shoot_cryo',
+    kind: 'sfx',
+    volume: 0.45,
+    prompt:
+      'cryo lightning discharge, crisp electric zap layered with a glassy ice crackle, snappy and cool, 0.3 seconds',
+  },
+  {
+    key: 'sfx_shoot_ion',
+    kind: 'sfx',
+    volume: 0.5,
+    prompt:
+      'rapid ion volley burst, fast tight plasma pops with a bright electric snap, energetic and clean, 0.25 seconds',
+  },
+  {
+    key: 'sfx_shoot_thermo',
+    kind: 'sfx',
+    volume: 0.6,
+    prompt:
+      'thermo rail spear firing, deep magnetic charge into a fiery detonation snap, heavy warm boom with metallic ring, 0.55 seconds',
+  },
+  {
+    key: 'sfx_hit_thermo',
+    kind: 'sfx',
+    volume: 0.6,
+    prompt:
+      'thermo detonation impact, punchy fiery thump with a soft shrapnel spread crackle, warm and weighty, 0.4 seconds',
+  },
+  {
+    key: 'sfx_shoot_icebreaker',
+    kind: 'sfx',
+    volume: 0.55,
+    prompt:
+      'icebreaker rail shot, heavy kinetic launch with a cold frosty whoosh and deep metal thunk, 0.5 seconds',
+  },
+  {
+    key: 'sfx_shoot_gauss',
+    kind: 'sfx',
+    volume: 0.55,
+    prompt:
+      'gauss coil discharge, swelling magnetic hum into a bright electric arc crack along the rail, powerful and clean, 0.55 seconds',
+  },
+
   {
     key: 'sfx_crit',
     kind: 'sfx',

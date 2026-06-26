@@ -45,6 +45,10 @@ export interface CombatRules {
   SUPERCONDUCT_TEMPO_MULT: number;
   SUPERCONDUCT_STUN_CHANCE: number;
   SUPERCONDUCT_STUN_SEC: number;
+  /** Damage mult vs slowed or Wet targets (Icebreaker hybrid, v2 §6.5). */
+  HYBRID_SLOW_WET_BONUS: number;
+  /** Splash radius fraction for Steam Cannon steam-burst hits. */
+  HYBRID_STEAM_BURST_FRAC: number;
   ENEMY_PATHS: Record<PathId, { x: number; y: number }[]>;
 }
 

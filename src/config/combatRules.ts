@@ -83,6 +83,10 @@ export const STEAM_DOT_SEC = C.STEAM_DOT_SEC;
 export const SUPERCONDUCT_TEMPO_MULT = C.SUPERCONDUCT_TEMPO_MULT;
 export const SUPERCONDUCT_STUN_CHANCE = C.SUPERCONDUCT_STUN_CHANCE;
 export const SUPERCONDUCT_STUN_SEC = C.SUPERCONDUCT_STUN_SEC;
+/** Icebreaker: bonus damage vs slowed or Wet enemies (v2 §6.5). */
+export const HYBRID_SLOW_WET_BONUS = C.HYBRID_SLOW_WET_BONUS;
+/** Steam Cannon: AoE damage splash radius as fraction of arena width. */
+export const HYBRID_STEAM_BURST_FRAC = C.HYBRID_STEAM_BURST_FRAC;
 
 /**
  * Enemy march templates, as fractions of the arena image (0..1). Each starts

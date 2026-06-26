@@ -39,6 +39,18 @@ export type SignatureKind =
 export type ReactionId = 'steam' | 'superconductivity' | 'shrapnel';
 
 /**
+ * Built-in combat behaviors for fusion hybrids (v2 §6.5). Distinct from field
+ * resonance — compact kits crafted in hand. `sig2` meaning varies per perk
+ * (Wet seconds, chain hops after pierce, …).
+ */
+export type HybridPerk =
+  | 'wetOnHit'
+  | 'builtInShrapnel'
+  | 'bonusVsSlowWet'
+  | 'chainAfterPierce'
+  | 'steamBurst';
+
+/**
  * Per-grade tunables for a card (the array index is grade-1: [0]=Grade I).
  * Distilled from the v2 stat tables in §5/§6.
  */
@@ -126,6 +138,8 @@ export interface CardDef {
    * but count as a single source for resonance (their `element` is the one source).
    */
   readonly hybrid?: boolean;
+  /** Fusion-only built-in effects (v2 §6.5); see {@link HybridPerk}. */
+  readonly hybridPerks?: readonly HybridPerk[];
 }
 
 /** A card occupying a platform slot. */

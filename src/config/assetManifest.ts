@@ -292,7 +292,8 @@ export const ASSETS: AssetSpec[] = [
   // to aim at the lead enemy (see the "Turret aim sheets" block); for those the
   // in-game tower renders from the sheet, not `<id>`. Non-rotating towers
   // (frost_pulse, storm_coil, shield_generator, grid_stabilizer) are a single
-  // static sprite. Hybrids reuse their parent's art (+ sheet) via iconKey.
+  // static sprite. Hybrids have dedicated iconKeys (see fusion-hybrid-assets.md);
+  // until PNGs land, ASSET_FALLBACKS may point at a parent tower.
   {
     key: 'plasma_shutter',
     category: 'tower',
@@ -334,6 +335,50 @@ export const ASSETS: AssetSpec[] = [
     size: 512,
     prompt: 'uranium battery stabilizer cell turret, a dark metal canister with glowing green energy rods and yellow-black hazard stripes, three-quarter top-down view',
     placeholder: { shape: 'round', tint: N, label: 'CELL' },
+  },
+
+  // ---- Fusion hybrids (v2 §6.5) — see docs/planned/fusion-hybrid-assets.md ----
+  {
+    key: 'steam_cannon',
+    category: 'tower',
+    size: 512,
+    prompt: 'steam cannon hybrid turret, frost and fire fusion, chunky armored turntable with hissing steam vents and orange-ice dual glow core, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: W, label: 'STEAM' },
+  },
+  {
+    key: 'cryo_discharge',
+    category: 'tower',
+    size: 512,
+    prompt: 'cryo discharge hybrid turret, tesla coil fused with frost crystals, violet lightning arcs over icy blue core on dark metal base, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: E, label: 'CRYO' },
+  },
+  {
+    key: 'ion_volley',
+    category: 'tower',
+    size: 512,
+    prompt: 'ion volley hybrid turret, rapid-fire plasma gun with electric ionizer rings, fiery orange core with violet arc accents, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: F, label: 'ION' },
+  },
+  {
+    key: 'thermo_spear',
+    category: 'tower',
+    size: 512,
+    prompt: 'thermo spear hybrid turret, railgun fused with fire, long heated rail cradle glowing molten orange on heavy gunmetal base, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: F, label: 'THERMO' },
+  },
+  {
+    key: 'icebreaker',
+    category: 'tower',
+    size: 512,
+    prompt: 'icebreaker hybrid turret, railgun fused with frost, long rail with pale cyan ice coating and frosted energy capacitor, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: W, label: 'ICE' },
+  },
+  {
+    key: 'gauss_coil',
+    category: 'tower',
+    size: 512,
+    prompt: 'gauss coil hybrid turret, railgun fused with tesla, magnetic rail with crackling violet coils and brass capacitors, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: E, label: 'GAUSS' },
   },
 
   // ---- Turret aim sheets ---------------------------------------------------
@@ -529,4 +574,10 @@ export const ASSET_FALLBACKS: Record<string, string> = {
   bg_lvl_6: 'bg_level',
   bg_lvl_7: 'bg_level',
   icon_reactor: 'ui_button_overdrive',
+  steam_cannon: 'frost_pulse',
+  cryo_discharge: 'storm_coil',
+  ion_volley: 'plasma_shutter',
+  thermo_spear: 'railgun',
+  icebreaker: 'railgun',
+  gauss_coil: 'railgun',
 };

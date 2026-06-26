@@ -52,6 +52,8 @@ import { Button } from '../ui/Button';
 import { GearButton } from '../ui/GearButton';
 import { MuteButton } from '../ui/MuteButton';
 import { SettingsPanel } from '../ui/SettingsPanel';
+import { TutorialModal } from '../ui/TutorialModal';
+import { pendingLessons } from '../config/tutorial';
 import { CoreBadge } from '../ui/CoreBadge';
 import { EnemySprite } from '../ui/EnemySprite';
 import { EnergyGauge } from '../ui/EnergyGauge';
@@ -104,6 +106,12 @@ const TOWER_SHOOT_SFX: Record<string, string> = {
   frost_pulse: 'sfx_shoot_frost',
   storm_coil: 'sfx_shoot_storm',
   railgun: 'sfx_shoot_railgun',
+  steam_cannon: 'sfx_shoot_steam',
+  cryo_discharge: 'sfx_shoot_cryo',
+  ion_volley: 'sfx_shoot_ion',
+  thermo_spear: 'sfx_shoot_thermo',
+  icebreaker: 'sfx_shoot_icebreaker',
+  gauss_coil: 'sfx_shoot_gauss',
 };
 
 /**
@@ -189,6 +197,8 @@ export class BattleScene extends Scene {
   private gearBtn!: GearButton;
   private muteBtn!: MuteButton;
   private settings: SettingsPanel | null = null;
+  /** Onboarding modal, alive only while pending lessons are shown (defers wave start). */
+  private tutorial: TutorialModal | null = null;
   /** 1-based number of the wave in progress; drives the §3.В wave-capacity growth. */
   private currentWave = 1;
   /** Hand rerolls used in the current wave; resets each wave (§8.Б cost escalation). */
@@ -429,7 +439,6 @@ export class BattleScene extends Scene {
     });
     this.refreshSynergy();
     this.syncTowers();
-    this.sim.start();
 
     this.addChild(
       this.marginBg,
@@ -447,6 +456,35 @@ export class BattleScene extends Scene {
     this.field.mask = this.fieldMask;
     // Reactor overlays the field but sits below the dragged card.
     this.hudLayer.addChild(this.reactor);
+
+    // Onboarding: if this level introduces anything new, walk the player through
+    // it before the waves begin. The sim only starts once the modal is closed
+    // (no separate pause flag — unstarted sim simply doesn't advance).
+    this.startBattleOrTutorial();
+  }
+
+  /**
+   * Show the pending tutorial lessons for this level (if any), deferring the
+   * first wave until the player closes the modal; otherwise start combat now.
+   */
+  private startBattleOrTutorial(): void {
+    const lessons = pendingLessons(this.levelId, progress.seenTutorials(), progress.isAdmin());
+    if (lessons.length === 0) {
+      this.sim.start();
+      return;
+    }
+    this.tutorial = new TutorialModal(lessons, this.services.assets, this.services.audio, () => {
+      progress.markTutorialsSeen(lessons.map((l) => l.id));
+      this.closeTutorial();
+      this.sim.start();
+    });
+    this.addChild(this.tutorial); // top-most, above the drag layer (like settings)
+    this.tutorial.layout(this.services.getLayout());
+  }
+
+  private closeTutorial(): void {
+    this.tutorial?.destroy({ children: true });
+    this.tutorial = null;
   }
 
   private buildHud(): void {
@@ -2804,6 +2842,7 @@ export class BattleScene extends Scene {
     // Gear sits just under the MAP button, left column.
     this.gearBtn.position.set(safe.x + pad + 75, topY + 64 + 12 + 32);
     this.settings?.layout(info);
+    this.tutorial?.layout(info);
     this.waveBadge.position.set(safe.x + pad + 160, topY);
     this.coreBadge.position.set(safe.x + pad + 160, topY + this.waveBadge.badgeH + 8);
 
@@ -2912,6 +2951,7 @@ export class BattleScene extends Scene {
 
   override update(dt: number): void {
     this.gauge.tick(dt);
+    this.tutorial?.tick(dt); // idle float + scripted demo animation while open
 
     // Drive the combat simulation, then mirror it into sprites. Overload from
     // too much energy load slows each tower's fire rate in proportion to its own
@@ -2975,6 +3015,7 @@ export class BattleScene extends Scene {
     for (const t of this.tweens) t.stop();
     this.tweens.length = 0;
     this.closeSettings();
+    this.closeTutorial();
     this.rewardLayer.removeChildren().forEach((c) => c.destroy());
     this.enemyViews.clear();
     this.enemyHpSeen.clear();

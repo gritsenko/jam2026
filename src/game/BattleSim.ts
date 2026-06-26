@@ -2,7 +2,7 @@ import type { ElementId } from '../theme';
 import type { CardDef, EnemyDef, ReactionId, WaveDef } from '../config/types';
 import type { Rng } from './rng';
 import { getEnemy } from '../config/enemies';
-import { cardGrade, cardLoad } from '../config/cards';
+import { cardGrade, cardLoad, hasHybridPerk } from '../config/cards';
 import {
   AOE_SPLASH_FRAC,
   AURA_HASTE_CAP_PCT,
@@ -13,6 +13,8 @@ import {
   DISRUPTOR_JAM_RANGE_FRAC,
   FIRST_WAVE_DELAY,
   FROST_FREEZE_RADIUS_FRAC,
+  HYBRID_SLOW_WET_BONUS,
+  HYBRID_STEAM_BURST_FRAC,
   INTERRUPT_STUN_SEC,
   OVERLOAD_FIRE_FLOOR,
   OVERLOAD_FIRE_PENALTY_PER_LOAD,
@@ -91,7 +93,11 @@ export interface HitEffects {
   stunChance: number;
   stunSec: number;
   vsWetMult: number; // 1 = none (Storm = 2)
+  /** Bonus damage vs slowed or Wet targets (Icebreaker, v2 §6.5). */
+  vsSlowWetMult: number;
   chainTargets: number; // 1 = no chain
+  /** Chain hops after a pierce beam (Gauss Coil, v2 §6.5). */
+  chainAfterPierce: number;
 }
 
 /** A firing tower derived from a placed card + its synergy. */
@@ -628,6 +634,7 @@ export class BattleSim {
     const dy = Math.sin(ang);
     const len = tower.range;
     const band = this.railgunBand;
+    const pierced: SimEnemy[] = [];
     for (const e of this.enemies) {
       if (!e.alive) continue;
       const rx = e.x - tower.x;
@@ -636,9 +643,25 @@ export class BattleSim {
       if (along < -band || along > len) continue;
       const perp = Math.abs(rx * dy - ry * dx); // perpendicular distance from the beam
       if (perp > band) continue;
+      pierced.push(e);
       this.applyHit(e, tower.damage, tower);
+      if (tower.aoeRadius > 0) this.applyAoESplash(e.x, e.y, tower.damage, tower, e);
     }
     this.cb.onBeam?.(tower.x, tower.y, tower.x + dx * len, tower.y + dy * len, tower.element);
+    if (tower.chainAfterPierce > 0) {
+      const hit = new Set<SimEnemy>(pierced);
+      let from = lead;
+      let dmg = tower.damage;
+      for (let hop = 0; hop < tower.chainAfterPierce; hop++) {
+        const next = this.nearestUnhit(from.x, from.y, hit);
+        if (!next) break;
+        dmg *= CHAIN_FALLOFF;
+        this.applyHit(next, dmg, tower);
+        this.cb.onBeam?.(from.x, from.y, next.x, next.y, tower.element);
+        hit.add(next);
+        from = next;
+      }
+    }
   }
 
   /**
@@ -733,7 +756,9 @@ export class BattleSim {
       stunChance: tower.stunChance,
       stunSec: tower.stunSec,
       vsWetMult: tower.vsWetMult,
+      vsSlowWetMult: tower.vsSlowWetMult,
       chainTargets: tower.chainTargets,
+      chainAfterPierce: 0,
     });
   }
 
@@ -770,15 +795,8 @@ export class BattleSim {
     const primary = p.target;
     this.applyHit(primary, p.damage, p);
 
-    // Area splash (Plasma III shockwave / Shrapnel).
-    if (p.aoeRadius > 0) {
-      const r2 = p.aoeRadius * p.aoeRadius;
-      for (const e of this.enemies) {
-        if (!e.alive || e === primary) continue;
-        if (this.dist2(e.x, e.y, p.x, p.y) > r2) continue;
-        this.applyHit(e, p.damage * p.splashFrac, p);
-      }
-    }
+    // Area splash (Plasma III shockwave / Shrapnel / Steam burst).
+    if (p.aoeRadius > 0) this.applyAoESplash(p.x, p.y, p.damage, p, primary);
 
     // Frost freeze radius (v3 §5): slow + Wet wash over every enemy near the
     // impact (status only — no extra damage), widening with the tower's grade.
@@ -823,11 +841,30 @@ export class BattleSim {
     return best;
   }
 
+  /** Splash damage around a point (Shrapnel / Steam burst / Thermo detonation). */
+  private applyAoESplash(
+    cx: number,
+    cy: number,
+    directDmg: number,
+    fx: HitEffects & { readonly element: ElementId },
+    primary: SimEnemy,
+  ): void {
+    const r2 = fx.aoeRadius * fx.aoeRadius;
+    for (const e of this.enemies) {
+      if (!e.alive || e === primary) continue;
+      if (this.dist2(e.x, e.y, cx, cy) > r2) continue;
+      this.applyHit(e, directDmg * fx.splashFrac, fx);
+    }
+  }
+
   /** Apply damage (with Wet bonus) and on-hit statuses from a hit source. */
   private applyHit(e: SimEnemy, baseDamage: number, fx: HitEffects & { readonly element: ElementId }): void {
     if (!e.alive) return;
+    const slowed = e.slowUntil > this.clock && e.slowFactor < 1;
     const wet = e.wetUntil > this.clock;
-    const dmg = baseDamage * (wet ? fx.vsWetMult : 1);
+    let dmg = baseDamage;
+    if (slowed || wet) dmg *= fx.vsSlowWetMult;
+    dmg *= wet ? fx.vsWetMult : 1;
     // Floating damage number (skips status-only applications like the freeze wash).
     if (dmg > 0) this.cb.onEnemyDamaged?.(e, Math.round(dmg), wet && fx.vsWetMult > 1, fx.element);
     this.damageEnemy(e, dmg);
@@ -942,20 +979,36 @@ export function towerStats(def: CardDef, grade: number): ResolvedTowerStats {
 /** A short readout of the card's signature parameter at a grade (v2 §5). */
 export function signatureLabel(def: CardDef, grade: number): string {
   const g = cardGrade(def, grade);
+  let base: string;
   switch (def.signature) {
     case 'projectile_power':
-      return `POWER ${g.sig}`;
+      base = `POWER ${g.sig}`;
+      break;
     case 'freeze_radius':
-      return `SLOW ${g.sig}% • WET ${g.sig2 ?? 0}s`;
+      base = `SLOW ${g.sig}% • WET ${g.sig2 ?? 0}s`;
+      break;
     case 'chain_targets':
-      return `CHAIN ${g.sig}`;
+      base = `CHAIN ${g.sig}`;
+      break;
     case 'pierce_length':
-      return `PIERCE ${g.sig.toFixed(1)}`;
+      base = `PIERCE ${g.sig.toFixed(1)}`;
+      break;
     case 'barrier':
-      return `BARRIER ${g.sig} • ${g.sig2 ?? 0}s`;
+      base = `BARRIER ${g.sig} • ${g.sig2 ?? 0}s`;
+      break;
     case 'energy_output':
-      return `ENERGY +${g.sig}`;
+      base = `ENERGY +${g.sig}`;
+      break;
   }
+  if (hasHybridPerk(def, 'steamBurst')) return `STEAM SPLASH • ${base}`;
+  if (hasHybridPerk(def, 'wetOnHit')) return `${base} • WET ${g.sig2 ?? 0}s`;
+  if (hasHybridPerk(def, 'builtInShrapnel')) return `${base} • SHRAPNEL`;
+  if (hasHybridPerk(def, 'bonusVsSlowWet')) {
+    const pct = Math.round((HYBRID_SLOW_WET_BONUS - 1) * 100);
+    return `${base} • +${pct}% SLOW/WET`;
+  }
+  if (hasHybridPerk(def, 'chainAfterPierce')) return `${base} • ARC ${g.sig2 ?? 0}`;
+  return base;
 }
 
 /** A card produces a firing tower (attacker, or a barrier-casting Shield). */
@@ -989,6 +1042,12 @@ export function buildTowerSpec(
 
   let aoeFrac = def.signature === 'projectile_power' && g.diagonal ? PLASMA_SHOCKWAVE_FRAC : 0;
   if (has('shrapnel')) aoeFrac = (aoeFrac || PLASMA_SHOCKWAVE_FRAC) * SHRAPNEL_AOE_MULT;
+  if (hasHybridPerk(def, 'builtInShrapnel')) {
+    aoeFrac = (aoeFrac || PLASMA_SHOCKWAVE_FRAC) * SHRAPNEL_AOE_MULT;
+  }
+  if (hasHybridPerk(def, 'steamBurst')) {
+    aoeFrac = Math.max(aoeFrac, HYBRID_STEAM_BURST_FRAC);
+  }
   // Plasma's shockwave mode opens once it gains an area blast (Grade III or the
   // Fire+Physical Shrapnel reaction): the bolt goes slow + non-homing (v3 §5).
   const slowProjectile = def.signature === 'projectile_power' && aoeFrac > 0;
@@ -1002,7 +1061,8 @@ export function buildTowerSpec(
   // Slow / Wet from Frost's signature; Steam reaction adds slow + DoT.
   let slowFactor = def.signature === 'freeze_radius' ? g.sig / 100 : 0;
   let slowSec = slowFactor > 0 ? SLOW_REFRESH_SEC : 0;
-  const wetSec = def.signature === 'freeze_radius' ? (g.sig2 ?? 0) : 0;
+  let wetSec = def.signature === 'freeze_radius' ? (g.sig2 ?? 0) : 0;
+  if (hasHybridPerk(def, 'wetOnHit')) wetSec = g.sig2 ?? 0;
   let dotDps = 0;
   let dotSec = 0;
   if (has('steam')) {
@@ -1019,6 +1079,8 @@ export function buildTowerSpec(
 
   // Storm doubles damage to Wet targets (intrinsic, §6).
   const vsWetMult = def.element === 'Electricity' ? WET_DAMAGE_MULT : 1;
+  const vsSlowWetMult = hasHybridPerk(def, 'bonusVsSlowWet') ? HYBRID_SLOW_WET_BONUS : 1;
+  const chainAfterPierce = hasHybridPerk(def, 'chainAfterPierce') ? Math.round(g.sig2 ?? 0) : 0;
 
   // Interrupt resistance from Shield neighbors (v3 §2.Г), derived from the defense
   // synergy: defenseMult 1.5 (one Shield) → 0.5; 2.0 (two Shields) → 1.0 = full
@@ -1053,7 +1115,9 @@ export function buildTowerSpec(
     stunChance,
     stunSec,
     vsWetMult,
+    vsSlowWetMult,
     chainTargets,
+    chainAfterPierce,
   };
 }
 
