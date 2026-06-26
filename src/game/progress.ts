@@ -24,12 +24,16 @@ interface ProgressData {
   stars: Record<string, number>;
   /** Admin override: all levels open (availability only). */
   admin: boolean;
+  /** Test flag: tower sell enabled (admin toggle only). */
+  sellEnabled: boolean;
+  /** Test flag: burn placed towers in Reactor (admin toggle only). */
+  burnFieldEnabled: boolean;
   /** Ids of tutorial lessons already shown (docs/done/tutorial-modals.md §4). */
   seenTutorials: string[];
 }
 
 function fresh(): ProgressData {
-  return { cleared: [], stars: {}, admin: false, seenTutorials: [] };
+  return { cleared: [], stars: {}, admin: false, sellEnabled: false, burnFieldEnabled: false, seenTutorials: [] };
 }
 
 function read(): ProgressData {
@@ -41,6 +45,8 @@ function read(): ProgressData {
       cleared: Array.isArray(parsed.cleared) ? parsed.cleared.filter((x) => typeof x === 'string') : [],
       stars: parsed.stars && typeof parsed.stars === 'object' ? parsed.stars : {},
       admin: parsed.admin === true,
+      sellEnabled: parsed.sellEnabled === true,
+      burnFieldEnabled: parsed.burnFieldEnabled === true,
       // Soft migration: old saves without the field just get an empty list (their
       // tutorials will show once, which is fine).
       seenTutorials: Array.isArray(parsed.seenTutorials)
@@ -72,6 +78,42 @@ export function isAdmin(): boolean {
 export function setAdmin(on: boolean): void {
   state.admin = on;
   write();
+}
+
+/** True when tower sell is enabled (admin test toggle). */
+export function isSellEnabled(): boolean {
+  return state.sellEnabled;
+}
+
+/** Toggle tower sell (persists; only meaningful when admin enables the feature). */
+export function setSellEnabled(on: boolean): void {
+  state.sellEnabled = on;
+  write();
+}
+
+/** True when field-tower Reactor burn is enabled (admin test toggle). */
+export function isBurnFieldEnabled(): boolean {
+  return state.burnFieldEnabled;
+}
+
+/** Toggle field-tower Reactor burn (persists). */
+export function setBurnFieldEnabled(on: boolean): void {
+  state.burnFieldEnabled = on;
+  write();
+}
+
+/**
+ * Session-only debug flag: suppresses telemetry while on. Never persisted — always
+ * starts false on load and resets when Admin is turned off.
+ */
+let debugMode = false;
+
+export function isDebugMode(): boolean {
+  return debugMode;
+}
+
+export function setDebugMode(on: boolean): void {
+  debugMode = on;
 }
 
 /** Best stars (0..3) recorded for a level. */

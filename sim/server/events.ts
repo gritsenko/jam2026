@@ -28,6 +28,10 @@ export interface EventEnvelope {
   level?: string;
   /** Wave number when the event occurred; absent for non-combat events. */
   wave?: number;
+  /** Admin test flag: tower sell mechanic enabled (user sessions only). */
+  sellEnabled?: boolean;
+  /** Admin test flag: burn placed towers in Reactor. */
+  burnFieldEnabled?: boolean;
   /** Event kind: session_start | level_start | level_end | wave_cleared | place |
    *  merge | fusion | reroll | burn | modernization | econ | enemy_leaked | dropoff … */
   type: string;
@@ -65,6 +69,8 @@ export const ingestEventsBodyJsonSchema = {
           seq: { type: 'integer', minimum: 0 },
           level: { type: 'string', maxLength: 64 },
           wave: { type: 'integer' },
+          sellEnabled: { type: 'boolean' },
+          burnFieldEnabled: { type: 'boolean' },
           type: { type: 'string', maxLength: 64 },
           props: { type: 'object', additionalProperties: true },
         },

@@ -8,6 +8,7 @@ import type { EventEnvelope } from './events';
 import { getClientId, sessionId, nextSeq, isOptedOut, setOptedOut } from './client';
 import * as transport from './transport';
 import { activeGameConfigName } from '../data/load';
+import { isBurnFieldEnabled, isDebugMode, isSellEnabled } from '../game/progress';
 
 // Injected by Vite `define` at build time (git sha). Guarded for non-Vite contexts.
 let balanceVersion = 'dev';
@@ -30,7 +31,7 @@ export function setContext(next: { level?: string; wave?: number }): void {
 /** Record an event. No-op when disabled/opted-out; never throws. */
 export function track(type: string, props?: Record<string, unknown>): void {
   try {
-    if (!transport.enabled() || isOptedOut()) return;
+    if (!transport.enabled() || isOptedOut() || isDebugMode()) return;
     const ev: EventEnvelope = {
       schema: EVENT_SCHEMA_VERSION,
       source: 'user',
@@ -42,6 +43,8 @@ export function track(type: string, props?: Record<string, unknown>): void {
       seq: nextSeq(),
       level: ctx.level,
       wave: ctx.wave,
+      sellEnabled: isSellEnabled(),
+      burnFieldEnabled: isBurnFieldEnabled(),
       type,
       props,
     };
@@ -81,6 +84,8 @@ export function init(): void {
     });
     track('session_start', {
       screen: { w: window.screen?.width ?? 0, h: window.screen?.height ?? 0 },
+      sellEnabled: isSellEnabled(),
+      burnFieldEnabled: isBurnFieldEnabled(),
     });
   } catch {
     /* ignore */

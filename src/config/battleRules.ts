@@ -1,4 +1,4 @@
-import { CARD_LIST } from './cards';
+import { CARD_LIST, getCard } from './cards';
 import type { HandCard } from './types';
 import { activeGameConfig } from '../data/load';
 
@@ -68,6 +68,28 @@ export const MOD_CARD_POOL: string[] = CARD_LIST.filter((c) => c.category === 'm
  * background of the hand. Under tuning at playtest.
  */
 export const MOD_DRAW_CHANCE = B.MOD_DRAW_CHANCE;
+
+/** Fraction of invested gold returned when selling a placed tower (test: 0.5 max). */
+export const SELL_REFUND_RATE = B.SELL_REFUND_RATE;
+
+/** Gold spent to reach a tower's current grade (tracked on instance, or derived). */
+export function towerGoldInvested(cardId: string, grade: number, tracked?: number): number {
+  if (tracked !== undefined) return tracked;
+  return getCard(cardId).costGold * 2 ** (grade - 1);
+}
+
+/** Refund from selling a tower at the configured rate. */
+export function sellRefundAmount(invested: number): number {
+  return Math.floor(invested * SELL_REFUND_RATE);
+}
+
+/** Gold mult when burning a placed tower (Reactor) vs a hand card. */
+export const FIELD_BURN_COST_MULT = B.FIELD_BURN_COST_MULT;
+
+/** Gold cost to burn a tower on the field (2× the next hand-card burn price). */
+export function fieldBurnCost(burnsDone: number): number {
+  return overdriveCost(burnsDone) * FIELD_BURN_COST_MULT;
+}
 
 /**
  * Roll a fresh hand card (grade 1) from the draw pool. `seq` makes the instance

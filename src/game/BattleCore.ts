@@ -15,7 +15,7 @@ import { ENEMY_PATHS, CORE_MAX, CAPACITY_PER_WAVE, OVERDRIVE_CAPACITY_BONUS, WAV
 import {
   OVERDRIVE_SEC, overdriveCost, REROLL_BASE_COST, REROLL_STEP, rollHandCard,
   DRAW_POOL, MOD_CARD_POOL, MOD_DRAW_CHANCE, MOD_ISOLATION_CAPACITY, MOD_FOCUS_DMG_MULT, MOD_EMERGENCY_OVERDRIVE_SEC,
-  HAND_SIZE, HAND_RESPAWN_SEC,
+  HAND_SIZE, HAND_RESPAWN_SEC, sellRefundAmount, towerGoldInvested, fieldBurnCost,
 } from '../config/battleRules';
 import { fusionResult, fusionGoldCost, FUSION_CRYSTAL_COST } from '../config/fusion';
 import { unlockedMechanicsForLevel, unlockedTowersForLevel } from '../config/progression';
@@ -74,7 +74,7 @@ export class BattleCore {
     const unlocked = unlockedTowersForLevel(opts.levelId);
     this.mechanics = unlockedMechanicsForLevel(opts.levelId);
     this.drawPool = DRAW_POOL.filter((id) => unlocked.has(id));
-    this.state = createBattleState(unlocked);
+    this.state = createBattleState(unlocked, opts.levelId);
 
     const lc = combatForLevel(opts.levelId);
     this.path = new ArenaPath(ENEMY_PATHS[lc.pathId ?? 'bottom'], this.arenaW, this.arenaH);
@@ -174,7 +174,7 @@ export class BattleCore {
   place(cardId: string, grade: number, slot: number): boolean {
     const def = getCard(cardId);
     if (this.state.slots[slot] || this.state.gold < def.costGold) return false;
-    this.state.slots[slot] = { cardId, grade };
+    this.state.slots[slot] = { cardId, grade, goldInvested: def.costGold };
     this.spendGold(def.costGold, 'place');
     this.afterBoardChange();
     return true;
@@ -184,7 +184,12 @@ export class BattleCore {
     const placed = this.state.slots[slot];
     const def = getCard(cardId);
     if (!placed || !this.canMerge(cardId, grade, slot) || this.state.gold < def.costGold) return false;
-    this.state.slots[slot] = { cardId: placed.cardId, grade: Math.min(3, placed.grade + 1) };
+    const prev = towerGoldInvested(placed.cardId, placed.grade, placed.goldInvested);
+    this.state.slots[slot] = {
+      cardId: placed.cardId,
+      grade: Math.min(3, placed.grade + 1),
+      goldInvested: prev + def.costGold,
+    };
     this.spendGold(def.costGold, 'merge');
     this.afterBoardChange();
     return true;
@@ -197,9 +202,43 @@ export class BattleCore {
     if (!this.canMerge(source.cardId, source.grade, toIndex)) return false;
     const cost = getCard(target.cardId).costGold;
     if (this.state.gold < cost) return false;
-    this.state.slots[toIndex] = { cardId: target.cardId, grade: Math.min(3, target.grade + 1) };
+    const invested =
+      towerGoldInvested(source.cardId, source.grade, source.goldInvested) +
+      towerGoldInvested(target.cardId, target.grade, target.goldInvested) +
+      cost;
+    this.state.slots[toIndex] = {
+      cardId: target.cardId,
+      grade: Math.min(3, target.grade + 1),
+      goldInvested: invested,
+    };
     this.state.slots[fromIndex] = null;
     this.spendGold(cost, 'merge');
+    this.afterBoardChange();
+    return true;
+  }
+
+  /** Sell a tower for partial gold refund (test mechanic; scene gates via progress). */
+  sellTower(slot: number): boolean {
+    const placed = this.state.slots[slot];
+    if (!placed) return false;
+    const refund = sellRefundAmount(towerGoldInvested(placed.cardId, placed.grade, placed.goldInvested));
+    this.state.slots[slot] = null;
+    this.state.gold += refund;
+    this.bump(this.faucets, 'gold', refund, 'sell');
+    this.afterBoardChange();
+    return true;
+  }
+
+  /** Burn a placed tower in the Reactor for 2× burn gold (admin test mechanic). */
+  burnFieldTower(slot: number): boolean {
+    const placed = this.state.slots[slot];
+    if (!placed) return false;
+    const cost = fieldBurnCost(this.burnsThisBattle);
+    if (this.state.gold < cost) return false;
+    this.spendGold(cost, 'burn_field');
+    this.burnsThisBattle++;
+    this.overdriveStacks.push(OVERDRIVE_SEC);
+    this.state.slots[slot] = null;
     this.afterBoardChange();
     return true;
   }
@@ -348,6 +387,7 @@ export class BattleCore {
     return !!placed && placed.cardId === cardId && placed.grade === grade && placed.grade < 3;
   }
   burnCost(): number { return overdriveCost(this.burnsThisBattle); }
+  fieldBurnCost(): number { return fieldBurnCost(this.burnsThisBattle); }
   rerollCost(): number { return REROLL_BASE_COST + this.rerollsThisWave * REROLL_STEP; }
   get effectiveCapacity(): number {
     return (

@@ -26,6 +26,10 @@ export interface EventEnvelope {
   level?: string;
   /** Wave number; omitted for non-combat events. */
   wave?: number;
+  /** Admin test flag: tower sell mechanic enabled. */
+  sellEnabled?: boolean;
+  /** Admin test flag: burn placed towers in Reactor (2× burn gold). */
+  burnFieldEnabled?: boolean;
   /** Event kind (session_start | level_start | level_end | …). */
   type: string;
   /** Type-specific payload. */

@@ -49,6 +49,26 @@
       "mechanics": [
         "fusion_recipes"
       ]
+    },
+    "lvl_8": {
+      "towers": [],
+      "mechanics": []
+    },
+    "lvl_9": {
+      "towers": [],
+      "mechanics": []
+    },
+    "lvl_10": {
+      "towers": [],
+      "mechanics": []
+    },
+    "lvl_11": {
+      "towers": [],
+      "mechanics": []
+    },
+    "lvl_12": {
+      "towers": [],
+      "mechanics": []
     }
   },
   "startingTowers": [

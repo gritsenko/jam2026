@@ -30,6 +30,8 @@ db.exec(`
     type            TEXT    NOT NULL,
     level           TEXT,
     wave            INTEGER,
+    sell_enabled    INTEGER,
+    burn_field_enabled INTEGER,
     ts              INTEGER NOT NULL,
     seq             INTEGER NOT NULL,
     props_json      TEXT,
@@ -61,6 +63,16 @@ for (const t of ['events', 'runs']) {
     /* column already exists */
   }
 }
+try {
+  db.exec(`ALTER TABLE events ADD COLUMN sell_enabled INTEGER`);
+} catch {
+  /* column already exists */
+}
+try {
+  db.exec(`ALTER TABLE events ADD COLUMN burn_field_enabled INTEGER`);
+} catch {
+  /* column already exists */
+}
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_events_config ON events(config);
   CREATE INDEX IF NOT EXISTS idx_runs_config ON runs(config);
@@ -70,9 +82,9 @@ db.exec(`
 // is silently dropped instead of duplicated. result.changes is 1 on insert, 0 on dup.
 const insertEventStmt = db.prepare(`
   INSERT OR IGNORE INTO events
-    (session_id, client_id, source, config, balance_version, type, level, wave, ts, seq, props_json)
+    (session_id, client_id, source, config, balance_version, type, level, wave, sell_enabled, burn_field_enabled, ts, seq, props_json)
   VALUES
-    (@session_id, @client_id, @source, @config, @balance_version, @type, @level, @wave, @ts, @seq, @props_json)
+    (@session_id, @client_id, @source, @config, @balance_version, @type, @level, @wave, @sell_enabled, @burn_field_enabled, @ts, @seq, @props_json)
 `);
 
 export interface IngestResult {
@@ -93,6 +105,9 @@ const insertManyTxn = db.transaction((events: EventEnvelope[]): IngestResult => 
       type: e.type,
       level: e.level ?? null,
       wave: e.wave ?? null,
+      sell_enabled: e.sellEnabled === true ? 1 : e.sellEnabled === false ? 0 : null,
+      burn_field_enabled:
+        e.burnFieldEnabled === true ? 1 : e.burnFieldEnabled === false ? 0 : null,
       ts: e.ts,
       seq: e.seq,
       props_json: e.props ? JSON.stringify(e.props) : null,

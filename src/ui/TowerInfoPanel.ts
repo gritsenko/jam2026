@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
 import type { BuffStat, CardDef } from '../config/types';
 import { cardGrade } from '../config/cards';
@@ -50,7 +50,24 @@ export class TowerInfoPanel extends Container {
   /** Caption above the synergy-slot row. */
   private slotsLabel: Text;
   private panelW = 760;
-  readonly panelH = 286;
+  private basePanelH = 286;
+  private actionExtraH = 0;
+  private static readonly ACTION_ROW_H = 44;
+  private static readonly ACTION_ROW_GAP = 14;
+  /** Hold-to-sell row (test mechanic). */
+  private sellRow = new Container();
+  private sellBg = new Graphics();
+  private sellLabel: Text;
+  private sellProgress = new Graphics();
+  private sellHold = 0;
+  private sellHoldSec = 0.4;
+  private sellHolding = false;
+  private sellCallback?: () => void;
+  private sellVisible = false;
+
+  get panelH(): number {
+    return this.basePanelH + this.actionExtraH;
+  }
 
   constructor() {
     super();
@@ -69,8 +86,33 @@ export class TowerInfoPanel extends Container {
     this.overloadValue.anchor.set(1, 0);
     this.overloadValue.visible = false;
     this.slotsLabel = makeText('SYNERGY SLOTS', 'label', { fontSize: 18, fill: hex(COLORS.textMuted) });
+    this.sellLabel = makeText('', 'label', { fontSize: 22, fill: hex(COLORS.dropValid) });
+    this.sellLabel.anchor.set(0.5);
+    this.sellRow.addChild(this.sellBg, this.sellProgress, this.sellLabel);
+    this.sellRow.visible = false;
+    this.sellRow.eventMode = 'static';
+    this.sellRow.cursor = 'pointer';
+    this.sellRow.on('pointerdown', () => {
+      this.sellHolding = true;
+      this.sellHold = 0;
+    });
+    this.sellRow.on('pointerup', () => this.cancelSellHold());
+    this.sellRow.on('pointerupoutside', () => this.cancelSellHold());
     this.elementSym.visible = false;
-    this.addChild(this.title, this.element, this.elementSym, this.stats, this.signature, this.outgoing, this.incoming, this.overloadLabel, this.overloadValue, this.slotsLabel, this.slotsRow);
+    this.addChild(
+      this.title,
+      this.element,
+      this.elementSym,
+      this.stats,
+      this.signature,
+      this.outgoing,
+      this.incoming,
+      this.overloadLabel,
+      this.overloadValue,
+      this.slotsLabel,
+      this.slotsRow,
+      this.sellRow,
+    );
     this.visible = false;
     this.redraw();
   }
@@ -114,6 +156,7 @@ export class TowerInfoPanel extends Container {
       this.overloadPct = 0;
       this.overloadLabel.visible = false;
       this.overloadValue.visible = false;
+      this.clearTowerActions();
       this.redraw();
       this.visible = true;
       return;
@@ -176,6 +219,69 @@ export class TowerInfoPanel extends Container {
 
   hide(): void {
     this.visible = false;
+    this.clearTowerActions();
+  }
+
+  /** Show hold-to-sell button with the refund preview. */
+  setSell(refundGold: number, onSell: () => void): void {
+    this.sellCallback = onSell;
+    this.sellLabel.text = `HOLD TO SELL  +${refundGold}g`;
+    this.sellVisible = true;
+    this.recalcActionHeight();
+    this.sellRow.visible = true;
+    this.redraw();
+  }
+
+  clearTowerActions(): void {
+    this.clearSell();
+  }
+
+  clearSell(): void {
+    this.cancelSellHold();
+    this.sellCallback = undefined;
+    this.sellVisible = false;
+    this.sellRow.visible = false;
+    this.sellProgress.clear();
+    this.recalcActionHeight();
+  }
+
+  private recalcActionHeight(): void {
+    const row = TowerInfoPanel.ACTION_ROW_H + TowerInfoPanel.ACTION_ROW_GAP;
+    this.actionExtraH = this.sellVisible ? row : 0;
+  }
+
+  /** Advance hold-to-sell progress (call from scene update). */
+  tick(dt: number): void {
+    if (!this.sellHolding || !this.sellVisible) return;
+    this.sellHold += dt;
+    this.drawSellProgress();
+    if (this.sellHold >= this.sellHoldSec) {
+      this.sellHolding = false;
+      this.sellHold = 0;
+      this.sellProgress.clear();
+      const cb = this.sellCallback;
+      this.clearSell();
+      cb?.();
+    }
+  }
+
+  private cancelSellHold(): void {
+    this.sellHolding = false;
+    this.sellHold = 0;
+    this.sellProgress.clear();
+  }
+
+  private drawSellProgress(): void {
+    const W = this.panelW - 44;
+    const H = TowerInfoPanel.ACTION_ROW_H;
+    const t = Math.min(1, this.sellHold / this.sellHoldSec);
+    this.sellProgress.clear();
+    this.sellProgress.roundRect(0, 0, W, H, 10).stroke({ width: 3, color: COLORS.brass, alpha: 0.5 });
+    if (t > 0) {
+      this.sellProgress
+        .roundRect(0, 0, W * t, H, 10)
+        .fill({ color: COLORS.dropValid, alpha: 0.35 });
+    }
   }
 
   /** Provide the element-symbol textures shown beside the element label. */
@@ -332,5 +438,22 @@ export class TowerInfoPanel extends Container {
     this.title.scale.set(1);
     const titleMax = W - pad * 2 - this.element.width - 16;
     if (titleMax > 0 && this.title.width > titleMax) this.title.scale.set(titleMax / this.title.width);
+
+    if (this.sellVisible) {
+      const pad = 22;
+      const sellW = W - pad * 2;
+      const sellH = TowerInfoPanel.ACTION_ROW_H;
+      this.sellRow.position.set(pad, H - pad - sellH);
+      this.sellBg.clear();
+      drawPanel(this.sellBg, 0, 0, sellW, sellH, {
+        radius: 10,
+        fill: COLORS.metalDark,
+        edge: COLORS.brass,
+        edgeWidth: 2,
+      });
+      this.sellLabel.position.set(sellW / 2, sellH / 2);
+      this.sellProgress.position.set(0, 0);
+      this.sellRow.hitArea = new Rectangle(0, 0, sellW, sellH);
+    }
   }
 }

@@ -13,6 +13,7 @@ import { getCard, cardGrade, cardLoad } from '../../src/config/cards';
 import { isTower } from '../../src/game/BattleSim';
 import { computeSynergy } from '../../src/game/synergy';
 import type { PlacedCard } from '../../src/config/types';
+import * as progress from '../../src/game/progress';
 
 export const DECISION_SEC = 0.5; // re-decide ~2×/sec (coarse → cheap)
 const RESONANCE_BONUS = 8; // reward per active resonance reaction on a slot
@@ -61,6 +62,21 @@ function dominantElement(slots: (PlacedCard | null)[]): ElementId | null {
   let n = 0;
   for (const [el, c] of Object.entries(counts)) if (c > n) { n = c; best = el as ElementId; }
   return best;
+}
+
+/** Slot whose removal hurts board score the least (for sell / field-burn). */
+function weakestSlot(slots: (PlacedCard | null)[], capacity: number): number {
+  const base = scoreBoard(slots, capacity);
+  let worst = -1;
+  let loss = Infinity;
+  slots.forEach((p, i) => {
+    if (!p) return;
+    const clone = slots.slice();
+    clone[i] = null;
+    const drop = base - scoreBoard(clone, capacity);
+    if (drop < loss) { loss = drop; worst = i; }
+  });
+  return worst;
 }
 
 export class SmartController {
@@ -168,6 +184,23 @@ export class SmartController {
     if (over > 0 && core.gold >= core.burnCost()) {
       const j = hand.findIndex((c) => c && getCard(c.cardId).category !== 'modernization');
       if (j >= 0 && core.burnFromHand(j)) return;
+    }
+
+    // Field burn: 2× gold, frees a slot + Overdrive (admin test mechanic).
+    if (progress.isBurnFieldEnabled() && over > 0 && core.gold >= core.fieldBurnCost()) {
+      const w = weakestSlot(slots, cap);
+      if (w >= 0 && core.burnFieldTower(w)) return;
+    }
+
+    // Sell weakest tower to make room when the hand has a tower we could place.
+    if (progress.isSellEnabled() && !hasEmpty) {
+      const canPlaceFromHand = hand.some(
+        (c) => c && getCard(c.cardId).category !== 'modernization' && core.gold >= getCard(c.cardId).costGold,
+      );
+      if (canPlaceFromHand) {
+        const w = weakestSlot(slots, cap);
+        if (w >= 0 && core.sellTower(w)) return;
+      }
     }
 
     // Reroll when stuck (room to build, nothing useful in hand) and affordable.

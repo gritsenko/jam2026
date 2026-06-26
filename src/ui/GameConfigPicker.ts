@@ -28,6 +28,7 @@ export class GameConfigPicker {
       'gap:6px',
       'pointer-events:auto',
       'font-family:system-ui,sans-serif',
+      'max-width:min(220px,calc(100vw - 24px))',
     ].join(';');
 
     const caption = document.createElement('span');
@@ -41,7 +42,9 @@ export class GameConfigPicker {
 
     this.select = document.createElement('select');
     this.select.style.cssText = [
-      'min-width:200px',
+      'width:100%',
+      'max-width:220px',
+      'box-sizing:border-box',
       'padding:8px 10px',
       'border-radius:8px',
       'border:2px solid #c79a5b',
@@ -76,6 +79,29 @@ export class GameConfigPicker {
   layout(x: number, y: number): void {
     this.root.style.left = `${x}px`;
     this.root.style.top = `${y}px`;
+  }
+
+  /** Keep the block inside the game safe frame (screen pixels). */
+  clampToViewport(
+    screenW: number,
+    screenH: number,
+    safePx?: { left: number; top: number; right: number; bottom: number },
+  ): void {
+    const pad = 8;
+    const rect = this.root.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.top;
+
+    const minL = safePx ? safePx.left + pad : pad;
+    const minT = safePx ? safePx.top + pad : pad;
+    const maxR = safePx ? safePx.right - pad : screenW - pad;
+    const maxB = safePx ? safePx.bottom - pad : screenH - pad;
+
+    if (rect.right > maxR) left -= rect.right - maxR;
+    if (rect.bottom > maxB) top -= rect.bottom - maxB;
+    if (left < minL) left = minL;
+    if (top < minT) top = minT;
+    this.layout(left, top);
   }
 
   destroy(): void {

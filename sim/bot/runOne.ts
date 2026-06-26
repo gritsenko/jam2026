@@ -9,9 +9,16 @@ import { makeRng } from '../../src/game/rng';
 import { boardFor, isActive, type PolicyName } from './policies';
 import { SmartController } from './smartController';
 import { createRecorder, type RunRecord, type SlotsRef } from './recorder';
+import * as progress from '../../src/game/progress';
 
 const DT = 1 / 60;
 const MAX_TICKS = 60 * 60 * 15; // 15-minute safety cap → 'timeout'
+
+/** Bot harness flags from env (SELL_ENABLED / BURN_FIELD_ENABLED = 1|0). */
+export function applyBotFlagsFromEnv(): void {
+  progress.setSellEnabled(process.env.SELL_ENABLED === '1');
+  progress.setBurnFieldEnabled(process.env.BURN_FIELD_ENABLED === '1');
+}
 
 function hashStr(s: string): number {
   let h = 2166136261;
@@ -28,6 +35,7 @@ export function runOne(
   seed: number,
   gameConfig: string,
 ): RunRecord {
+  applyBotFlagsFromEnv();
   const active = isActive(policy);
   // Active policies use a seeded rng (reproducible hand draws + combat rolls).
   // Static policies pass none → legacy deterministic rolls (parity preserved).

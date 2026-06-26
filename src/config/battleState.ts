@@ -1,5 +1,7 @@
-import type { BattleStateMock } from './types';
+import type { BattleStateMock, PlacedCard } from './types';
 import { cardLoad, getCard } from './cards';
+import { towerGoldInvested } from './battleRules';
+import { findLevel } from './levels';
 import { activeGameConfig } from '../data/load';
 
 /**
@@ -14,15 +16,26 @@ import { activeGameConfig } from '../data/load';
  * level-1 board comes up with only the starting roster. Omit it to seed the full
  * board (used outside the campaign gate).
  */
-export function createBattleState(unlocked?: ReadonlySet<string>): BattleStateMock {
+export function createBattleState(unlocked?: ReadonlySet<string>, levelId?: string): BattleStateMock {
   const allowed = (cardId: string) => !unlocked || unlocked.has(cardId);
-  // Clone the seed from the active GameConfig (src/data/game_configs/<config>/battleSeed.json)
-  // so callers can freely mutate it without touching the shared template.
   const base: BattleStateMock = structuredClone(activeGameConfig.battleSeed);
 
-  base.slots = base.slots.map((s) => (s && allowed(s.cardId) ? s : null));
+  const emptyStart = levelId ? findLevel(levelId)?.emptyStart === true : false;
+
+  if (emptyStart) {
+    base.slots = Array.from({ length: 9 }, () => null);
+    base.energyLoad = 0;
+    base.gold = Math.max(base.gold, 400);
+  } else {
+    base.slots = base.slots.map((s) => (s && allowed(s.cardId) ? stampInvested(s) : null));
+  }
   base.hand = base.hand.filter((h) => allowed(h.cardId));
-  // Recompute the seeded load from the towers that actually remain on the grid.
-  base.energyLoad = base.slots.reduce((sum, s) => sum + (s ? cardLoad(getCard(s.cardId), s.grade) : 0), 0);
+  if (!emptyStart) {
+    base.energyLoad = base.slots.reduce((sum, s) => sum + (s ? cardLoad(getCard(s.cardId), s.grade) : 0), 0);
+  }
   return base;
+}
+
+function stampInvested(s: PlacedCard): PlacedCard {
+  return { ...s, goldInvested: towerGoldInvested(s.cardId, s.grade, s.goldInvested) };
 }

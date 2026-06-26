@@ -3,12 +3,10 @@ import { COLORS, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene } from '../core/scene';
 import { Button } from '../ui/Button';
-import { Checkbox } from '../ui/Checkbox';
-import { GameConfigPicker } from '../ui/GameConfigPicker';
+import { AdminHud } from '../ui/AdminHud';
 import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
 import { fitSprite, glowCircle, makeText } from '../ui/helpers';
-import * as progress from '../game/progress';
 import * as Telemetry from '../telemetry/Telemetry';
 
 /** Title screen: themed backdrop, logo, platform showcase, and a Start CTA. */
@@ -19,17 +17,12 @@ export class MainMenuScene extends Scene {
   private platformBaseY = 0;
   private startBtn!: Button;
   private muteBtn!: MuteButton;
-  private adminToggle!: Checkbox;
-  private configPicker!: GameConfigPicker;
+  private adminHud!: AdminHud;
   private t = 0;
-  private lastLayout?: LayoutInfo;
-
-  override onExit(): void {
-    this.configPicker?.destroy();
-  }
 
   override onEnter(): void {
     const { assets } = this.services;
+    this.sortableChildren = true;
     // Intro is intentionally silent — kill any track carried over from the map.
     this.services.audio.stopMusic();
 
@@ -82,16 +75,8 @@ export class MainMenuScene extends Scene {
     });
     this.addChild(this.startBtn);
 
-    this.adminToggle = new Checkbox('ADMIN', progress.isAdmin(), (on) => {
-      progress.setAdmin(on);
-      Telemetry.track('admin_toggle', { on, screen: 'menu' });
-      this.configPicker.setVisible(on);
-      if (this.lastLayout) this.layoutAdmin(this.lastLayout);
-    });
-    this.addChild(this.adminToggle);
-
-    this.configPicker = new GameConfigPicker();
-    this.configPicker.setVisible(progress.isAdmin());
+    this.adminHud = new AdminHud('menu');
+    this.addChild(this.adminHud);
 
     // Global sound on/off — same control, top-right corner, on every screen.
     this.muteBtn = new MuteButton(this.services.audio, 64);
@@ -99,7 +84,6 @@ export class MainMenuScene extends Scene {
   }
 
   override layout(info: LayoutInfo): void {
-    this.lastLayout = info;
     this.bg.fit(info);
     const { safe } = info;
     const cx = safe.x + safe.width / 2;
@@ -108,16 +92,7 @@ export class MainMenuScene extends Scene {
     this.platform.position.set(cx, this.platformBaseY);
     this.startBtn.position.set(cx, safe.y + safe.height * 0.86);
     this.muteBtn.position.set(safe.x + safe.width - 18 - 32, safe.y + 18 + 32);
-    this.layoutAdmin(info);
-  }
-
-  private layoutAdmin(info: LayoutInfo): void {
-    const { safe } = info;
-    this.adminToggle.position.set(safe.x + 40, safe.y + safe.height - 60 - this.adminToggle.height / 2);
-    if (progress.isAdmin()) {
-      const g = this.adminToggle.getGlobalPosition();
-      this.configPicker.layout(g.x, g.y - 76);
-    }
+    this.adminHud.layout(info);
   }
 
   override update(dt: number): void {
