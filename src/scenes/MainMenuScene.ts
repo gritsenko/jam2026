@@ -3,6 +3,7 @@ import { COLORS, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene } from '../core/scene';
 import { Button } from '../ui/Button';
+import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
 import { fitSprite, glowCircle, makeText } from '../ui/helpers';
 
@@ -13,11 +14,13 @@ export class MainMenuScene extends Scene {
   private platform = new Container();
   private platformBaseY = 0;
   private startBtn!: Button;
+  private muteBtn!: MuteButton;
   private t = 0;
 
   override onEnter(): void {
     const { assets } = this.services;
-    this.services.audio.playMusic('music_menu');
+    // Intro is intentionally silent — kill any track carried over from the map.
+    this.services.audio.stopMusic();
 
     this.bg = new SceneBackground(assets.get('bg_menu'));
     this.addChild(this.bg);
@@ -66,6 +69,10 @@ export class MainMenuScene extends Scene {
       },
     });
     this.addChild(this.startBtn);
+
+    // Global sound on/off — same control, top-right corner, on every screen.
+    this.muteBtn = new MuteButton(this.services.audio, 64);
+    this.addChild(this.muteBtn);
   }
 
   override layout(info: LayoutInfo): void {
@@ -76,6 +83,7 @@ export class MainMenuScene extends Scene {
     this.platformBaseY = safe.y + safe.height * 0.56;
     this.platform.position.set(cx, this.platformBaseY);
     this.startBtn.position.set(cx, safe.y + safe.height * 0.86);
+    this.muteBtn.position.set(safe.x + safe.width - 18 - 32, safe.y + 18 + 32);
   }
 
   override update(dt: number): void {

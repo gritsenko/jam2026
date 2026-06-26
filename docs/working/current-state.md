@@ -197,8 +197,10 @@ text-to-audio промпты — [audioManifest.ts](../../src/config/audioManife
 (autoplay-policy). Музыка пока — короткие 5-сек бесшовные лупы (Music API ElevenLabs
 платный; SFX-эндпоинт бесплатен), движок их зацикливает.
 
-Музыка (`music_menu`/`music_map`/`music_battle`) запускается в `onEnter` своих сцен
-с кроссфейдом. SFX висят на колбэках боя `SimCallbacks` (выстрел/попадание/крит/
+Музыка (`music_map`/`music_battle`) запускается в `onEnter` своих сцен с кроссфейдом.
+**Интро (главное меню) намеренно без музыки** — `MainMenuScene` зовёт `audio.stopMusic()`
+на входе (глушит трек, если игрок вернулся с карты). SFX висят на колбэках боя
+`SimCallbacks` (выстрел/попадание/крит/
 смерть/утечка/диверсант/барьер/старт-зачистка волны/победа/поражение) и на действиях
 с картами (**взятие**/постановка/мердж/фьюжн/Overdrive/реролл/клик). UI-звуки
 (клик, реролл) идут по шине `ui`.
@@ -210,6 +212,12 @@ text-to-audio промпты — [audioManifest.ts](../../src/config/audioManife
 ([audioManifest.ts](../../src/config/audioManifest.ts)). Поддержка снарядов не пускает
 (Щит → `sfx_barrier`); если PNG-сэмпла нет — фоллбек на общие `sfx_shoot`/`sfx_hit`.
 Спека — [done/tower-sound-design.md](done/tower-sound-design.md).
+
+**Глобальный mute** — кнопка-динамик ([MuteButton.ts](../../src/ui/MuteButton.ts)) в
+правом верхнем углу **на всех экранах (меню/карта/бой)** мгновенно глушит/включает весь
+звук (`audio.toggleMute()`, флаг персистится в `localStorage`); глиф рисуется кодом
+(динамик со звуковыми волнами / перечёркнутый красным в muted). В бою стоит над аватаром
+(зеркалит стек MAP→шестерёнка слева). При закрытии настроек её глиф ресинкается.
 
 **Настройки звука** — кнопка-шестерёнка ([GearButton.ts](../../src/ui/GearButton.ts))
 под кнопкой MAP в бою открывает модалку ([SettingsPanel.ts](../../src/ui/SettingsPanel.ts))

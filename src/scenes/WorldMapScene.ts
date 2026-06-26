@@ -7,6 +7,7 @@ import type { LevelNode } from '../config/types';
 import * as progress from '../game/progress';
 import { Button } from '../ui/Button';
 import { Checkbox } from '../ui/Checkbox';
+import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
 import { WorldMapNode } from '../ui/WorldMapNode';
 import { makeText } from '../ui/helpers';
@@ -32,6 +33,7 @@ export class WorldMapScene extends Scene {
   private nodes: WorldMapNode[] = [];
   private backBtn!: Button;
   private adminToggle!: Checkbox;
+  private muteBtn!: MuteButton;
   private title = makeText('CHOOSE YOUR STAND', 'title', {
     fill: hex(COLORS.white),
     stroke: { color: hex(COLORS.black), width: 7, alpha: 0.95 },
@@ -72,6 +74,10 @@ export class WorldMapScene extends Scene {
       if (this.lastInfo) this.layout(this.lastInfo);
     });
     this.addChild(this.adminToggle);
+
+    // Global sound on/off — same control, top-right corner, on every screen.
+    this.muteBtn = new MuteButton(this.services.audio, 64);
+    this.addChild(this.muteBtn);
   }
 
   /** (Re)create the level markers from current progress (states + stars). */
@@ -151,6 +157,7 @@ export class WorldMapScene extends Scene {
     }
 
     this.title.position.set(safe.x + safe.width / 2, safe.y + 12);
+    this.muteBtn.position.set(safe.x + safe.width - 18 - 32, safe.y + 18 + 32);
     this.backBtn.position.set(safe.x + 120, safe.y + safe.height - 60);
     // Admin toggle bottom-right, mirroring the BACK button's bottom margin.
     this.adminToggle.position.set(

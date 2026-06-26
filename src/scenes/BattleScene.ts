@@ -49,6 +49,7 @@ import { BattleBanner } from '../ui/BattleBanner';
 import { BattleCard } from '../ui/BattleCard';
 import { Button } from '../ui/Button';
 import { GearButton } from '../ui/GearButton';
+import { MuteButton } from '../ui/MuteButton';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { CoreBadge } from '../ui/CoreBadge';
 import { EnemySprite } from '../ui/EnemySprite';
@@ -185,6 +186,7 @@ export class BattleScene extends Scene {
   private backBtn!: Button;
   private rerollBtn!: Button;
   private gearBtn!: GearButton;
+  private muteBtn!: MuteButton;
   private settings: SettingsPanel | null = null;
   /** 1-based number of the wave in progress; drives the §3.В wave-capacity growth. */
   private currentWave = 1;
@@ -461,6 +463,7 @@ export class BattleScene extends Scene {
     });
 
     this.gearBtn = new GearButton(64, () => this.openSettings());
+    this.muteBtn = new MuteButton(this.services.audio, 64);
 
     this.rerollBtn = new Button({
       label: `REROLL ${REROLL_BASE_COST}`,
@@ -491,6 +494,7 @@ export class BattleScene extends Scene {
       this.gauge,
       this.backBtn,
       this.gearBtn,
+      this.muteBtn,
       this.rerollBtn,
       this.hint,
       this.moveCost,
@@ -2637,8 +2641,12 @@ export class BattleScene extends Scene {
     this.waveBadge.position.set(safe.x + pad + 160, topY);
     this.coreBadge.position.set(safe.x + pad + 160, topY + this.waveBadge.badgeH + 8);
 
+    // Global mute toggle sits in the top-right corner, above the avatar — mirrors
+    // the MAP→gear stack on the left. The avatar drops below it to make room.
+    const muteD = 64;
     const avatarCX = safe.x + safe.width - pad - this.avatarR;
-    const avatarCY = topY + this.avatarR;
+    this.muteBtn.position.set(avatarCX, topY + muteD / 2);
+    const avatarCY = topY + muteD + 10 + this.avatarR;
     this.avatar.position.set(avatarCX, avatarCY);
 
     const chipY = avatarCY - this.goldChip.chipH / 2;
@@ -2792,6 +2800,8 @@ export class BattleScene extends Scene {
   private closeSettings(): void {
     this.settings?.destroy({ children: true });
     this.settings = null;
+    // The panel can flip mute too — resync the corner toggle's glyph.
+    this.muteBtn.refresh();
   }
 
   override onExit(): void {
