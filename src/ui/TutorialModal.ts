@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite } from 'pixi.js';
+import { Container, Graphics, Sprite, type Text } from 'pixi.js';
 import { COLORS, ELEMENTS, hex } from '../theme';
 import type { AssetLoader } from '../core/AssetLoader';
 import type { AudioBus } from '../core/AudioBus';
@@ -10,10 +10,22 @@ import { Button } from './Button';
 import { drawPanel, makeText, fitSprite, glowCircle } from './helpers';
 import { TUTORIAL_DEMOS, type TutorialDemo } from './TutorialDemos';
 
-const CARD_W = 820;
-const CARD_H = 1000;
-const PAD = 56;
-const ILLU = 340;
+// Largest the brass panel is allowed to grow; the actual size is clamped to the
+// safe area in layout() so the card always fits — and uses most of it (the old
+// fixed 820×1000 wasted half the screen and forced a tiny body font).
+const MAX_CARD_W = 1000;
+const MAX_CARD_H = 1520;
+const MARGIN_X = 48;
+const MARGIN_Y = 110;
+const PAD = 60;
+const ILLU = 360;
+const TITLE_FONT = 60;
+const BUTTON_H = 100;
+// Body font auto-fits its region: big by default, shrinking only when a long
+// lesson would overflow (so every lesson reads as large as it can).
+const BODY_FONT_MAX = 46;
+const BODY_FONT_MIN = 26;
+const BODY_LINE_RATIO = 1.34;
 
 /**
  * Modal onboarding carousel (docs/done/tutorial-modals.md §5). A dimmed scrim
@@ -21,6 +33,10 @@ const ILLU = 340;
  * lessons: title, illustration (a ready sprite or a scripted in-engine demo) and
  * a short body, one page at a time. The scrim deliberately does NOT close on tap
  * — the player advances with the button so a lesson can't be skipped by accident.
+ *
+ * The card sizes itself to the safe area (see layout/renderPage) and the body
+ * font scales to fill the space left under the illustration, so the copy is as
+ * large as it can be on any screen.
  *
  * Self-contained, mirroring SettingsPanel: add it to a scene's top layer, call
  * `layout(info)` from the scene's layout hook and `tick(dt)` from update; it
@@ -39,6 +55,10 @@ export class TutorialModal extends Container {
   private illuGlow = new Graphics();
   private illuBaseY = 0;
   private currentDemo: TutorialDemo | null = null;
+
+  /** Current card size (clamped to the safe area by layout). */
+  private cardW = MAX_CARD_W;
+  private cardH = MAX_CARD_H;
 
   private pageIndex = 0;
   private idleClock = 0;
@@ -64,14 +84,6 @@ export class TutorialModal extends Container {
     // Scrim blocks taps from reaching the battlefield, but has no close handler.
     this.scrim.eventMode = 'static';
 
-    drawPanel(this.cardBg, -CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, {
-      radius: 28,
-      fill: COLORS.metalMid,
-      edge: COLORS.brass,
-      edgeWidth: 5,
-      bevel: true,
-      rivets: true,
-    });
     // Center origin (pivot at panel middle) so the intro can scale around center
     // and layout only needs the safe-area center point.
     this.card.eventMode = 'static';
@@ -82,16 +94,17 @@ export class TutorialModal extends Container {
     this.nextBtn = new Button({
       label: t('common.next'),
       width: 320,
-      height: 92,
+      height: BUTTON_H,
       primary: true,
       onClick: () => this.advance(),
     });
-    this.nextBtn.position.set(0, CARD_H / 2 - 92);
     this.card.addChild(this.nextBtn);
 
     this.addChild(this.scrim, this.card);
 
-    this.showPage(0);
+    // Initial render at the default (max) size; layout() re-renders at the size
+    // clamped to the real safe area.
+    this.renderPage(0);
 
     // Entrance: fade + a small grow, like the end-of-battle banner.
     this.card.alpha = 0;
@@ -110,11 +123,27 @@ export class TutorialModal extends Container {
     });
   }
 
+  /** Redraw the brass panel at the current card size. */
+  private drawCardBg(): void {
+    this.cardBg.clear();
+    drawPanel(this.cardBg, -this.cardW / 2, -this.cardH / 2, this.cardW, this.cardH, {
+      radius: 28,
+      fill: COLORS.metalMid,
+      edge: COLORS.brass,
+      edgeWidth: 5,
+      bevel: true,
+      rivets: true,
+    });
+  }
+
   /** Build the content for the current lesson page (title + illustration + body). */
-  private showPage(index: number): void {
+  private renderPage(index: number): void {
     this.pageIndex = index;
     const lesson = this.lessons[index];
     if (!lesson) return;
+
+    this.drawCardBg();
+    this.nextBtn.position.set(0, this.cardH / 2 - 70);
 
     // Tear down the previous page's content + demo.
     this.currentDemo?.destroy();
@@ -126,38 +155,64 @@ export class TutorialModal extends Container {
 
     const accent = lesson.accent ? ELEMENTS[lesson.accent] : null;
 
-    // Title — tinted by the lesson's element accent when present.
+    // Title — tinted by the lesson's element accent when present; shrunk to fit
+    // the panel width if a long title would overflow.
     const title = makeText(tutorialTitle(lesson.id).toUpperCase(), 'title', {
-      fontSize: 50,
+      fontSize: TITLE_FONT,
       fill: accent ? hex(accent.glow) : hex(COLORS.textBright),
     });
     title.anchor.set(0.5, 0);
-    title.position.set(0, -CARD_H / 2 + 44);
+    const maxTitleW = this.cardW - PAD * 2;
+    if (title.width > maxTitleW) title.scale.set(maxTitleW / title.width);
+    const titleY = -this.cardH / 2 + 54;
+    title.position.set(0, titleY);
     this.content.addChild(title);
 
     // Illustration: a soft glow behind a ready sprite, or a scripted demo.
     const glowColor = accent ? accent.glow : COLORS.brass;
     this.illuGlow.addChild(glowCircle(ILLU * 0.5, glowColor, 0.5));
     this.buildIllustration(lesson);
-    this.illuBaseY = -CARD_H / 2 + 100 + ILLU / 2;
+    this.illuBaseY = titleY + 96 + ILLU / 2;
     this.illu.position.set(0, this.illuBaseY);
     this.content.addChild(this.illu);
 
-    // Body — already paragraph-joined (i18n), word-wrapped to the panel width.
-    const body = makeText(tutorialBody(lesson.id), 'small', {
-      fontSize: 28,
-      fill: hex(COLORS.textBright),
-      align: 'center',
-      wordWrap: true,
-      wordWrapWidth: CARD_W - PAD * 2,
-      lineHeight: 38,
-    });
+    // Body — word-wrapped to the panel width and font-scaled to fill the space
+    // between the illustration and the dots/button.
+    const hasDots = this.lessons.length >= 2;
+    const bodyTop = this.illuBaseY + ILLU / 2 + 30;
+    const dotsY = this.cardH / 2 - 150;
+    const bodyBottom = (hasDots ? dotsY : this.cardH / 2 - 120) - 28;
+    const regionH = Math.max(60, bodyBottom - bodyTop);
+    const body = this.fitBody(tutorialBody(lesson.id), maxTitleW, regionH);
     body.anchor.set(0.5, 0);
-    body.position.set(0, this.illuBaseY + ILLU / 2 + 36);
+    body.position.set(0, bodyTop + Math.max(0, (regionH - body.height) / 2));
     this.content.addChild(body);
 
     this.refreshDots();
     this.refreshButton();
+  }
+
+  /** Largest body font (down to a floor) whose wrapped height fits `maxH`. */
+  private fitBody(str: string, wrapWidth: number, maxH: number): Text {
+    let font = BODY_FONT_MAX;
+    let body = this.makeBody(str, font, wrapWidth);
+    while (body.height > maxH && font > BODY_FONT_MIN) {
+      body.destroy();
+      font -= 2;
+      body = this.makeBody(str, font, wrapWidth);
+    }
+    return body;
+  }
+
+  private makeBody(str: string, font: number, wrapWidth: number): Text {
+    return makeText(str, 'small', {
+      fontSize: font,
+      fill: hex(COLORS.textBright),
+      align: 'center',
+      wordWrap: true,
+      wordWrapWidth: wrapWidth,
+      lineHeight: Math.round(font * BODY_LINE_RATIO),
+    });
   }
 
   /** Place either a fitted sprite or a scripted demo into the illustration holder. */
@@ -192,7 +247,7 @@ export class TutorialModal extends Container {
     if (n < 2) return;
     const gap = 30;
     const total = (n - 1) * gap;
-    const y = CARD_H / 2 - 176;
+    const y = this.cardH / 2 - 150;
     for (let i = 0; i < n; i++) {
       const x = -total / 2 + i * gap;
       const on = i === this.pageIndex;
@@ -214,7 +269,7 @@ export class TutorialModal extends Container {
       this.onDone();
       return;
     }
-    this.showPage(this.pageIndex + 1);
+    this.renderPage(this.pageIndex + 1);
   }
 
   /** Idle life: the illustration gently floats and its glow pulses; demos animate. */
@@ -231,6 +286,15 @@ export class TutorialModal extends Container {
     this.scrim.clear();
     this.scrim.rect(full.x, full.y, full.width, full.height).fill({ color: COLORS.black, alpha: 0.66 });
     this.card.position.set(safe.x + safe.width / 2, safe.y + safe.height / 2);
+
+    // Size the card to the safe area (capped), and re-render only when it changes.
+    const w = Math.min(MAX_CARD_W, safe.width - MARGIN_X * 2);
+    const h = Math.min(MAX_CARD_H, safe.height - MARGIN_Y * 2);
+    if (w !== this.cardW || h !== this.cardH) {
+      this.cardW = w;
+      this.cardH = h;
+      this.renderPage(this.pageIndex);
+    }
   }
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
