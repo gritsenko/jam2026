@@ -1,0 +1,658 @@
+{
+  "lvl_1": {
+    "hpScale": 1,
+    "bountyScale": 1,
+    "waves": [
+      {
+        "groups": [
+          {
+            "enemyId": "frost_wisp",
+            "count": 5,
+            "gap": 1.2
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "frost_wisp",
+            "count": 6,
+            "gap": 0.9
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 3,
+            "gap": 1
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 6,
+            "gap": 0.8
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 5,
+            "gap": 0.6
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 8,
+            "gap": 0.6
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 8,
+            "gap": 0.5
+          }
+        ]
+      }
+    ]
+  },
+  "lvl_2": {
+    "hpScale": 1,
+    "bountyScale": 1,
+    "waves": [
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 6,
+            "gap": 0.9
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "frost_wisp",
+            "count": 8,
+            "gap": 0.5
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 4,
+            "gap": 0.8
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 8,
+            "gap": 0.6
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 6,
+            "gap": 0.5
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 6,
+            "gap": 0.6
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 10,
+            "gap": 0.4
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 10,
+            "gap": 0.5
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 8,
+            "gap": 0.4
+          }
+        ]
+      }
+    ]
+  },
+  "lvl_3": {
+    "hpScale": 1.05,
+    "bountyScale": 1.05,
+    "waves": [
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 7,
+            "gap": 0.8
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "frost_wisp",
+            "count": 10,
+            "gap": 0.45
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 4,
+            "gap": 0.8
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 9,
+            "gap": 0.6
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 8,
+            "gap": 0.45
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 10,
+            "gap": 0.55
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 10,
+            "gap": 0.4
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 12,
+            "gap": 0.5
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 12,
+            "gap": 0.35
+          }
+        ]
+      }
+    ]
+  },
+  "lvl_4": {
+    "hpScale": 1.15,
+    "bountyScale": 1.15,
+    "pathId": "top",
+    "waves": [
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 6,
+            "gap": 0.9
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "frost_wisp",
+            "count": 10,
+            "gap": 0.5
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "magma_brute",
+            "count": 5,
+            "gap": 1.3
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 6,
+            "gap": 0.5
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "magma_brute",
+            "count": 7,
+            "gap": 1.1
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 6,
+            "gap": 0.7
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "magma_brute",
+            "count": 6,
+            "gap": 1
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 8,
+            "gap": 0.6
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 8,
+            "gap": 0.4
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "magma_brute",
+            "count": 8,
+            "gap": 0.9
+          },
+          {
+            "enemyId": "iron_husk",
+            "count": 2,
+            "gap": 4
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 8,
+            "gap": 0.6
+          }
+        ]
+      }
+    ]
+  },
+  "lvl_5": {
+    "hpScale": 1.1,
+    "bountyScale": 1.1,
+    "pathId": "left",
+    "waves": [
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 7,
+            "gap": 0.8
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "signal_disruptor",
+            "count": 2,
+            "gap": 2.5
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 6,
+            "gap": 0.7
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "frost_wisp",
+            "count": 10,
+            "gap": 0.4
+          },
+          {
+            "enemyId": "signal_disruptor",
+            "count": 2,
+            "gap": 2
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "signal_disruptor",
+            "count": 3,
+            "gap": 1.8
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 8,
+            "gap": 0.6
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "signal_disruptor",
+            "count": 4,
+            "gap": 1.5
+          },
+          {
+            "enemyId": "magma_brute",
+            "count": 4,
+            "gap": 1.1
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 8,
+            "gap": 0.4
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "signal_disruptor",
+            "count": 5,
+            "gap": 1.2
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 10,
+            "gap": 0.5
+          },
+          {
+            "enemyId": "magma_brute",
+            "count": 3,
+            "gap": 1
+          }
+        ]
+      }
+    ]
+  },
+  "lvl_6": {
+    "hpScale": 1.3,
+    "bountyScale": 1.3,
+    "pathId": "right",
+    "waves": [
+      {
+        "groups": [
+          {
+            "enemyId": "magma_brute",
+            "count": 6,
+            "gap": 1
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 8,
+            "gap": 0.6
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 8,
+            "gap": 0.4
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "resonance_mote",
+            "count": 1,
+            "gap": 2
+          },
+          {
+            "enemyId": "iron_husk",
+            "count": 2,
+            "gap": 3.5
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 8,
+            "gap": 0.6
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "signal_disruptor",
+            "count": 3,
+            "gap": 1.8
+          },
+          {
+            "enemyId": "magma_brute",
+            "count": 6,
+            "gap": 0.9
+          },
+          {
+            "enemyId": "iron_husk",
+            "count": 1,
+            "gap": 0
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "coolant_mender",
+            "count": 1,
+            "gap": 2
+          },
+          {
+            "enemyId": "iron_husk",
+            "count": 3,
+            "gap": 3
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 10,
+            "gap": 0.5
+          },
+          {
+            "enemyId": "signal_disruptor",
+            "count": 3,
+            "gap": 1.6
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "magma_brute",
+            "count": 8,
+            "gap": 0.8
+          },
+          {
+            "enemyId": "signal_disruptor",
+            "count": 4,
+            "gap": 1.5
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 12,
+            "gap": 0.3
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "aegis_beacon",
+            "count": 2,
+            "gap": 2.5
+          },
+          {
+            "enemyId": "iron_husk",
+            "count": 4,
+            "gap": 2.5
+          },
+          {
+            "enemyId": "magma_brute",
+            "count": 8,
+            "gap": 0.8
+          },
+          {
+            "enemyId": "signal_disruptor",
+            "count": 4,
+            "gap": 1.5
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 10,
+            "gap": 0.5
+          }
+        ]
+      }
+    ]
+  },
+  "lvl_7": {
+    "hpScale": 1.45,
+    "bountyScale": 1.45,
+    "pathId": "bottom",
+    "waves": [
+      {
+        "groups": [
+          {
+            "enemyId": "magma_brute",
+            "count": 6,
+            "gap": 1
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 6,
+            "gap": 0.6
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "volt_crawler",
+            "count": 10,
+            "gap": 0.5
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 10,
+            "gap": 0.35
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "iron_husk",
+            "count": 2,
+            "gap": 3.5
+          },
+          {
+            "enemyId": "magma_brute",
+            "count": 5,
+            "gap": 1
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 6,
+            "gap": 0.6
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "signal_disruptor",
+            "count": 4,
+            "gap": 1.5
+          },
+          {
+            "enemyId": "magma_brute",
+            "count": 6,
+            "gap": 0.9
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 8,
+            "gap": 0.4
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "iron_husk",
+            "count": 3,
+            "gap": 2.8
+          },
+          {
+            "enemyId": "signal_disruptor",
+            "count": 3,
+            "gap": 1.6
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 10,
+            "gap": 0.5
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "magma_brute",
+            "count": 8,
+            "gap": 0.8
+          },
+          {
+            "enemyId": "frost_wisp",
+            "count": 12,
+            "gap": 0.3
+          }
+        ]
+      },
+      {
+        "groups": [
+          {
+            "enemyId": "iron_husk",
+            "count": 5,
+            "gap": 2.2
+          },
+          {
+            "enemyId": "signal_disruptor",
+            "count": 5,
+            "gap": 1.3
+          },
+          {
+            "enemyId": "magma_brute",
+            "count": 8,
+            "gap": 0.8
+          },
+          {
+            "enemyId": "volt_crawler",
+            "count": 10,
+            "gap": 0.5
+          }
+        ]
+      }
+    ]
+  }
+}

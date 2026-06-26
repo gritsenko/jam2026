@@ -3,6 +3,7 @@ import { COLORS } from '../theme';
 import { tween, Easings } from './tween';
 import type { LayoutInfo } from './ResponsiveLayout';
 import type { RouteId, Scene, SceneFactory, SceneParams, SceneServices } from './scene';
+import * as Telemetry from '../telemetry/Telemetry';
 
 const FADE_SECONDS = 0.24;
 
@@ -52,6 +53,7 @@ export class SceneManager {
 
   navigate(route: RouteId, params?: SceneParams): void {
     if (this.busy) return;
+    Telemetry.track('nav', { to: route });
     this.busy = true;
     this.drawFade();
     this.fade.visible = true;

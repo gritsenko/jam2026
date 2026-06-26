@@ -4,6 +4,7 @@ import type { AssetLoader } from '../core/AssetLoader';
 import { CARDS, cardGrade } from '../config/cards';
 import type { BattleStateMock, BuffStat, CardDef, PlacedCard } from '../config/types';
 import { computeSynergy, type SlotSynergy } from '../game/synergy';
+import { gridMetrics } from '../game/platformGeometry';
 import { makeText } from './helpers';
 import { SlotView, type SlotHighlight } from './SlotView';
 
@@ -73,9 +74,11 @@ export class PlatformGrid extends Container {
     this.addChild(this.plate, this.beams, this.inspectBelow, this.slotLayer, this.inspectAbove);
     this.buildPlate();
 
-    const gap = size * 0.035;
-    this.cell = (size * 0.78 - gap * 2) / 3;
-    this.step = this.cell + gap;
+    // Geometry lives in game/platformGeometry.ts so the headless bot matches the
+    // rendered layout exactly (single source for slot positions / cell size).
+    const m = gridMetrics(size);
+    this.cell = m.cell;
+    this.step = m.step;
     // One shared element-symbol lookup for every slot's influence dots.
     const symbols: Partial<Record<ElementId, Texture>> = {};
     for (const e of ELEMENT_IDS) symbols[e] = this.assets.get(elementSymbolKey(e));

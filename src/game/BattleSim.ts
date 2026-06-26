@@ -1,5 +1,6 @@
 import type { ElementId } from '../theme';
 import type { CardDef, EnemyDef, ReactionId, WaveDef } from '../config/types';
+import type { Rng } from './rng';
 import { getEnemy } from '../config/enemies';
 import { cardGrade, cardLoad } from '../config/cards';
 import {
@@ -202,6 +203,12 @@ export interface BattleSimOptions {
   /** Per-level reward tier: every spawned enemy's bounty is multiplied by this (default 1). */
   bountyScale?: number;
   callbacks?: SimCallbacks;
+  /**
+   * Optional seeded PRNG. When set, stun/interrupt rolls use a per-enemy sub-stream
+   * (FPS-independent, reproducible). When omitted, the legacy clock-based sin-hash
+   * is used → production behaviour is byte-for-byte unchanged.
+   */
+  rng?: Rng;
 }
 
 /** One queued spawn: wait `gap` seconds (since the previous spawn) then spawn `def`. */
@@ -239,6 +246,9 @@ export class BattleSim {
 
   /** Monotonic sim clock (seconds) — status deadlines are measured against this. */
   private clock = 0;
+  /** Optional seeded PRNG + per-enemy sub-streams (see BattleSimOptions.rng). */
+  private rng?: Rng;
+  private enemyRng = new Map<number, Rng>();
 
   private readonly path: ArenaPath;
   private readonly waves: WaveDef[];
@@ -279,6 +289,7 @@ export class BattleSim {
     this.railgunBand = RAILGUN_BEAM_HALF_WIDTH_FRAC * opts.arenaWidth;
     this.jamRange = DISRUPTOR_JAM_RANGE_FRAC * opts.arenaWidth;
     this.arenaWidth = opts.arenaWidth;
+    this.rng = opts.rng;
   }
 
   /** 1-based number of the current/next wave for the HUD. */
@@ -845,6 +856,16 @@ export class BattleSim {
    * stays resumable/replayable): hash the enemy id, the clock and the chance.
    */
   private roll(chance: number, e: SimEnemy): boolean {
+    if (this.rng) {
+      // Seeded: a per-enemy sub-stream that advances per roll → reproducible and
+      // FPS-independent (depends on roll count, not on `clock`/frame rate).
+      let r = this.enemyRng.get(e.id);
+      if (!r) {
+        r = this.rng.fork(e.id);
+        this.enemyRng.set(e.id, r);
+      }
+      return r.next() < chance;
+    }
     const seed = Math.sin((e.id + 1) * 12.9898 + this.clock * 78.233) * 43758.5453;
     return seed - Math.floor(seed) < chance;
   }
