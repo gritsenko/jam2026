@@ -26,7 +26,7 @@ const en: Dict = {
   'common.gotIt': 'GOT IT',
 
   // --- main menu ---
-  'menu.subtitle': 'TOWER DEFENSE • MERGE',
+  'menu.subtitle': 'in search of the last senior',
 
   // --- world map ---
   'worldmap.title': 'CHOOSE YOUR STAND',
@@ -189,7 +189,7 @@ const ru: Dict = {
   'common.gotIt': 'ПОНЯТНО',
 
   // --- main menu ---
-  'menu.subtitle': 'ТАУЭР-ДЕФЕНС • МЕРДЖ',
+  'menu.subtitle': 'в поисках последнего сеньора',
 
   // --- world map ---
   'worldmap.title': 'ВЫБЕРИ РУБЕЖ',
@@ -374,7 +374,7 @@ const ru: Dict = {
   'tutorial.basics_energy.title': 'Энергия и ядро',
   'tutorial.basics_energy.body':
     'Каждая башня грузит энергосеть (шкала сверху).\n\nПрорвавшийся враг бьёт по целостности Ядра — потеряешь ядро, проиграешь.',
-  'tutorial.tower_storm_coil.title': 'Гроза',
+  'tutorial.tower_storm_coil.title': 'ТеслаПушка',
   'tutorial.tower_storm_coil.body':
     'Цепная молния — бьёт по группе врагов, перепрыгивая между целями.',
   'tutorial.mech_merge.title': 'Мердж',

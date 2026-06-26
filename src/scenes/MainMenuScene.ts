@@ -1,4 +1,4 @@
-import { Container, Sprite } from 'pixi.js';
+import { Container } from 'pixi.js';
 import { COLORS, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene } from '../core/scene';
@@ -8,15 +8,13 @@ import { LangSwitch } from '../ui/LangSwitch';
 import { AdminHud } from '../ui/AdminHud';
 import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
-import { fitSprite, glowCircle, makeText } from '../ui/helpers';
+import { glowCircle, makeText } from '../ui/helpers';
 import * as Telemetry from '../telemetry/Telemetry';
 
-/** Title screen: themed backdrop, logo, platform showcase, and a Start CTA. */
+/** Title screen: themed backdrop, title cluster, and a Start CTA. */
 export class MainMenuScene extends Scene {
   private bg!: SceneBackground;
   private logo = new Container();
-  private platform = new Container();
-  private platformBaseY = 0;
   private startBtn!: Button;
   private muteBtn!: MuteButton;
   private adminHud!: AdminHud;
@@ -32,35 +30,28 @@ export class MainMenuScene extends Scene {
     this.bg = new SceneBackground(assets.get('bg_menu'));
     this.addChild(this.bg);
 
-    // Hero showcase of the steampunk platform (the isometric base_platform art).
-    if (assets.has('base_platform')) {
-      const plate = new Sprite(assets.get('base_platform'));
-      fitSprite(plate, 720, 560);
-      this.platform.addChild(plate);
-    }
-    this.addChild(this.platform);
-
-    // Logo cluster: emblem plate (if any) behind stacked title text.
+    // Title cluster: a soft glow behind the stacked title text. Brand name is a
+    // non-localized literal (same in every locale, like the old SYNERGY GRID);
+    // only the tagline goes through i18n.
     const glow = glowCircle(220, COLORS.gold, 0.35);
     this.logo.addChild(glow);
-    if (assets.has('logo_title')) {
-      const plate = new Sprite(assets.get('logo_title'));
-      fitSprite(plate, 560, 360);
-      this.logo.addChild(plate);
-    }
-    const title1 = makeText('SYNERGY', 'display', {
-      fontSize: 120,
+    const title1 = makeText('BUHANKA', 'display', {
+      fontSize: 118,
       fill: hex(COLORS.textBright),
       stroke: { color: hex(COLORS.textDark), width: 8, alpha: 0.85 },
     });
     title1.anchor.set(0.5);
-    title1.position.set(0, -64);
-    const title2 = makeText('GRID', 'display', { fontSize: 150, fill: hex(COLORS.gold) });
+    title1.position.set(0, -60);
+    const title2 = makeText('DEFENCE', 'display', { fontSize: 118, fill: hex(COLORS.gold) });
     title2.anchor.set(0.5);
-    title2.position.set(0, 56);
-    const sub = makeText(t('menu.subtitle'), 'label', { fontSize: 30, fill: hex(COLORS.textDim) });
+    title2.position.set(0, 60);
+    const sub = makeText(t('menu.subtitle'), 'label', {
+      fontSize: 30,
+      fill: hex(COLORS.textBright),
+      stroke: { color: hex(COLORS.textDark), width: 5, alpha: 0.85 },
+    });
     sub.anchor.set(0.5);
-    sub.position.set(0, 150);
+    sub.position.set(0, 152);
     this.logo.addChild(title1, title2, sub);
     this.addChild(this.logo);
 
@@ -95,9 +86,7 @@ export class MainMenuScene extends Scene {
     this.bg.fit(info);
     const { safe } = info;
     const cx = safe.x + safe.width / 2;
-    this.logo.position.set(cx, safe.y + safe.height * 0.22);
-    this.platformBaseY = safe.y + safe.height * 0.56;
-    this.platform.position.set(cx, this.platformBaseY);
+    this.logo.position.set(cx, safe.y + safe.height * 0.4);
     this.startBtn.position.set(cx, safe.y + safe.height * 0.82);
     this.muteBtn.position.set(safe.x + safe.width - 18 - 32, safe.y + 18 + 32);
     this.langSwitch.position.set(cx - 210, safe.y + safe.height - this.langSwitch.contentHeight - 28);
@@ -106,8 +95,7 @@ export class MainMenuScene extends Scene {
 
   override update(dt: number): void {
     this.t += dt;
-    // Subtle breathing on the logo + a gentle platform float.
+    // Subtle breathing on the title cluster.
     this.logo.scale.set(1 + Math.sin(this.t * 1.4) * 0.012);
-    this.platform.y = this.platformBaseY + Math.sin(this.t * 1.1) * 6;
   }
 }

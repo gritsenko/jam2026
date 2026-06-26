@@ -156,20 +156,13 @@ export const ASSETS: AssetSpec[] = [
 
   // ---- Platform + props ----------------------------------------------------
   {
-    key: 'base_platform',
-    category: 'prop',
-    size: 1024,
-    prompt: 'dieselpunk tower-defense battle platform, a heavy square dark gunmetal iron plate with bolted riveted edges and a few rust streaks, its flat top surface holds nine recessed metal build sockets in a clean 3x3 grid linked by glowing blue energy channels, dark weathered steel with brass bolt accents and glowing blue energy at the socket rims, chunky industrial beveled sides, three-quarter top-down view',
-    placeholder: { shape: 'round', tint: COLORS.metalMid, label: '' },
-  },
-  {
     // The in-battle platform BOARD: a top-down dark-steel plate whose nine recessed
     // sockets ARE the build slots. PlatformGrid draws this instead of the old
     // procedural octagon, and SlotView no longer paints a socket — the art provides
     // them. Slot geometry is traced from this art (gridMetrics in
     // platformGeometry.ts): sockets centered, inter-socket pitch ≈310/1024 of the
     // plate, inner socket ≈235/1024. Hand-made (docs/visual_refs/visual_sources/
-    // board1.psd), NOT gen_sprite. (base_platform stays the menu's 3/4 hero plate.)
+    // board1.psd), NOT gen_sprite.
     key: 'platform_board',
     category: 'prop',
     size: 1024,
