@@ -42,11 +42,20 @@
 - [support-enemies.md](planned/support-enemies.md) — карточки мобов поддержки (Resonance Mote / Coolant Mender / Aegis Beacon): внешний вид в стиле текущих врагов + спрайт-промпты.
 - [tutorial-modals.md](planned/tutorial-modals.md) — обучающие модалки на входе в уровень, где открывается новая механика/башня: реестр уроков по дельте прогрессии, компонент `TutorialModal`, «виденность» в прогрессе, иллюстрации/демки.
 - [sell-towers.md](planned/sell-towers.md) — продажа установленных башен.
+- [online-telemetry-deployment.md](planned/online-telemetry-deployment.md) — минимум для вывода телеметрии в онлайн при публично хостящейся игре (хост с постоянным диском, HTTPS, топология `/api` без CORS, `VITE_TELEMETRY_URL` на сборке, токен на ingest бот-ранов); задел под прогон ботов в тот же дашборд. Реализует [analytics-and-backend.md](backlog/analytics-and-backend.md) в проде.
+- [online-editor-deployment.md](planned/online-editor-deployment.md) — приватный (только админ) деплой [редактора геймдизайна](backlog/design-editor.md) в онлайн: бэкенд редактора — это Vite dev-плагин, поэтому поднимается сам `vite dev` за basic-auth+HTTPS; правка/`run bot` работают с живым диском, а «play this config» для нового конфига требует ребилда игры (статический `registry.ts`).
 
 ### backlog/ — беклог
 - [concept.md](backlog/concept.md) — исходный концепт-манифест (v1, заменён v2/v3).
 - [synergy-grid-td-v2.md](backlog/synergy-grid-td-v2.md) — ревизия 2 (заменена v3; `cards.ts` пока ссылается на эту модель).
 - [cards.md](backlog/cards.md) — устаревшая v1-спека карт (направленные broadcast-профили). Заменена моделью ортогональных соседей (`synergy.ts`); хранится как история.
+
+**Кластер тулинга геймдизайна** (спроектировано, в коде ещё нет; реализуется отдельным заходом):
+- [autotest-system.md](backlog/autotest-system.md) — спецификация замкнутого конвейера балансировки (контракты Run record / aggregate / change-request, гардрейлы, HITL). Инструментально-нейтральна.
+- [autotest-system-impl-plan.md](backlog/autotest-system-impl-plan.md) — план реализации автотеста под наш код: `BattleCore` (seeded) + headless-бот + играбельный Sandbox + анализатор/дашборд + сабагент-исполнитель.
+- [config-as-data.md](backlog/config-as-data.md) — **фундамент**: вынос игрового дизайна (башни/монстры/уровни/правила) из TS-констант в JSON `ConfigSet` с переключаемыми вариантами, без поломок. На нём держатся редактор и тестирование балансов.
+- [design-editor.md](backlog/design-editor.md) — редактор геймдизайна как dev-инструмент (Vite-подстраница `editor.html`), правит `ConfigSet`, кнопки «играть/прогнать ботом этот вариант».
+- [analytics-and-backend.md](backlog/analytics-and-backend.md) — бэкенд (`sim/server/`, Fastify + SQLite) и телеметрия: события реальных игроков + бот-раны сходятся в единый `aggregate` (`source: user|bot`).
 
 ## Правило синхронизации (ВАЖНО)
 

@@ -1,5 +1,6 @@
 import type { BattleStateMock } from './types';
 import { cardLoad, getCard } from './cards';
+import { activeGameConfig } from '../data/load';
 
 /**
  * Builds a fresh mock battle snapshot: the player's starting resources and the
@@ -15,32 +16,9 @@ import { cardLoad, getCard } from './cards';
  */
 export function createBattleState(unlocked?: ReadonlySet<string>): BattleStateMock {
   const allowed = (cardId: string) => !unlocked || unlocked.has(cardId);
-  const base: BattleStateMock = {
-    wave: 1,
-    maxWave: 5,
-    gold: 320,
-    crystals: 24,
-    energyLoad: 6, // = sum of the seeded towers' baseLoad (2 + 1 + 1 + 2)
-    energyCapacity: 8, // v3 §3.А: starts above the seeded load so the player has a 1–2 cell buffer (green is the norm)
-    energyMax: 15,
-    overdrive: false,
-    slots: [
-      null,
-      { cardId: 'plasma_shutter', grade: 1 }, // top edge
-      null,
-      null,
-      { cardId: 'shield_generator', grade: 1 }, // center support
-      { cardId: 'frost_pulse', grade: 1 }, // right edge
-      null,
-      { cardId: 'storm_coil', grade: 1 }, // bottom edge — covers the entry gate
-      null,
-    ],
-    hand: [
-      { instanceId: 'h1', cardId: 'storm_coil', grade: 1 },
-      { instanceId: 'h2', cardId: 'plasma_shutter', grade: 1 },
-      { instanceId: 'h3', cardId: 'railgun', grade: 1 },
-    ],
-  };
+  // Clone the seed from the active GameConfig (src/data/game_configs/<config>/battleSeed.json)
+  // so callers can freely mutate it without touching the shared template.
+  const base: BattleStateMock = structuredClone(activeGameConfig.battleSeed);
 
   base.slots = base.slots.map((s) => (s && allowed(s.cardId) ? s : null));
   base.hand = base.hand.filter((h) => allowed(h.cardId));

@@ -1,0 +1,23 @@
+{
+  "name": "sgtd-telemetry-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Telemetry/analytics backend for Synergy Grid TD — ingests player events and bot runs into SQLite. Separate package: NOT part of the game's pixi-only runtime.",
+  "scripts": {
+    "start": "tsx index.ts",
+    "dev": "tsx watch index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "better-sqlite3": "^11.8.0",
+    "fastify": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.0"
+  }
+}

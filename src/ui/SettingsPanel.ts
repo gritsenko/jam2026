@@ -5,9 +5,10 @@ import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Button } from './Button';
 import { Slider } from './Slider';
 import { drawPanel, makeText } from './helpers';
+import * as Telemetry from '../telemetry/Telemetry';
 
 const CARD_W = 760;
-const CARD_H = 600;
+const CARD_H = 680;
 const PAD = 52;
 
 /**
@@ -24,6 +25,7 @@ export class SettingsPanel extends Container {
   private card = new Container();
   private cardBg = new Graphics();
   private muteBtn: Button;
+  private privacyBtn: Button;
   private readonly audio: AudioBus;
   private readonly onClose: () => void;
 
@@ -59,7 +61,10 @@ export class SettingsPanel extends Container {
       width: sliderW,
       label: 'MUSIC',
       value: audio.getVolume('music'),
-      onChange: (v) => audio.setVolume('music', v),
+      onChange: (v) => {
+        audio.setVolume('music', v);
+        Telemetry.track('volume_change', { channel: 'music', value: v });
+      },
       accent: COLORS.crystal,
     });
     music.position.set(PAD, 120);
@@ -67,7 +72,10 @@ export class SettingsPanel extends Container {
       width: sliderW,
       label: 'EFFECTS',
       value: audio.getVolume('sfx'),
-      onChange: (v) => audio.setVolume('sfx', v),
+      onChange: (v) => {
+        audio.setVolume('sfx', v);
+        Telemetry.track('volume_change', { channel: 'sfx', value: v });
+      },
       accent: COLORS.energyOk,
     });
     effects.position.set(PAD, 220);
@@ -75,7 +83,10 @@ export class SettingsPanel extends Container {
       width: sliderW,
       label: 'SYSTEM',
       value: audio.getVolume('ui'),
-      onChange: (v) => audio.setVolume('ui', v),
+      onChange: (v) => {
+        audio.setVolume('ui', v);
+        Telemetry.track('volume_change', { channel: 'ui', value: v });
+      },
       accent: COLORS.gold,
     });
     system.position.set(PAD, 320);
@@ -89,10 +100,28 @@ export class SettingsPanel extends Container {
       onClick: () => {
         this.audio.toggleMute();
         this.muteBtn.setLabel(this.muteLabel());
+        Telemetry.track('mute_toggle', { muted: this.audio.isMuted });
       },
     });
     this.muteBtn.position.set(CARD_W / 2, 452);
     this.card.addChild(this.muteBtn);
+
+    // Privacy: opt in/out of anonymous gameplay telemetry. Toggling emits one
+    // last/first event so the change itself is recorded (when enabling).
+    this.privacyBtn = new Button({
+      label: this.privacyLabel(),
+      width: sliderW,
+      height: 84,
+      preset: 'label',
+      onClick: () => {
+        const enable = !Telemetry.isEnabled();
+        Telemetry.setEnabled(enable);
+        Telemetry.track('telemetry_optout', { on: !enable });
+        this.privacyBtn.setLabel(this.privacyLabel());
+      },
+    });
+    this.privacyBtn.position.set(CARD_W / 2, 540);
+    this.card.addChild(this.privacyBtn);
 
     const closeBtn = new Button({
       label: 'CLOSE',
@@ -105,10 +134,15 @@ export class SettingsPanel extends Container {
     this.card.addChild(closeBtn);
 
     this.addChild(this.scrim, this.card);
+    Telemetry.track('settings_open');
   }
 
   private muteLabel(): string {
     return this.audio.isMuted ? 'SOUND: OFF — TAP TO UNMUTE' : 'MUTE ALL';
+  }
+
+  private privacyLabel(): string {
+    return Telemetry.isEnabled() ? 'ANALYTICS: ON — TAP TO OPT OUT' : 'ANALYTICS: OFF';
   }
 
   private close(): void {

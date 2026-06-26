@@ -8,6 +8,7 @@ import { ResponsiveLayout } from './ResponsiveLayout';
 import { SceneManager } from './SceneManager';
 import { setTweenTicker } from './tween';
 import type { RouteId, SceneFactory, SceneServices } from './scene';
+import * as Telemetry from '../telemetry/Telemetry';
 
 /** Cap DPR — beyond this the perf cost outweighs the sharpness gain on mobile. */
 const MAX_DPR = 2.5;
@@ -83,11 +84,16 @@ export class Game {
 
     // Guard the frame loop: an uncaught error in a scene's update would stop
     // PixiJS scheduling further frames (the app freezes black until reload).
+    let errorReported = false; // emit runtime_error once, not every frame
     this.app.ticker.add((t) => {
       try {
         this.scenes.update(t.deltaMS / 1000);
       } catch (err) {
         console.error('[Game] scene update threw', err);
+        if (!errorReported) {
+          errorReported = true;
+          Telemetry.track('runtime_error', { where: 'scene.update', message: String(err) });
+        }
       }
     });
 

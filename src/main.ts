@@ -3,6 +3,7 @@ import type { RouteId, SceneFactory } from './core/scene';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
 import { BattleScene } from './scenes/BattleScene';
+import * as Telemetry from './telemetry/Telemetry';
 
 const routes: Record<RouteId, SceneFactory> = {
   menu: (s) => new MainMenuScene(s),
@@ -13,6 +14,9 @@ const routes: Record<RouteId, SceneFactory> = {
 async function main(): Promise<void> {
   const game = new Game();
   await game.boot(routes, 'menu');
+  // Anonymous gameplay telemetry (no-op unless VITE_TELEMETRY_URL is set). Emits
+  // session_start + installs unload flushers. See src/telemetry/.
+  Telemetry.init();
   // Expose for quick console poking during development.
   (window as unknown as { game: Game }).game = game;
 }

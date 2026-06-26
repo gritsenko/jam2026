@@ -5,6 +5,31 @@
 **Подход:** общий `BattleCore` (единый источник правды) + seeded RNG + играбельная
 тест-копия; полный замкнутый цикл (стадии 0–4).
 
+**Часть кластера тулинга геймдизайна** — см. также:
+[config-as-data.md](config-as-data.md) (JSON-данные + варианты конфига — **фундамент**,
+бот читает данные через него), [design-editor.md](design-editor.md) (редактор сетов),
+[analytics-and-backend.md](analytics-and-backend.md) (бэкенд `sim/server/` + телеметрия
+реальных игроков; `runs.jsonl` и события игроков сходятся в единый `aggregate`).
+
+> **Статус реализации (обновлено):** baseline-бот РЕАЛИЗОВАН (`sim/bot/`) и проверен —
+> headless, **без полного `BattleCore`**: гоняет реальный `BattleSim` напрямую, собирая
+> башни как сцена (`syncTowers`) через вынесенную чистую геометрию
+> [src/game/platformGeometry.ts](../../src/game/platformGeometry.ts) (её же теперь
+> использует `PlatformGrid` — единый источник). Детерминированно (фикс-dt 1/60, перегрузка
+> подаётся по-тиково как в сцене), 2 политики (`seeded` / `greedyFill`), цикл
+> levels × policies × seeds → `sim/out/runs.jsonl` + сводка winrate + опц. `POST /ingest/runs`.
+> Рекордер маппит колбэки в Run record, совместимый с `aggregate` (`source:bot` рядом с
+> `user`; проверено на дашборде). Запуск: `tsx sim/bot/run.ts` (или кнопка **run bot** в
+> редакторе). **Обновление:** **seeded RNG** в `BattleSim` РЕАЛИЗОВАН (опц. `rng`,
+> per-enemy sub-stream, дефолт = старый sin-хеш — прод неизменён; общий `src/game/rng.ts`).
+> **`BattleCore` РЕАЛИЗОВАН** ([src/game/BattleCore.ts](../../src/game/BattleCore.ts)) —
+> headless движок решений+экономики (place/merge/burn/reroll/fusion/modernization +
+> энергосеть/синергия/tower-spec, обёртка над seeded `BattleSim`); бот переведён на него,
+> паритет точный (SEEDS=10 и 1000 совпали байт-в-поведение). **Не сделано:** политики бота
+> по действиям во времени + обучение/поиск, играбельный `SandboxScene`, миграция
+> продакшн-`BattleScene` на `BattleCore`, анализатор коридоров/диагнозов и генератор
+> change-request (стадии 2–4).
+
 ## Контекст
 
 [autotest-system.md](autotest-system.md) описывает замкнутый агентный конвейер
@@ -22,7 +47,11 @@
   ([src/game/synergy.ts](../../src/game/synergy.ts)), `cardLoad`
   ([cards.ts:370](../../src/config/cards.ts)), цены реролла/овердрайва/фьюжна.
 - Конфиг-слой ([src/config/](../../src/config/)) — чистые типизированные экспорты =
-  готовые «семейства переменных» для `change-request`.
+  готовые «семейства переменных» для `change-request`. После
+  [config-as-data.md](config-as-data.md) эти данные живут в JSON-сетах
+  (`src/data/game_configs/<name>/`): бот/сим читают активный конфиг через `src/data/load.ts`
+  (`loadGameConfig(name)` / `GAME_CONFIG=<name>`) → **разные балансы тестируются «из
+  коробки»**, а `change-request` правит JSON выбранного сета.
 
 **Два препятствия:**
 1. **Нет сидированного RNG.** Единственная случайность сима — `BattleSim.roll()`
@@ -92,9 +121,12 @@ sim/
     diagnose.ts       метрики вне коридора → diagnoses
     propose.ts        diagnoses → sim/proposals/<id>.json (с гардрейлами)
   dashboard/
-    build.ts          aggregate.json → out/dashboard.html (статический)
-  out/                runs.jsonl, aggregate.json, dashboard.html  (.gitignore)
+    build.ts          aggregate.json → out/dashboard.html (статический; live-режим — GET /aggregate)
+  server/             бэкенд телеметрии — см. analytics-and-backend.md (Fastify + SQLite)
+  out/                runs.jsonl, aggregate.json, dashboard.html, telemetry.db  (.gitignore)
   proposals/          change-request, и для людей, и для агента
+src/data/             JSON ConfigSet'ы + загрузчик — см. config-as-data.md
+src/telemetry/        эмиттер событий реальных игроков — см. analytics-and-backend.md
 src/scenes/SandboxScene.ts   играбельная тест-копия на BattleCore
 .claude/agents/balance-sim.md  сабагент-исполнитель (стадия 4)
 docs/working/autotest-system.md  перенос спеки из backlog/ при реализации
@@ -134,7 +166,9 @@ makeRng(seed: number) -> { next(): number /*[0,1)*/, fork(salt: number): Rng }
 - Ветка `balance/autotest`; `tsx` в `devDependencies`; npm-скрипты `sim`, `sim:analyze`,
   `sim:dashboard`.
 - `sim/core/rng.ts`; правка `roll` + опциональный `rng` в BattleSim (см. выше).
-- `sim/core/BattleCore.ts` — **единый движок**: модель 9 слотов (на базе формы
+- `sim/core/BattleCore.ts` — **единый движок**: данные берёт через активный `ConfigSet`
+  (`src/data/load.ts`, [config-as-data.md](config-as-data.md)) → гоняется по любому варианту
+  баланса. Модель 9 слотов (на базе формы
   `BattleStateMock` из [battleState.ts](../../src/config/battleState.ts)), ledger
   gold/crystals, hand/deck с seeded-добором и кулдауном 4с, чистые action-аппликаторы
   (`place/merge(field)/merge(hand)/fusion/burn/reroll/modernization`) — **переиспользуют**
@@ -152,7 +186,10 @@ makeRng(seed: number) -> { next(): number /*[0,1)*/, fork(salt: number): Rng }
 - `sim/core/recorder.ts` (маппинг колбэков → Run record, см. ниже).
 - `sim/policies/`: `mono.ts` + `random.ts` (baseline) сразу; `synergyPair.ts`,
   `greedyDps.ts` следом. Политика = `(state, unlocks, rng) -> Action` каждый ход.
-- `sim/run.ts` — цикл levels × seeds × policies, фикс-dt, append в `out/runs.jsonl`.
+- `sim/run.ts` — цикл (gameConfig ×) levels × seeds × policies, фикс-dt, append в
+  `out/runs.jsonl` (`GAME_CONFIG=<name>` выбирает баланс — [config-as-data.md](config-as-data.md)).
+  `runs.jsonl` импортируется в бэкенд (`sim/server/import.ts`,
+  [analytics-and-backend.md](analytics-and-backend.md)) рядом с телеметрией реальных игроков.
 - `sim/dashboard/build.ts` — `aggregate.json` → `out/dashboard.html` (4 пласта §6:
   сложность/винрейт, экономика-краны, прогрессия-стоки, пейсинг; вердикт по коридору;
   сравнение версий по `meta.balanceVersion`).

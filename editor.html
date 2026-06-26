@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Synergy Grid TD — Design Editor</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0e1116; color: #d7dde6; font: 14px/1.45 system-ui, sans-serif; }
+    header { position: sticky; top: 0; z-index: 5; padding: 12px 20px; background: #141a22; border-bottom: 1px solid #232a34; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+    h1 { font-size: 16px; margin: 0; color: #f0c674; letter-spacing: .04em; }
+    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #8aa0b8; margin: 24px 20px 8px; }
+    .muted { color: #6b7889; font-size: 12px; }
+    select, button, input, textarea { background: #1a212b; color: #d7dde6; border: 1px solid #2c3540; border-radius: 6px; padding: 6px 9px; font: inherit; }
+    button { cursor: pointer; }
+    button.primary { background: #2f5c3b; border-color: #3f7a4f; color: #d7f0d9; }
+    button.warn { background: #5a2f2f; border-color: #7a3f3f; }
+    table { width: calc(100% - 40px); margin: 0 20px; border-collapse: collapse; }
+    th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #1c2430; }
+    th { color: #7c8aa0; font-weight: 600; font-size: 12px; }
+    td input { width: 100%; min-width: 60px; }
+    td input.txt { min-width: 130px; }
+    textarea { width: calc(100% - 40px); margin: 4px 20px; min-height: 80px; font-family: ui-monospace, monospace; font-size: 12px; }
+    .status { margin-left: auto; font-size: 12px; }
+    .status.ok { color: #8fd6a0; }
+    .status.err { color: #e08f8f; }
+    details { margin: 0 20px 6px; border: 1px solid #1c2430; border-radius: 6px; }
+    summary { padding: 6px 10px; cursor: pointer; color: #9fb0c4; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 4px 20px; }
+    .row label { font-size: 12px; color: #8aa0b8; }
+    .wave { margin: 6px 20px; padding: 6px 10px; border: 1px solid #1c2430; border-radius: 6px; }
+    .wave .row { padding: 2px 0; }
+    .row .err, .err { color: #e08f8f; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SGTD · DESIGN EDITOR</h1>
+    <label class="muted">game config
+      <select id="configSelect"></select>
+    </label>
+    <button id="newConfig">new (copy)</button>
+    <button id="save" class="primary">save</button>
+    <button id="play">play this config ▶</button>
+    <button id="runBot">run bot ▶</button>
+    <span class="status muted" id="status"></span>
+  </header>
+  <pre id="botOut" style="display:none; margin:0 20px; padding:10px; background:#11161d; border:1px solid #232a34; border-radius:6px; font:12px/1.4 ui-monospace,monospace; white-space:pre-wrap; max-height:260px; overflow:auto;"></pre>
+  <main id="root"></main>
+  <script type="module" src="/src/editor/main.ts"></script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { LEVELS } from './levels';
+import { activeGameConfig } from '../data/load';
 
 /**
  * Meta-campaign progression data (docs/done/progression-and-tech-tree.md §2/§3).
@@ -12,24 +13,17 @@ import { LEVELS } from './levels';
 /** Level ids in campaign order (mirrors the world-map node order). */
 export const LEVEL_ORDER: string[] = LEVELS.map((l) => l.id);
 
-/** Towers the player starts with before clearing anything (§2: Plasma + Frost). */
-export const STARTING_TOWERS: readonly string[] = ['plasma_shutter', 'frost_pulse'];
-
 /**
- * What clearing each level unlocks *forever* (§2 table). `towers` are card ids
- * added to the draw pool; `mechanics` are systemic flags the battle reads to
- * gate features (reroll, fusion, …). The lesson a level *teaches* is realized as
- * the unlock the player carries into the next battle.
+ * Towers the player starts with before clearing anything (§2: Plasma + Frost) and
+ * what clearing each level unlocks *forever* (§2 table). Data lives in JSON
+ * (src/data/game_configs/<config>/progression.json) via the active ConfigSet
+ * (docs/backlog/config-as-data.md). `towers` are card ids added to the draw pool;
+ * `mechanics` are systemic flags the battle reads to gate features (reroll, fusion…).
  */
-export const LEVEL_UNLOCKS: Record<string, { towers: string[]; mechanics: string[] }> = {
-  lvl_1: { towers: ['storm_coil'], mechanics: [] },
-  lvl_2: { towers: [], mechanics: ['merge', 'reroll', 'crystals'] },
-  lvl_3: { towers: [], mechanics: ['resonance'] },
-  lvl_4: { towers: ['railgun', 'grid_stabilizer'], mechanics: ['overload'] },
-  lvl_5: { towers: ['shield_generator'], mechanics: ['interrupt', 'mod_cards'] },
-  lvl_6: { towers: [], mechanics: ['fusion'] },
-  lvl_7: { towers: [], mechanics: ['fusion_recipes'] },
-};
+export const STARTING_TOWERS: readonly string[] = activeGameConfig.startingTowers;
+
+export const LEVEL_UNLOCKS: Record<string, { towers: string[]; mechanics: string[] }> =
+  activeGameConfig.levelUnlocks;
 
 /** Tower ids unlocked given the set of cleared levels (starting roster + clears). */
 export function unlockedTowersFromCleared(cleared: Iterable<string>): Set<string> {

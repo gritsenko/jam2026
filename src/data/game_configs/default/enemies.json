@@ -1,0 +1,96 @@
+[
+  {
+    "id": "frost_wisp",
+    "name": "Frost Wisp",
+    "element": "Water",
+    "iconKey": "enemy_frost_wisp",
+    "maxHp": 35,
+    "speed": 0.085,
+    "bounty": 5,
+    "coreDamage": 1
+  },
+  {
+    "id": "volt_crawler",
+    "name": "Volt Crawler",
+    "element": "Electricity",
+    "iconKey": "enemy_volt_crawler",
+    "maxHp": 55,
+    "speed": 0.07,
+    "bounty": 6,
+    "coreDamage": 1
+  },
+  {
+    "id": "magma_brute",
+    "name": "Magma Brute",
+    "element": "Fire",
+    "iconKey": "enemy_magma_brute",
+    "maxHp": 90,
+    "speed": 0.05,
+    "bounty": 9,
+    "coreDamage": 2
+  },
+  {
+    "id": "iron_husk",
+    "name": "Iron Husk",
+    "element": "Physical",
+    "iconKey": "enemy_iron_husk",
+    "maxHp": 240,
+    "speed": 0.035,
+    "bounty": 16,
+    "coreDamage": 3
+  },
+  {
+    "id": "signal_disruptor",
+    "name": "Signal Disruptor",
+    "element": "Electricity",
+    "iconKey": "enemy_disruptor",
+    "maxHp": 80,
+    "speed": 0.062,
+    "bounty": 12,
+    "coreDamage": 1,
+    "archetype": "disruptor",
+    "interruptInterval": 1.6,
+    "interruptChance": 0.6,
+    "interruptCrit": 0.25,
+    "crystalBounty": 2
+  },
+  {
+    "id": "resonance_mote",
+    "name": "Resonance Mote",
+    "element": "Energy",
+    "iconKey": "enemy_resonance_mote",
+    "maxHp": 70,
+    "speed": 0.06,
+    "bounty": 12,
+    "coreDamage": 1,
+    "archetype": "support",
+    "auraRadiusFrac": 0.18,
+    "auraHastePct": 25
+  },
+  {
+    "id": "coolant_mender",
+    "name": "Coolant Mender",
+    "element": "Water",
+    "iconKey": "enemy_coolant_mender",
+    "maxHp": 65,
+    "speed": 0.055,
+    "bounty": 11,
+    "coreDamage": 1,
+    "archetype": "support",
+    "auraRadiusFrac": 0.16,
+    "auraHealPerSec": 8
+  },
+  {
+    "id": "aegis_beacon",
+    "name": "Aegis Beacon",
+    "element": "Energy",
+    "iconKey": "enemy_aegis_beacon",
+    "maxHp": 60,
+    "speed": 0.05,
+    "bounty": 13,
+    "coreDamage": 1,
+    "archetype": "support",
+    "auraRadiusFrac": 0.15,
+    "allyShieldHp": 60
+  }
+]

@@ -11,6 +11,7 @@ import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
 import { WorldMapNode } from '../ui/WorldMapNode';
 import { makeText } from '../ui/helpers';
+import * as Telemetry from '../telemetry/Telemetry';
 
 /** World map: a winding canyon path of level nodes; tap an open node to fight.
  *  Node states + stars are read live from campaign progress, and an Admin toggle
@@ -44,6 +45,11 @@ export class WorldMapScene extends Scene {
   override onEnter(): void {
     const { assets } = this.services;
     this.services.audio.playMusic('music_map');
+    Telemetry.setContext({ level: undefined, wave: undefined });
+    Telemetry.track('worldmap_view', {
+      cleared: LEVELS.filter((l) => progress.isCleared(l.id)).length,
+      totalStars: LEVELS.reduce((sum, l) => sum + progress.starsFor(l.id), 0),
+    });
     this.marginBg = new SceneBackground(assets.get('bg_arena'));
     this.map = new Sprite(assets.get('bg_worldmap'));
     this.map.anchor.set(0.5);
@@ -69,6 +75,7 @@ export class WorldMapScene extends Scene {
 
     this.adminToggle = new Checkbox('ADMIN', progress.isAdmin(), (on) => {
       progress.setAdmin(on);
+      Telemetry.track('admin_toggle', { on });
       // Re-evaluate every node's lock/clear state with the new override.
       this.rebuildNodes();
       if (this.lastInfo) this.layout(this.lastInfo);
@@ -107,6 +114,11 @@ export class WorldMapScene extends Scene {
 
   private onSelect(node: LevelNode): void {
     console.log(`[WorldMap] entering level ${node.id} (${node.name})`);
+    Telemetry.track('level_select', {
+      levelId: node.id,
+      state: progress.levelState(node.id),
+      stars: progress.starsFor(node.id),
+    });
     this.services.navigate('battle', { levelId: node.id });
   }
 

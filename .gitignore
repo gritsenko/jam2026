@@ -2,11 +2,16 @@
 tools/.gemini_key
 .gemini_key
 .env
+.env.local
+.env.*.local
 *.key
 
 # --- node ---
 node_modules/
 dist/
+
+# --- sim/telemetry artifacts (DB, runs, generated dashboard) ---
+sim/out/
 
 # --- generated / intermediate sprites ---
 # Raw 1K-2K generations before post-processing. Final sprites in

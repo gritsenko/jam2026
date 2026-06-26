@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
 import { fitSprite, glowCircle, makeText } from '../ui/helpers';
+import * as Telemetry from '../telemetry/Telemetry';
 
 /** Title screen: themed backdrop, logo, platform showcase, and a Start CTA. */
 export class MainMenuScene extends Scene {
@@ -65,6 +66,7 @@ export class MainMenuScene extends Scene {
       labelColor: hex(COLORS.textBright),
       onClick: () => {
         this.services.audio.playSfx('sfx_click');
+        Telemetry.track('menu_play');
         this.services.navigate('worldmap');
       },
     });

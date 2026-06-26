@@ -1,0 +1,124 @@
+{
+  "CORE_MAX": 20,
+  "FIRST_WAVE_DELAY": 4,
+  "WAVE_INTERMISSION": 7,
+  "PROJECTILE_SPEED_FRAC": 1.15,
+  "PROJECTILE_HIT_FRAC": 0.018,
+  "OVERLOAD_FIRE_PENALTY_PER_LOAD": 0.025,
+  "OVERLOAD_FIRE_FLOOR": 0.1,
+  "OVERDRIVE_CAPACITY_BONUS": 2,
+  "CAPACITY_PER_WAVE": 1,
+  "WAVE_CLEAR_BONUS": 25,
+  "PERFECT_CLEAR_CRYSTALS": 15,
+  "WET_DAMAGE_MULT": 2,
+  "SLOW_REFRESH_SEC": 1.2,
+  "CHAIN_RADIUS_FRAC": 0.17,
+  "CHAIN_FALLOFF": 0.72,
+  "PLASMA_SHOCKWAVE_FRAC": 0.05,
+  "PLASMA_SLOW_PROJECTILE_MULT": 0.55,
+  "SHRAPNEL_AOE_MULT": 1.4,
+  "AOE_SPLASH_FRAC": 0.6,
+  "FROST_FREEZE_RADIUS_FRAC": [
+    0.06,
+    0.085,
+    0.12
+  ],
+  "RAILGUN_BEAM_HALF_WIDTH_FRAC": 0.05,
+  "DISRUPTOR_JAM_RANGE_FRAC": 0.34,
+  "INTERRUPT_STUN_SEC": 1.2,
+  "BARRIER_COOLDOWN_SEC": 12,
+  "AURA_HASTE_CAP_PCT": 50,
+  "AURA_SHIELD_DECAY_PER_SEC": 40,
+  "STEAM_SLOW": 0.15,
+  "STEAM_DOT_DPS": 12,
+  "STEAM_DOT_SEC": 1.5,
+  "SUPERCONDUCT_TEMPO_MULT": 1.5,
+  "SUPERCONDUCT_STUN_CHANCE": 0.2,
+  "SUPERCONDUCT_STUN_SEC": 0.5,
+  "ENEMY_PATHS": {
+    "bottom": [
+      {
+        "x": 0.5,
+        "y": 1.22
+      },
+      {
+        "x": 0.5,
+        "y": 0.84
+      },
+      {
+        "x": 0.84,
+        "y": 0.84
+      },
+      {
+        "x": 0.84,
+        "y": 0.16
+      },
+      {
+        "x": 0.16,
+        "y": 0.16
+      },
+      {
+        "x": 0.16,
+        "y": 0.84
+      },
+      {
+        "x": 0.5,
+        "y": 0.84
+      }
+    ],
+    "top": [
+      {
+        "x": 0.5,
+        "y": -0.22
+      },
+      {
+        "x": 0.16,
+        "y": 0.16
+      },
+      {
+        "x": 0.84,
+        "y": 0.16
+      },
+      {
+        "x": 0.84,
+        "y": 0.84
+      }
+    ],
+    "left": [
+      {
+        "x": -0.22,
+        "y": 0.5
+      },
+      {
+        "x": 0.16,
+        "y": 0.84
+      },
+      {
+        "x": 0.16,
+        "y": 0.16
+      },
+      {
+        "x": 0.84,
+        "y": 0.16
+      }
+    ],
+    "right": [
+      {
+        "x": 1.22,
+        "y": 0.5
+      },
+      {
+        "x": 0.84,
+        "y": 0.16
+      },
+      {
+        "x": 0.84,
+        "y": 0.84
+      },
+      {
+        "x": 0.16,
+        "y": 0.84
+      }
+    ]
+  }
+}

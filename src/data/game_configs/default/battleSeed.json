@@ -1,0 +1,50 @@
+{
+  "wave": 1,
+  "maxWave": 5,
+  "gold": 320,
+  "crystals": 24,
+  "energyLoad": 6,
+  "energyCapacity": 8,
+  "energyMax": 15,
+  "overdrive": false,
+  "slots": [
+    null,
+    {
+      "cardId": "plasma_shutter",
+      "grade": 1
+    },
+    null,
+    null,
+    {
+      "cardId": "shield_generator",
+      "grade": 1
+    },
+    {
+      "cardId": "frost_pulse",
+      "grade": 1
+    },
+    null,
+    {
+      "cardId": "storm_coil",
+      "grade": 1
+    },
+    null
+  ],
+  "hand": [
+    {
+      "instanceId": "h1",
+      "cardId": "storm_coil",
+      "grade": 1
+    },
+    {
+      "instanceId": "h2",
+      "cardId": "plasma_shutter",
+      "grade": 1
+    },
+    {
+      "instanceId": "h3",
+      "cardId": "railgun",
+      "grade": 1
+    }
+  ]
+}

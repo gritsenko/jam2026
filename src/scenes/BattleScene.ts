@@ -33,6 +33,7 @@ import { DRAW_POOL, MOD_CARD_POOL, MOD_DRAW_CHANCE } from '../config/battleRules
 import type { BattleStateMock, CardDef, HandCard } from '../config/types';
 import { towersUnlockedByClearing, unlockedMechanicsForLevel, unlockedTowersForLevel } from '../config/progression';
 import * as progress from '../game/progress';
+import * as Telemetry from '../telemetry/Telemetry';
 import { ArenaPath } from '../game/path';
 import {
   BattleSim,
@@ -194,6 +195,20 @@ export class BattleScene extends Scene {
   private rerollsThisWave = 0;
   /** Cards burned in the Reactor this battle; drives the escalating burn cost (§3.Г). */
   private burnsThisBattle = 0;
+  /** Fusions crafted this battle (telemetry summary on level_end). */
+  private fusionsThisBattle = 0;
+  /** Wall-clock of this battle in sim seconds (telemetry durationSec). */
+  private battleElapsed = 0;
+  /** Was the energy grid overloaded last refresh? (edge-trigger energy_overload). */
+  private wasOverloaded = false;
+  /** Last reported set of active resonance reaction ids (edge-trigger resonance_change). */
+  private lastResonanceKey = '';
+  /** Per-wave combat counters — flushed as wave_combat_summary, reset each wave. */
+  private waveKills: Record<string, number> = {};
+  private waveLeaks: Record<string, number> = {};
+  private waveDmgByElement: Record<string, number> = {};
+  private waveShotsByCard: Record<string, number> = {};
+  private waveInterrupts = 0;
   private resonanceLabel = makeText('', 'label', { fontSize: 26, fill: hex(COLORS.energyOverdrive) });
   /** Resolved positional synergy per slot (v2 model), recomputed on every change. */
   private synergy: (SlotSynergy | null)[] = [];
@@ -280,7 +295,18 @@ export class BattleScene extends Scene {
     this.services.audio.playMusic('music_battle');
     this.state = createBattleState(unlocked);
     this.burnsThisBattle = 0; // burn price escalates per battle, fresh each entry (§3.Г)
+    this.fusionsThisBattle = 0;
+    this.battleElapsed = 0;
+    this.wasOverloaded = false;
+    this.lastResonanceKey = '';
+    this.resetWaveCounters();
     console.log(`[Battle] level ${this.levelId} — towers: ${[...unlocked].join(', ')}`);
+    // Telemetry: a level attempt begins. Context (level/wave) is stamped on later events.
+    Telemetry.setContext({ level: this.levelId, wave: 1 });
+    Telemetry.track('level_start', {
+      towers: [...unlocked],
+      mechanics: [...this.mechanics],
+    });
     const { assets } = this.services;
 
     // Neutral full-bleed backdrop — a quiet steel/stone wall that fills the
@@ -369,6 +395,7 @@ export class BattleScene extends Scene {
         },
         onEnemyDamaged: (e, amount, crit, element) => {
           this.services.audio.playSfx(crit ? 'sfx_crit' : (ELEMENT_HIT_SFX[element] ?? 'sfx_hit'));
+          this.waveDmgByElement[element] = (this.waveDmgByElement[element] ?? 0) + amount;
           this.floatDamage(e.x, e.y, amount, crit);
         },
         onTowerInterrupted: (slot, kind, x, y) => {
@@ -763,6 +790,7 @@ export class BattleScene extends Scene {
   private startDrag(card: BattleCard, e: FederatedPointerEvent): void {
     if (this.dragging || !card.affordable) return;
     this.services.audio.playSfx('sfx_pickup');
+    Telemetry.track('card_pickup', { cardId: card.def.id, grade: card.grade, source: 'hand' });
     this.clearInspect(); // inspection and dragging are mutually exclusive modes
     const entry = this.hand.find((h) => h.card === card);
     entry?.returnTween?.stop();
@@ -811,6 +839,7 @@ export class BattleScene extends Scene {
     this.clearInspect(); // inspection and dragging are mutually exclusive modes
 
     const def = getCard(placed.cardId);
+    Telemetry.track('card_pickup', { cardId: placed.cardId, grade: placed.grade, source: 'field' });
     const avatar = this.makeCard(def, placed.grade);
     avatar.eventMode = 'none'; // visual only; slot/card move+up handlers drive it
     this.dragging = avatar;
@@ -1064,6 +1093,7 @@ export class BattleScene extends Scene {
       if (slot && slot.index !== fromIndex && this.canMerge(card.def.id, card.grade, slot.index)) {
         this.mergeFieldTower(fromIndex, slot.index, card);
       } else {
+        Telemetry.track('card_drop_invalid', { cardId: card.def.id, source: 'field' });
         this.returnFieldTower(card, fromIndex);
       }
       return;
@@ -1100,6 +1130,7 @@ export class BattleScene extends Scene {
         }
       }
     }
+    Telemetry.track('card_drop_invalid', { cardId: card.def.id, source: 'hand' });
     this.returnCardHome(card);
   }
 
@@ -1115,11 +1146,18 @@ export class BattleScene extends Scene {
       return;
     }
     this.state.slots[slot.index] = { cardId: def.id, grade: card.grade };
-    this.spendGold(def.costGold);
+    this.spendGold(def.costGold, 'place');
     this.refreshEnergy(); // load grows by this card's base step
     this.grid.applyState(this.state); // renders the tower + redraws broadcast beams
     this.refreshSynergy(); // recompute neighbor buffs / resonance
     this.syncTowers(); // the new tower joins the firing line
+    Telemetry.track('place', {
+      cardId: def.id,
+      grade: card.grade,
+      slot: slot.index,
+      costGold: def.costGold,
+      energyAfter: this.state.energyLoad,
+    });
 
     this.services.audio.playSfx('sfx_place');
     this.flash(slot, COLORS.dropValid);
@@ -1144,11 +1182,18 @@ export class BattleScene extends Scene {
     }
     const newGrade = Math.min(3, placed.grade + 1);
     this.state.slots[slot.index] = { cardId: placed.cardId, grade: newGrade };
-    this.spendGold(def.costGold);
+    this.spendGold(def.costGold, 'merge');
     this.refreshEnergy(); // higher grade draws more load; capacity also grows (§3.В)
     this.grid.applyState(this.state);
     this.refreshSynergy();
     this.syncTowers();
+    Telemetry.track('merge_hand', {
+      cardId: placed.cardId,
+      fromGrade: placed.grade,
+      toGrade: newGrade,
+      slot: slot.index,
+      costGold: def.costGold,
+    });
 
     this.services.audio.playSfx('sfx_merge');
     this.mergeBurst(slot, newGrade);
@@ -1177,11 +1222,19 @@ export class BattleScene extends Scene {
     const newGrade = Math.min(3, target.grade + 1);
     this.state.slots[toIndex] = { cardId: target.cardId, grade: newGrade };
     this.state.slots[fromIndex] = null; // the consumed tower leaves the platform
-    this.spendGold(cost);
+    this.spendGold(cost, 'merge');
     this.refreshEnergy();
     this.grid.applyState(this.state);
     this.refreshSynergy();
     this.syncTowers();
+    Telemetry.track('merge_field', {
+      cardId: target.cardId,
+      fromGrade: target.grade,
+      toGrade: newGrade,
+      fromSlot: fromIndex,
+      toSlot: toIndex,
+      costGold: cost,
+    });
 
     this.services.audio.playSfx('sfx_merge');
     const targetSlot = this.grid.slots[toIndex];
@@ -1254,11 +1307,18 @@ export class BattleScene extends Scene {
    * next one dearer.
    */
   private burnCard(card: BattleCard): void {
+    const cost = this.burnCost();
     this.services.audio.playSfx('sfx_burn');
-    this.spendGold(this.burnCost());
+    this.spendGold(cost, 'burn');
     this.burnsThisBattle++;
     this.overdriveStacks.push(OVERDRIVE_SEC);
     this.refreshEnergy();
+    Telemetry.track('burn', {
+      cardId: card.def.id,
+      costGold: cost,
+      burnsThisBattle: this.burnsThisBattle,
+      capacityAfter: this.effectiveCapacity,
+    });
     this.flash(this.reactor, COLORS.reactor);
     this.freeHandCard(card);
     this.animateBurn(card);
@@ -1378,9 +1438,10 @@ export class BattleScene extends Scene {
   /** Isolation Circuit (§4): permanently bump the network's base capacity. */
   private applyIsolation(card: BattleCard): void {
     this.services.audio.playSfx('sfx_upgrade');
-    this.spendGold(card.def.costGold);
+    this.spendGold(card.def.costGold, 'modernization');
     this.state.energyCapacity += MOD_ISOLATION_CAPACITY;
     this.refreshEnergy();
+    Telemetry.track('modernization', { mod: 'isolation', costGold: card.def.costGold });
     this.flash(this.gauge, COLORS.crystal);
     this.freeHandCard(card);
     this.animateModApply(card);
@@ -1389,7 +1450,8 @@ export class BattleScene extends Scene {
   /** Elemental Focus (§4): +DMG to all towers of `el` until the wave ends. */
   private applyFocus(card: BattleCard, el: ElementId): void {
     this.services.audio.playSfx('sfx_place');
-    this.spendGold(card.def.costGold);
+    this.spendGold(card.def.costGold, 'modernization');
+    Telemetry.track('modernization', { mod: 'focus', costGold: card.def.costGold, element: el });
     this.focusElement = el;
     this.syncTowers(); // re-bake tower damage with the focus multiplier
     this.updateFocusLabel();
@@ -1404,9 +1466,10 @@ export class BattleScene extends Scene {
    */
   private applyEmergencyOverdrive(card: BattleCard): void {
     this.services.audio.playSfx('sfx_burn');
-    this.spendCrystals(card.def.costCrystals ?? 0);
+    this.spendCrystals(card.def.costCrystals ?? 0, 'modernization');
     this.overdriveStacks.push(MOD_EMERGENCY_OVERDRIVE_SEC);
     this.refreshEnergy();
+    Telemetry.track('modernization', { mod: 'overdrive', costCrystals: card.def.costCrystals ?? 0 });
     this.flash(this.gauge, COLORS.energyOverdrive);
     this.freeHandCard(card);
     this.animateModApply(card);
@@ -1492,9 +1555,18 @@ export class BattleScene extends Scene {
    * player to deploy. Costs scalable gold + a flat crystal.
    */
   private fuseCards(dragged: BattleCard, target: BattleCard, hybridId: string): void {
+    const goldCost = fusionGoldCost(dragged.grade, target.grade);
     this.services.audio.playSfx('sfx_fusion');
-    this.spendGold(fusionGoldCost(dragged.grade, target.grade));
-    this.spendCrystals(FUSION_CRYSTAL_COST);
+    this.spendGold(goldCost, 'fusion');
+    this.spendCrystals(FUSION_CRYSTAL_COST, 'fusion');
+    this.fusionsThisBattle++;
+    Telemetry.track('fusion', {
+      aId: dragged.def.id,
+      bId: target.def.id,
+      hybridId,
+      costGold: goldCost,
+      costCrystals: FUSION_CRYSTAL_COST,
+    });
     this.setFusionTarget(null);
 
     // The dragged source is consumed → its hand position recharges.
@@ -1563,6 +1635,17 @@ export class BattleScene extends Scene {
     const capacity = this.effectiveCapacity;
     const max = Math.max(this.state.energyMax, Math.ceil(capacity) + 5, Math.ceil(this.state.energyLoad) + 2);
     this.gauge.setState({ load: this.state.energyLoad, capacity, max, overdrive: this.state.overdrive });
+    // Edge-trigger telemetry only when the overload state flips (not every refresh).
+    const overloaded = this.state.energyLoad > capacity;
+    if (overloaded !== this.wasOverloaded) {
+      this.wasOverloaded = overloaded;
+      Telemetry.track('energy_overload', {
+        on: overloaded,
+        load: this.state.energyLoad,
+        capacity,
+        overload: Math.max(0, this.state.energyLoad - capacity),
+      });
+    }
   }
 
   /**
@@ -1591,6 +1674,11 @@ export class BattleScene extends Scene {
   private spawnIntoSlot(slot: HandSlot): void {
     const hc = this.rollBattleHandCard();
     const def = getCard(hc.cardId);
+    Telemetry.track('hand_draw', {
+      cardId: hc.cardId,
+      grade: hc.grade,
+      isMod: def.category === 'modernization',
+    });
     const card = this.makeCard(def, hc.grade);
     this.wireCard(card);
     slot.card = card;
@@ -1784,6 +1872,14 @@ export class BattleScene extends Scene {
     const count = this.synergy.filter((s) => s?.resonant).length;
     this.resonanceLabel.text = count > 1 ? `RESONANCE ×${count}` : count === 1 ? 'RESONANCE' : '';
     this.resonanceLabel.alpha = count > 0 ? 1 : 0;
+    // Edge-trigger: report the set of active resonance reactions when it changes —
+    // captures which resonances players actually build (dead-content analysis).
+    const active = [...new Set(this.synergy.flatMap((s) => s?.reactions ?? []))].sort();
+    const key = active.join(',');
+    if (key !== this.lastResonanceKey) {
+      this.lastResonanceKey = key;
+      Telemetry.track('resonance_change', { reactions: active, slots: count });
+    }
   }
 
   /**
@@ -1794,6 +1890,9 @@ export class BattleScene extends Scene {
     this.waveBadge.setWave(n, this.sim.totalWaves);
     this.currentWave = n;
     this.rerollsThisWave = 0;
+    this.resetWaveCounters();
+    Telemetry.setContext({ wave: n });
+    Telemetry.track('wave_start', { wave: n, budget: this.waveBudget(n) });
     // Elemental Focus lasts only the wave it was played (§4): drop it on wave start.
     if (this.focusElement) {
       this.focusElement = null;
@@ -1810,26 +1909,74 @@ export class BattleScene extends Scene {
    * the animated seconds→crystals conversion that streams into the crystal chip.
    */
   private onWaveCleared(n: number, perfect: boolean): void {
-    this.addReward(WAVE_CLEAR_BONUS);
+    // Flush the per-wave combat aggregate before the rewards mutate state.
+    Telemetry.track('wave_combat_summary', {
+      wave: n,
+      perfect,
+      kills: { ...this.waveKills },
+      leaks: { ...this.waveLeaks },
+      damageByElement: { ...this.waveDmgByElement },
+      shotsByCard: { ...this.waveShotsByCard },
+      interrupts: this.waveInterrupts,
+    });
+    Telemetry.track('wave_cleared', { wave: n, perfect });
+    this.addReward(WAVE_CLEAR_BONUS, 'wave_clear');
     this.goldChip.pulse();
     const crystals = perfect ? PERFECT_CLEAR_CRYSTALS : 0;
-    if (crystals > 0) this.addCrystals(crystals);
+    if (crystals > 0) this.addCrystals(crystals, 'perfect_clear');
     this.playWaveClearedSequence(n, perfect, crystals);
   }
 
+  /** Reset the per-wave combat accumulators. */
+  private resetWaveCounters(): void {
+    this.waveKills = {};
+    this.waveLeaks = {};
+    this.waveDmgByElement = {};
+    this.waveShotsByCard = {};
+    this.waveInterrupts = 0;
+  }
+
+  /** Enemy composition of wave `n` (1-based) as { enemyId: count } for wave_start. */
+  private waveBudget(n: number): Record<string, number> {
+    const wave = this.levelCombat.waves[n - 1];
+    const budget: Record<string, number> = {};
+    if (wave) {
+      for (const g of wave.groups) budget[g.enemyId] = (budget[g.enemyId] ?? 0) + g.count;
+    }
+    return budget;
+  }
+
   /** Grant crystals (Perfect Clear / elite drop) and refresh wallet-gated UI. */
-  private addCrystals(n: number): void {
+  private addCrystals(n: number, reason: string): void {
     if (!n) return;
     this.state.crystals += n;
+    this.emitEcon('faucet', 'crystals', n, reason);
     this.refreshRerollButton();
     this.refreshHandAffordability(); // crystal-priced cards may now be affordable
   }
 
   /** Spend crystals (Reroll / fusion / Emergency Overdrive) and refresh wallet-gated UI. */
-  private spendCrystals(n: number): void {
+  private spendCrystals(n: number, reason: string): void {
     this.state.crystals = Math.max(0, this.state.crystals - n);
+    this.emitEcon('sink', 'crystals', n, reason);
     this.refreshRerollButton();
     this.refreshHandAffordability(); // a crystal-priced card may now be locked
+  }
+
+  /** Single funnel for the currency ledger → telemetry (faucets + sinks, §6). */
+  private emitEcon(
+    kind: 'faucet' | 'sink',
+    currency: 'gold' | 'crystals',
+    amount: number,
+    reason: string,
+  ): void {
+    Telemetry.track('econ', {
+      kind,
+      currency,
+      amount,
+      reason,
+      balanceAfter: currency === 'gold' ? this.state.gold : this.state.crystals,
+    });
   }
 
   /** Crystal cost of the next hand Reroll this wave (v2 §8.Б: base, +step each use). */
@@ -1860,8 +2007,9 @@ export class BattleScene extends Scene {
     const cost = this.rerollCost();
     if (this.state.crystals < cost) return;
     this.services.audio.playSfx('sfx_reroll');
-    this.spendCrystals(cost);
+    this.spendCrystals(cost, 'reroll');
     this.rerollsThisWave++;
+    Telemetry.track('reroll', { costCrystals: cost, rerollsThisWave: this.rerollsThisWave });
     this.clearInspect();
     for (const slot of this.hand) {
       slot.returnTween?.stop();
@@ -1896,15 +2044,17 @@ export class BattleScene extends Scene {
    * *display* isn't set here — it chases `state.gold` each frame ({@link chaseChips})
    * so the counter visibly ticks up as the coins land (task §3).
    */
-  private addReward(gold: number): void {
+  private addReward(gold: number, reason: string): void {
     if (!gold) return;
     this.state.gold += gold;
+    this.emitEcon('faucet', 'gold', gold, reason);
     this.refreshHandAffordability();
   }
 
   /** Spend gold (placing a card) and refresh the hand locks (display chases). */
-  private spendGold(gold: number): void {
+  private spendGold(gold: number, reason: string): void {
     this.state.gold = Math.max(0, this.state.gold - gold);
+    this.emitEcon('sink', 'gold', gold, reason);
     this.refreshHandAffordability();
   }
 
@@ -2141,6 +2291,7 @@ export class BattleScene extends Scene {
   private onTowerFired(slotIndex: number): void {
     const placed = this.state.slots[slotIndex];
     if (!placed) return;
+    this.waveShotsByCard[placed.cardId] = (this.waveShotsByCard[placed.cardId] ?? 0) + 1;
     const def = getCard(placed.cardId);
     this.services.audio.playSfx(TOWER_SHOOT_SFX[placed.cardId] ?? 'sfx_shoot');
     const p = this.grid.slotScenePos(slotIndex);
@@ -2148,13 +2299,14 @@ export class BattleScene extends Scene {
   }
 
   private onEnemyKilled(e: SimEnemy): void {
-    this.addReward(e.bounty);
+    this.waveKills[e.def.id] = (this.waveKills[e.def.id] ?? 0) + 1;
+    this.addReward(e.bounty, 'kill_bounty');
     this.spawnGoldCoins(e.x, e.y, e.bounty); // coins burst, then stream to the gold chip (§3)
     // Elite crystal drop (v3 §8.В): a second crystal source besides Perfect Clear.
     // The chip display chases state.crystals each frame, so it ticks up on its own.
     const crystals = e.def.crystalBounty ?? 0;
     if (crystals > 0) {
-      this.addCrystals(crystals);
+      this.addCrystals(crystals, 'elite_drop');
       this.crystalChip.pulse();
       this.services.audio.playOneOf(['sfx_crystal1', 'sfx_crystal2', 'sfx_crystal3']);
     }
@@ -2167,6 +2319,13 @@ export class BattleScene extends Scene {
   private onEnemyLeaked(e: SimEnemy): void {
     this.coreBadge.setValue(this.sim.coreHp);
     this.flash(this.coreBadge, COLORS.energyDanger);
+    this.waveLeaks[e.def.id] = (this.waveLeaks[e.def.id] ?? 0) + 1;
+    // Individual leaks are low-frequency and high-signal (core damage) → emit each.
+    Telemetry.track('enemy_leaked', {
+      enemyId: e.def.id,
+      coreDamage: e.def.coreDamage,
+      coreHp: this.sim.coreHp,
+    });
     const view = this.detachEnemyView(e.id);
     if (view) this.animateEnemyLeak(view);
   }
@@ -2357,6 +2516,7 @@ export class BattleScene extends Scene {
    * turret, plus a slot flash. A crit "STUN" reads heavier than a glancing "JAMMED".
    */
   private onTowerInterrupted(slotIndex: number, kind: 'glitch' | 'stun', x: number, y: number): void {
+    this.waveInterrupts++;
     const color = kind === 'stun' ? COLORS.energyDanger : ELEMENTS.Electricity.glow;
     this.burst(x, y, color, this.arenaW * (kind === 'stun' ? 0.06 : 0.04));
     const label = makeText(kind === 'stun' ? 'STUN!' : 'JAMMED', 'label', {
@@ -2560,6 +2720,7 @@ export class BattleScene extends Scene {
   private showBanner(kind: 'victory' | 'defeat'): void {
     if (this.banner) return;
     let opts;
+    let levelEndStars = 0; // captured for telemetry below (0 on defeat)
     if (kind === 'victory') {
       // Record the clear: unlocks the next level + grants this level's stars (§4).
       // The returned star count is the single source — it also drives the banner's
@@ -2568,6 +2729,7 @@ export class BattleScene extends Scene {
       // tout "Tech unlocked" (replays already own the tower).
       const firstClear = !progress.isCleared(this.levelId);
       const stars = progress.recordClear(this.levelId, this.sim.coreHp, CORE_MAX);
+      levelEndStars = stars;
       const unlockedCards = firstClear
         ? towersUnlockedByClearing(this.levelId).map((id) => {
             const def = getCard(id);
@@ -2602,6 +2764,18 @@ export class BattleScene extends Scene {
     this.banner.alpha = 0;
     this.addChild(this.banner);
     this.refreshRerollButton(); // grey out Reroll once the battle is over
+    // Telemetry: level attempt ended — drives win-rate, "where runs die", and pacing.
+    Telemetry.track('level_end', {
+      outcome: kind,
+      stars: levelEndStars,
+      coreHp: this.sim.coreHp,
+      coreMax: CORE_MAX,
+      endedAt: { wave: this.sim.waveNumber },
+      durationSec: Math.round(this.battleElapsed * 10) / 10,
+      rerolls: this.rerollsThisWave,
+      burns: this.burnsThisBattle,
+      fusions: this.fusionsThisBattle,
+    });
     this.layoutBanner(this.services.getLayout());
     this.track(
       tween({
@@ -2752,6 +2926,7 @@ export class BattleScene extends Scene {
     // load (Overdrive lifts the capacity that feeds this).
     if (this.sim.status === 'running') {
       this.sim.overload = overloadAmount(this.state.energyLoad, this.effectiveCapacity);
+      this.battleElapsed += dt; // telemetry durationSec (sim-time, FPS-independent enough)
     }
     this.sim.update(dt);
     this.syncEnemies(dt);
