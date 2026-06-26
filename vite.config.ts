@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { editorDevPlugin } from './src/editor/devPlugin';
+import { optimizeSpritesPlugin } from './src/build/optimizeSpritesPlugin';
 
 // Short git sha of the build → telemetry `balanceVersion`, so dashboards can compare
 // balance across versions. Falls back to 'dev' if git is unavailable.
@@ -29,7 +30,7 @@ export default defineConfig({
   define: {
     __BALANCE_VERSION__: JSON.stringify(gitSha()),
   },
-  plugins: [editorDevPlugin()],
+  plugins: [editorDevPlugin(), optimizeSpritesPlugin()],
   server: {
     host: true,
     open: false,
