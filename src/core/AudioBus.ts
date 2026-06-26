@@ -84,19 +84,44 @@ export class AudioBus {
       ui: loadNumber(VOL_KEY.ui, DEFAULT_VOL.ui),
     };
     // Autoplay policy: defer context creation/resume to the first user gesture.
-    const unlock = () => {
-      this.ensureContext();
-      void this.ctx?.resume();
-      if (this.pendingMusic) {
-        const k = this.pendingMusic;
-        this.pendingMusic = null;
-        void this.playMusic(k);
-      }
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
-    };
-    window.addEventListener('pointerdown', unlock);
+    // iOS Safari re-suspends the context after backgrounding / interruptions, so
+    // the gesture listeners stay attached and re-resume on every interaction
+    // instead of unbinding after the first one.
+    const unlock = () => this.unlock();
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('touchend', unlock, { passive: true });
     window.addEventListener('keydown', unlock);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this.resumeContext();
+    });
+  }
+
+  /** Create the context (if needed) and resume it — must run inside a gesture. */
+  private unlock(): void {
+    this.ensureContext();
+    this.resumeContext();
+  }
+
+  /**
+   * Resume a suspended context and, once it is actually running, start any music
+   * that was requested before the first gesture. iOS keeps `state === 'suspended'`
+   * synchronously after resume(), so the pending track is flushed in the promise
+   * callback rather than immediately (otherwise it would re-queue forever).
+   */
+  private resumeContext(): void {
+    if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume().then(() => this.flushPendingMusic());
+    } else {
+      this.flushPendingMusic();
+    }
+  }
+
+  private flushPendingMusic(): void {
+    if (!this.pendingMusic || !this.ctx || this.ctx.state !== 'running') return;
+    const key = this.pendingMusic;
+    this.pendingMusic = null;
+    void this.playMusic(key);
   }
 
   private ensureContext(): void {
@@ -116,6 +141,25 @@ export class AudioBus {
       return g;
     };
     this.bus = { music: mk('music'), sfx: mk('sfx'), ui: mk('ui') };
+    this.kickSilent();
+  }
+
+  /**
+   * Play a 1-sample silent buffer. On some iOS configs Web Audio only fully
+   * unlocks when a buffer source is actually started inside the gesture, not
+   * just by calling resume() — this is the classic, harmless nudge.
+   */
+  private kickSilent(): void {
+    if (!this.ctx) return;
+    try {
+      const buf = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.ctx.destination);
+      src.start(0);
+    } catch {
+      /* ignore */
+    }
   }
 
   private load(key: string): Promise<AudioBuffer | null> {
@@ -145,6 +189,9 @@ export class AudioBus {
   playSfx(key: string, opts?: { volume?: number; rate?: number }): void {
     this.ensureContext();
     if (!this.ctx || !this.bus || !AUDIO_FILE[key]) return;
+    // SFX fire from user actions, so this resume() runs inside a gesture — needed
+    // on iOS where the context may still be suspended for the very first sound.
+    if (this.ctx.state === 'suspended') void this.ctx.resume();
     const kind: AudioKind = AUDIO_KIND[key] ?? 'sfx';
     const bus = kind === 'ui' ? this.bus.ui : this.bus.sfx;
     void this.load(key).then((buf) => {
