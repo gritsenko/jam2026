@@ -1,11 +1,11 @@
-import { Container, Graphics, Texture, type PointData } from 'pixi.js';
+import { Container, Graphics, Sprite, Texture, type PointData } from 'pixi.js';
 import { COLORS, ELEMENTS, ELEMENT_IDS, elementSymbolKey, hex, type ElementId } from '../theme';
 import type { AssetLoader } from '../core/AssetLoader';
-import { CARDS, COMPOSED_AIM_SHEETS, cardGrade } from '../config/cards';
+import { CARDS, COMPOSED_AIM_SHEETS, cardGrade, towerSeat } from '../config/cards';
 import type { BattleStateMock, BuffStat, CardDef, PlacedCard } from '../config/types';
 import { computeSynergy, type SlotSynergy } from '../game/synergy';
 import { gridMetrics } from '../game/platformGeometry';
-import { makeText } from './helpers';
+import { fitSprite, makeText } from './helpers';
 import { SlotView, type SlotHighlight } from './SlotView';
 
 /** Short suffix per broadcast stat, for the inspection badges. */
@@ -136,6 +136,7 @@ export class PlatformGrid extends Container {
             syn?.resonant ?? false,
             dirStrip,
             COMPOSED_AIM_SHEETS.has(def.iconKey),
+            towerSeat(def.iconKey),
           );
         } else slot.setEmpty();
       } else {
@@ -161,10 +162,11 @@ export class PlatformGrid extends Container {
     return this.plate.getBounds().rectangle.contains(global.x, global.y);
   }
 
-  /** Returns the slot whose bounds contain the given global point, else null. */
+  /** Returns the slot whose cell box contains the given global point, else null. */
   slotAtGlobal(global: PointData): SlotView | null {
     for (const slot of this.slots) {
-      if (slot.getBounds().rectangle.contains(global.x, global.y)) return slot;
+      // Content-independent (empty slots no longer draw a base → no getBounds).
+      if (slot.hitTestGlobal(global)) return slot;
     }
     return null;
   }
@@ -375,27 +377,14 @@ export class PlatformGrid extends Container {
   private buildPlate(): void {
     const s = this.size;
     this.plate.removeChildren().forEach((c) => c.destroy());
-    const g = new Graphics();
-    const o = s / 2;
-    const chamfer = s * 0.07;
-    const oct: number[] = [
-      -o + chamfer, -o, o - chamfer, -o, o, -o + chamfer, o, o - chamfer,
-      o - chamfer, o, -o + chamfer, o, -o, o - chamfer, -o, -o + chamfer,
-    ];
-    // Dieselpunk dark-steel plate (matches the towers): dark fill, a recessed
-    // inner panel, brass edge with a dark keyline under it, and a riveted rim.
-    g.poly(oct).fill({ color: COLORS.metalDark });
-    g.poly(oct.map((v) => v * 0.9)).fill({ color: COLORS.metalMid, alpha: 0.55 });
-    g.poly(oct).stroke({ width: 12, color: COLORS.black, alpha: 0.4 });
-    g.poly(oct).stroke({ width: 8, color: COLORS.brass });
-    g.poly(oct.map((v) => v * 0.9)).stroke({ width: 3, color: COLORS.brassLight, alpha: 0.35 });
-    const rivetR = o * 0.86;
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2 + Math.PI / 12;
-      g.circle(Math.cos(a) * rivetR, Math.sin(a) * rivetR, 6).fill({ color: COLORS.rivet });
-      g.circle(Math.cos(a) * rivetR, Math.sin(a) * rivetR, 6).stroke({ width: 1.5, color: COLORS.brassLight, alpha: 0.4 });
-    }
-    this.plate.addChild(g);
+    // The platform board art (a top-down dark-steel plate with nine recessed
+    // sockets) replaces the old procedurally-drawn octagon plate. It fills the
+    // grid's base box; its sockets are centered and spaced to match the slot grid
+    // (gridMetrics traces the same 310/235-of-1024 proportions), so towers seat
+    // on the painted sockets and SlotView no longer paints its own socket.
+    const board = new Sprite(this.assets.get('platform_board'));
+    fitSprite(board, s, s);
+    this.plate.addChild(board);
   }
 
   /** Always-on broadcast web: every placed card → its reachable neighbors. */

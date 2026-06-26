@@ -2211,18 +2211,10 @@ export class BattleScene extends Scene {
 
   /** Draw the active march route over the arena art (worn trench + warm inlay). */
   private drawRoad(): void {
-    const pts = this.path.points;
-    const g = this.roadLayer;
-    g.clear();
-    if (pts.length < 2) return;
-    const trace = (): void => {
-      g.moveTo(pts[0]!.x, pts[0]!.y);
-      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i]!.x, pts[i]!.y);
-    };
-    trace();
-    g.stroke({ color: COLORS.black, width: this.arenaW * 0.05, alpha: 0.28, cap: 'round', join: 'round' });
-    trace();
-    g.stroke({ color: COLORS.brass, width: this.arenaW * 0.03, alpha: 0.5, cap: 'round', join: 'round' });
+    // The march route is now baked into each per-level arena art (`bg_lvl_*`),
+    // so the procedural road polyline is hidden — only clear the layer. The path
+    // itself stays live (sim movement, telegraph, Disruptor reach all read it).
+    this.roadLayer.clear();
   }
 
   /** Park the pre-wave pin at the entry, spike pointing back at the off-screen source. */

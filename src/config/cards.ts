@@ -25,6 +25,37 @@ export const CARDS: Record<string, CardDef> = activeGameConfig.cards;
  */
 export const COMPOSED_AIM_SHEETS = new Set<string>(['plasma_shutter']);
 
+/**
+ * How a tower sprite is SEATED in its slot: the base (turntable) fills the slot
+ * width and sits centered, so the barrel naturally protrudes above the socket.
+ * Both numbers are fractions of the *rendered texture* (a 3×3 aim-sheet cell for
+ * `<id>_dirs` towers — the center base cell for composed sheets, a whole-turret
+ * cell for old ones — or the full sprite for static towers):
+ *   - `wFrac`  base turntable width ÷ texture width   → drives scale (base → slot width)
+ *   - `cyFrac` base vertical center ÷ texture height  → drives the lift (base center → slot center)
+ * Measured from the art (alpha bounding boxes; see SlotView.seatSprite). Towers
+ * without an entry fall back to {@link TOWER_SEAT_DEFAULT}. Keeping `wFrac` fixed
+ * per tower (not per aim frame) keeps a rotating turret a constant size as it turns.
+ */
+export interface TowerSeat {
+  readonly wFrac: number;
+  readonly cyFrac: number;
+}
+export const TOWER_SEAT_DEFAULT: TowerSeat = { wFrac: 0.96, cyFrac: 0.66 };
+export const TOWER_SEATS: Record<string, TowerSeat> = {
+  plasma_shutter: { wFrac: 0.7, cyFrac: 0.64 }, // composed sheet: center cell = base only
+  railgun: { wFrac: 0.71, cyFrac: 0.77 }, // old sheet: full turret per cell (long rail)
+  frost_pulse: { wFrac: 0.99, cyFrac: 0.7 },
+  storm_coil: { wFrac: 0.99, cyFrac: 0.7 },
+  shield_generator: { wFrac: 0.99, cyFrac: 0.61 },
+  grid_stabilizer: { wFrac: 0.99, cyFrac: 0.7 },
+};
+
+/** Seat geometry for a tower's iconKey (falls back to the default). */
+export function towerSeat(iconKey: string): TowerSeat {
+  return TOWER_SEATS[iconKey] ?? TOWER_SEAT_DEFAULT;
+}
+
 export const CARD_LIST: CardDef[] = Object.values(CARDS);
 
 export function getCard(id: string): CardDef {

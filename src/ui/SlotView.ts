@@ -1,5 +1,6 @@
-import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Texture, type PointData } from 'pixi.js';
 import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
+import { TOWER_SEAT_DEFAULT, type TowerSeat } from '../config/cards';
 import type { SynergyDot } from '../game/synergy';
 import { fitSprite, makeElementSymbol, makeText } from './helpers';
 
@@ -55,8 +56,13 @@ export class SlotView extends Container {
   private towerSprite?: Sprite;
   /** 8 directional aim frames (d0=N, d1=NE … d7=NW clockwise) from an `<id>_dirs` 3×3 sheet. */
   private dirFrames?: Texture[];
-  /** Fit box for the tower sprite (full slot for sheet cells, 0.82 for a single). */
-  private spriteFitBox = 0;
+  /** Seat geometry of the placed tower (base→slot width + lift); see {@link seatSprite}. */
+  private seat: TowerSeat = TOWER_SEAT_DEFAULT;
+  /**
+   * Fraction of the slot width the tower BASE fills (1 = exactly the socket width).
+   * The barrel then protrudes above the socket. Tune here to taste.
+   */
+  private static readonly SEAT_FILL = 1.0;
   /** Default facing on build and before the first target: South-East. */
   private static readonly DEFAULT_OCTANT = 3;
   /**
@@ -94,7 +100,18 @@ export class SlotView extends Container {
     this.addChild(this.base, this.reso, this.content, this.dotGlow, this.hl, this.ghost, this.cdDial, this.effect);
     this.ghost.visible = false;
     this.cdDial.visible = false;
+    // Fixed cell-sized hit area: pointer events (lifting a tower) and drop
+    // detection no longer depend on drawn geometry — empty slots paint nothing
+    // now that the platform board art provides the socket.
+    this.hitArea = new Rectangle(-size / 2, -size / 2, size, size);
     this.drawEmpty();
+  }
+
+  /** Is a global point within this slot's cell box? Used for drag-drop targeting. */
+  hitTestGlobal(p: PointData): boolean {
+    const lp = this.toLocal(p);
+    const h = this.size / 2;
+    return lp.x >= -h && lp.x <= h && lp.y >= -h && lp.y <= h;
   }
 
   get cellSize(): number {
@@ -109,7 +126,6 @@ export class SlotView extends Container {
     this.dotGlow.clear();
     this.towerSprite = undefined;
     this.dirFrames = undefined;
-    this.spriteFitBox = 0;
     this.displayOctant = SlotView.DEFAULT_OCTANT;
     this.targetOctant = SlotView.DEFAULT_OCTANT;
     this.desiredOctant = SlotView.DEFAULT_OCTANT;
@@ -135,18 +151,19 @@ export class SlotView extends Container {
     resonant = false,
     dirStrip?: Texture,
     composedBase = false,
+    seat: TowerSeat = TOWER_SEAT_DEFAULT,
   ): void {
     this.occupied = true;
     this.content.removeChildren().forEach((c) => c.destroy());
     this.setCooldown(0);
-    const s = this.size;
     const skin = ELEMENTS[element];
     this.cdColor = skin.glow;
+    this.seat = seat;
 
+    // The painted socket (board art) backs the slot and the sprite reads its own
+    // element/type, so a placed *unselected* tower draws NO frame. The only ring
+    // is the tap-to-inspect selection ring (drawn by PlatformGrid.inspect).
     this.base.clear();
-    this.base.roundRect(-s / 2, -s / 2, s, s, 16).fill({ color: COLORS.metalDark, alpha: 0.92 });
-    this.base.roundRect(-s / 2, -s / 2, s, s, 16).stroke({ width: 4, color: skin.base });
-    this.base.roundRect(-s / 2 + 5, -s / 2 + 5, s - 10, s - 10, 12).stroke({ width: 2, color: skin.glow, alpha: 0.4 });
 
     this.displayOctant = SlotView.DEFAULT_OCTANT;
     this.targetOctant = SlotView.DEFAULT_OCTANT;
@@ -159,33 +176,50 @@ export class SlotView extends Container {
     // perimeter cells are the compass aims. A rotating turret builds facing
     // South-East ({@link DEFAULT_OCTANT}) and turns one octant at a time toward
     // its target (see setAim/tickAim). Towers without a sheet (supports, statics)
-    // just show `art`.
+    // just show `art`. Every sprite is SEATED so its base fills the slot width.
     let mainSprite: Sprite;
     if (dirStrip) {
       this.dirFrames = this.sliceSheet3x3(dirStrip);
-      this.spriteFitBox = s; // sheet cells include their own margin → fit cell to the slot
 
       if (composedBase) {
         // Composed layout: the CENTER cell is a STATIONARY base, drawn once
         // underneath; the 8 perimeter cells are the rotating head only. The base
         // never moves — only the head sprite hard-swaps to the aimed octant.
+        // Seat base + head identically so the head stays mounted on the base.
         const base = new Sprite(this.sliceCenter3x3(dirStrip));
-        fitSprite(base, s, s);
+        this.seatSprite(base, seat);
         this.content.addChild(base);
       }
       // Composed → head; old layout → the whole turret (base baked into each cell).
       mainSprite = new Sprite(this.dirFrames[this.displayOctant]!);
     } else {
       this.dirFrames = undefined;
-      this.spriteFitBox = s * 0.82;
       mainSprite = new Sprite(art);
     }
-    fitSprite(mainSprite, this.spriteFitBox, this.spriteFitBox);
+    this.seatSprite(mainSprite, seat);
     this.content.addChild(mainSprite);
     this.towerSprite = mainSprite;
 
     this.drawDots(dots);
     this.drawResonance(resonant, skin.glow);
+  }
+
+  /**
+   * Seat a tower sprite/cell in its slot: scale so the base (turntable) spans the
+   * slot width ({@link SEAT_FILL}) and lift it so the base center sits at the slot
+   * center — the barrel then protrudes above the socket. Because `seat.wFrac` is
+   * fixed per tower (not per aim frame), a rotating turret keeps a constant size
+   * as it turns; composed sheets seat base + head with the same seat so the head
+   * stays mounted. Anchored at center, so a texture swap (tickAim) preserves it.
+   */
+  private seatSprite(sprite: Sprite, seat: TowerSeat): void {
+    const tex = sprite.texture;
+    const tw = tex.width || 1;
+    const th = tex.height || 1;
+    const scale = (this.size * SlotView.SEAT_FILL) / (tw * seat.wFrac);
+    sprite.anchor.set(0.5);
+    sprite.scale.set(scale);
+    sprite.position.set(0, th * (0.5 - seat.cyFrac) * scale);
   }
 
   /**
@@ -268,7 +302,7 @@ export class SlotView extends Container {
     }
     if (changed) {
       sprite.texture = frames[this.displayOctant]!;
-      fitSprite(sprite, this.spriteFitBox, this.spriteFitBox);
+      this.seatSprite(sprite, this.seat); // equal-size cells → keeps scale/lift
     }
   }
 
@@ -506,19 +540,9 @@ export class SlotView extends Container {
   }
 
   private drawEmpty(): void {
-    const s = this.size;
+    // The platform board art now paints the empty socket — the slot itself draws
+    // nothing (its fixed hitArea, set in the constructor, still catches drops).
     this.base.clear();
     this.hl.clear();
-    // Recessed socket.
-    this.base.roundRect(-s / 2, -s / 2, s, s, 16).fill({ color: COLORS.black, alpha: 0.38 });
-    this.base.roundRect(-s / 2, -s / 2, s, s, 16).stroke({ width: 3, color: COLORS.brass, alpha: 0.55 });
-    this.base.roundRect(-s / 2 + 6, -s / 2 + 6, s - 12, s - 12, 12).stroke({
-      width: 2,
-      color: COLORS.brassLight,
-      alpha: 0.25,
-    });
-    // Faint rune.
-    this.base.circle(0, 0, s * 0.16).stroke({ width: 3, color: COLORS.brassLight, alpha: 0.22 });
-    this.base.circle(0, 0, s * 0.07).fill({ color: COLORS.brassLight, alpha: 0.15 });
   }
 }

@@ -15,11 +15,20 @@ export interface GridMetrics {
   step: number;
 }
 
-/** Cell/gap/step for a grid built at `size` (matches PlatformGrid constructor). */
+/**
+ * Cell/gap/step for a grid built at `size` (matches PlatformGrid constructor).
+ *
+ * Geometry is TRACED from the platform board art (assets/sprites/platform_board.png,
+ * 1024² source, sockets centered): the nine recessed sockets sit on an inter-socket
+ * pitch of ≈310/1024 of the plate with an inner socket of ≈235/1024. The board
+ * sprite fills `size`, so these fractions map the logical slot grid onto the painted
+ * sockets — towers seat on the art. Keep these in sync with the art (the headless
+ * sim derives tower positions/range from the same metrics).
+ */
 export function gridMetrics(size: number): GridMetrics {
-  const gap = size * 0.035;
-  const cell = (size * 0.78 - gap * 2) / 3;
-  return { gap, cell, step: cell + gap };
+  const step = size * (310 / 1024);
+  const cell = size * (235 / 1024);
+  return { gap: step - cell, cell, step };
 }
 
 /** Slot center offset from the grid center, in grid-local space. */
