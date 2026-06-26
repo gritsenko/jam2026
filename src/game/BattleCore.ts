@@ -47,6 +47,7 @@ export class BattleCore {
   private synergy: (SlotSynergy | null)[] = [];
   private currentWave = 1;
   private rerollsThisWave = 0;
+  rerollsThisBattle = 0;
   burnsThisBattle = 0;
   fusionsThisBattle = 0;
   private overdriveStacks: number[] = [];
@@ -219,6 +220,7 @@ export class BattleCore {
     if (this.state.crystals < cost) return false;
     this.spendCrystals(cost, 'reroll');
     this.rerollsThisWave++;
+    this.rerollsThisBattle++;
     for (const s of this.handSlots) {
       s.card = this.rollHandCard();
       s.cooldown = 0;

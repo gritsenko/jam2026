@@ -36,6 +36,14 @@
 Сюда переезжает спека из `planned/`, когда фича **реализована**: заморозь её здесь и
 отрази поведение в `working/current-state.md`.
 
+### plan/ — инкременты плана автотеста
+
+Детальные спеки-инкременты к [autotest-system-impl-plan.md](backlog/autotest-system-impl-plan.md)
+(между стадиями 0–4). Не дублируют мастер-план — расширяют отдельные стадии.
+
+- [telemetry-enrichment.md](plan/telemetry-enrichment.md) — **стадия 1.5:** per-wave срез,
+  `damageByCard`, `resonanceFired`, `balanceVersion`=sha, улучшение smart-бота для фьюжна.
+
 ### planned/ — планируемые
 - [synergy-grid-td-v3.md](planned/synergy-grid-td-v3.md) — актуальный концепт-манифест + дерево технологий (мастер-вижн). В шапке — баннер статуса с отличиями от кода (спираль → пер-левел траектории; SP-дерево/Чертежи вырезаны для джема).
 - [enemy-roster-design.md](planned/enemy-roster-design.md) — ростер монстров: 5 текущих без изменений + 3 моба поддержки (зеркало синергии), баланс и миграция.
@@ -54,7 +62,7 @@
 
 **Кластер тулинга геймдизайна** (спроектировано, в коде ещё нет; реализуется отдельным заходом):
 - [autotest-system.md](backlog/autotest-system.md) — спецификация замкнутого конвейера балансировки (контракты Run record / aggregate / change-request, гардрейлы, HITL). Инструментально-нейтральна.
-- [autotest-system-impl-plan.md](backlog/autotest-system-impl-plan.md) — план реализации автотеста под наш код: `BattleCore` (seeded) + headless-бот + играбельный Sandbox + анализатор/дашборд + сабагент-исполнитель.
+- [autotest-system-impl-plan.md](backlog/autotest-system-impl-plan.md) — план реализации автотеста под наш код: `BattleCore` (seeded) + headless-бот + играбельный Sandbox + анализатор/дашборд + сабагент-исполнитель. Инкременты: [telemetry-enrichment.md](plan/telemetry-enrichment.md) (стадия 1.5).
 - [config-as-data.md](backlog/config-as-data.md) — **фундамент**: вынос игрового дизайна (башни/монстры/уровни/правила) из TS-констант в JSON `ConfigSet` с переключаемыми вариантами, без поломок. На нём держатся редактор и тестирование балансов.
 - [design-editor.md](backlog/design-editor.md) — редактор геймдизайна как dev-инструмент (Vite-подстраница `editor.html`), правит `ConfigSet`, кнопки «играть/прогнать ботом этот вариант».
 - [analytics-and-backend.md](backlog/analytics-and-backend.md) — бэкенд (`sim/server/`, Fastify + SQLite) и телеметрия: события реальных игроков + бот-раны сходятся в единый `aggregate` (`source: user|bot`).

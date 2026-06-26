@@ -4,7 +4,7 @@
 // big sweep yields a real distribution. Optionally pushes to the telemetry backend.
 //
 //   tsx sim/bot/run.ts
-//   SEEDS=1000 GAME_CONFIG=default tsx sim/bot/run.ts
+//   SEEDS=1000 POLICY=smart GAME_CONFIG=default tsx sim/bot/run.ts
 //   SEEDS=1000 INGEST_URL=http://127.0.0.1:8787 tsx sim/bot/run.ts
 // (or import the file: tsx sim/server/import.ts sim/out/runs.jsonl)
 
@@ -12,12 +12,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LEVEL_ORDER } from '../../src/config/progression';
-import { POLICIES, isStochastic } from './policies';
+import { POLICIES, isStochastic, policiesToRun } from './policies';
 import { runOne } from './runOne';
 import type { RunRecord } from './recorder';
 
 const gameConfig = process.env.GAME_CONFIG ?? 'default';
 const seeds = Math.max(1, Number(process.env.SEEDS ?? 1) || 1);
+const policies = policiesToRun(process.env.POLICY);
 const ingestUrl = process.env.INGEST_URL;
 
 const outDir = dirname(fileURLToPath(new URL('../out/runs.jsonl', import.meta.url)));
@@ -26,7 +27,7 @@ mkdirSync(outDir, { recursive: true });
 const t0 = Date.now();
 const records: RunRecord[] = [];
 for (const level of LEVEL_ORDER) {
-  for (const policy of POLICIES) {
+  for (const policy of policies) {
     const n = isStochastic(policy) ? seeds : 1; // deterministic policies run once
     for (let seed = 1; seed <= n; seed++) {
       records.push(runOne(level, policy, seed, gameConfig));
@@ -59,7 +60,13 @@ for (const r of records) {
   byKey.set(k, g);
 }
 const analysis = {
-  meta: { gameConfig, seeds, totalRuns: records.length, elapsedSec: Number(elapsed) },
+  meta: {
+    gameConfig,
+    seeds,
+    policies: policies.length === POLICIES.length ? 'all' : policies,
+    totalRuns: records.length,
+    elapsedSec: Number(elapsed),
+  },
   byStagePolicy: [...byKey.entries()].map(([k, g]) => {
     const [stage, policy] = k.split('|');
     return {
@@ -76,7 +83,9 @@ const analysis = {
 };
 writeFileSync(`${outDir}/analysis.json`, JSON.stringify(analysis, null, 2) + '\n', 'utf8');
 
-console.log(`${records.length} runs in ${elapsed}s → ${outDir}/runs.jsonl + analysis.json (gameConfig=${gameConfig}, seeds=${seeds})\n`);
+console.log(
+  `${records.length} runs in ${elapsed}s → ${outDir}/runs.jsonl + analysis.json (gameConfig=${gameConfig}, seeds=${seeds}, policy=${policies.join(',')})\n`,
+);
 console.log('stage        policy        runs   winRate  avgCore  avgWave');
 for (const a of analysis.byStagePolicy) {
   console.log(

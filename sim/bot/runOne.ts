@@ -56,5 +56,8 @@ export function runOne(
     balanceVersion: gameConfig,
     faucets: core.faucets,
     sinks: core.sinks,
+    rerolls: core.rerollsThisBattle,
+    burns: core.burnsThisBattle,
+    fusions: core.fusionsThisBattle,
   });
 }

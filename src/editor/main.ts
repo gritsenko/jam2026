@@ -10,6 +10,7 @@
 
 import { collectGameConfigIssues } from '../data/validate';
 import type { GameConfig } from '../data/schema';
+import { POLICIES, POLICY_LABELS } from '../../sim/bot/policies';
 
 const ELEMENTS = ['Fire', 'Water', 'Electricity', 'Physical', 'Energy'];
 const PATHS = ['', 'bottom', 'top', 'left', 'right'];
@@ -23,6 +24,16 @@ const $ = (id: string) => document.getElementById(id)!;
 const root = $('root');
 const statusEl = $('status');
 const configSelect = $('configSelect') as HTMLSelectElement;
+const botPolicySelect = $('botPolicy') as HTMLSelectElement;
+const botSeedsInput = $('botSeeds') as HTMLInputElement;
+
+// Populate policy dropdown with descriptions (values stay PolicyName | 'all').
+botPolicySelect.innerHTML = '';
+for (const p of POLICIES) {
+  botPolicySelect.append(el('option', { value: p }, POLICY_LABELS[p]));
+}
+botPolicySelect.append(el('option', { value: 'all' }, 'all — все политики'));
+botPolicySelect.value = 'smart';
 
 function status(msg: string, kind: 'ok' | 'err' | '' = ''): void {
   statusEl.textContent = msg;
@@ -393,18 +404,24 @@ $('play').addEventListener('click', () => {
 });
 $('runBot').addEventListener('click', () => {
   const out = $('botOut');
+  const seeds = Math.max(1, Math.min(1000, Math.floor(Number(botSeedsInput.value)) || 1));
+  botSeedsInput.value = String(seeds);
+  const policy = botPolicySelect.value;
   out.style.display = 'block';
-  out.textContent = 'running bot on "' + gameConfigName + '"…';
+  out.textContent = `running bot on "${gameConfigName}" · policy=${policy} · seeds=${seeds}…`;
   status('running bot…', '');
   fetch('/__editor/run-bot', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: gameConfigName }),
+    body: JSON.stringify({ name: gameConfigName, seeds, policy }),
   })
     .then((x) => x.json())
     .then((r) => {
       out.textContent = r.output ?? JSON.stringify(r);
-      status(r.ok ? 'bot run complete ✓ (see dashboard)' : 'bot run exited ' + r.code, r.ok ? 'ok' : 'err');
+      status(
+        r.ok ? `bot run complete ✓ (${policy}, ${seeds} seeds)` : 'bot run exited ' + r.code,
+        r.ok ? 'ok' : 'err',
+      );
     })
     .catch((e) => {
       out.textContent = String(e);

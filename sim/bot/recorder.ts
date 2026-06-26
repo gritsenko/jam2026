@@ -29,6 +29,9 @@ export interface RunRecord {
   durationSec: number;
   wavesCleared: number;
   perfectWaves: number;
+  rerolls: number;
+  burns: number;
+  fusions: number;
   faucets: { gold: Record<string, number>; crystals: Record<string, number> };
   sinks: { gold: Record<string, number>; crystals: Record<string, number> };
   kills: Record<string, number>;
@@ -52,7 +55,7 @@ export interface Recorder {
   finish(
     sim: EndState,
     durationSec: number,
-    ctx: { seed: number; policy: string; config: string; balanceVersion: string; faucets: Ledger; sinks: Ledger },
+    ctx: { seed: number; policy: string; config: string; balanceVersion: string; faucets: Ledger; sinks: Ledger; rerolls: number; burns: number; fusions: number },
   ): RunRecord;
 }
 
@@ -109,6 +112,9 @@ export function createRecorder(stage: string, ref: SlotsRef): Recorder {
         durationSec: Math.round(durationSec * 10) / 10,
         wavesCleared,
         perfectWaves,
+        rerolls: ctx.rerolls,
+        burns: ctx.burns,
+        fusions: ctx.fusions,
         faucets: ctx.faucets,
         sinks: ctx.sinks,
         kills,
