@@ -45,10 +45,10 @@ export const TOWER_SEAT_DEFAULT: TowerSeat = { wFrac: 0.96, cyFrac: 0.66 };
 export const TOWER_SEATS: Record<string, TowerSeat> = {
   plasma_shutter: { wFrac: 0.7, cyFrac: 0.64 }, // composed sheet: center cell = base only
   railgun: { wFrac: 0.71, cyFrac: 0.77 }, // old sheet: full turret per cell (long rail)
-  frost_pulse: { wFrac: 0.99, cyFrac: 0.7 },
-  storm_coil: { wFrac: 0.99, cyFrac: 0.7 },
-  shield_generator: { wFrac: 0.99, cyFrac: 0.61 },
-  grid_stabilizer: { wFrac: 0.99, cyFrac: 0.7 },
+  frost_pulse: { wFrac: 0.88, cyFrac: 0.7 },
+  storm_coil: { wFrac: 0.88, cyFrac: 0.7 },
+  shield_generator: { wFrac: 0.88, cyFrac: 0.61 },
+  grid_stabilizer: { wFrac: 0.88, cyFrac: 0.7 },
 };
 
 /** Seat geometry for a tower's iconKey (falls back to the default). */
