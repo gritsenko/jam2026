@@ -9,6 +9,8 @@ const LABELS: Record<string, string> = {
   bot_tune: 'bot_tune',
   bot_tune_hard: 'bot_tune_hard (+30%)',
   campaign_tight: 'campaign_tight',
+  campaign_x2: 'campaign_x2 (×2)',
+  campaign_v3: 'campaign_v3 (onboarding)',
 };
 
 /**

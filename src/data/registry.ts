@@ -68,6 +68,30 @@ import ctCombatRules from './game_configs/campaign_tight/combatRules.json';
 import ctBattleRules from './game_configs/campaign_tight/battleRules.json';
 import ctBattleSeed from './game_configs/campaign_tight/battleSeed.json';
 
+import cx2Cards from './game_configs/campaign_x2/cards.json';
+import cx2Enemies from './game_configs/campaign_x2/enemies.json';
+import cx2Levels from './game_configs/campaign_x2/levels.json';
+import cx2LevelCombat from './game_configs/campaign_x2/levelCombat.json';
+import cx2Waves from './game_configs/campaign_x2/waves.json';
+import cx2Reactions from './game_configs/campaign_x2/reactions.json';
+import cx2Recipes from './game_configs/campaign_x2/recipes.json';
+import cx2Progression from './game_configs/campaign_x2/progression.json';
+import cx2CombatRules from './game_configs/campaign_x2/combatRules.json';
+import cx2BattleRules from './game_configs/campaign_x2/battleRules.json';
+import cx2BattleSeed from './game_configs/campaign_x2/battleSeed.json';
+
+import v3Cards from './game_configs/campaign_v3/cards.json';
+import v3Enemies from './game_configs/campaign_v3/enemies.json';
+import v3Levels from './game_configs/campaign_v3/levels.json';
+import v3LevelCombat from './game_configs/campaign_v3/levelCombat.json';
+import v3Waves from './game_configs/campaign_v3/waves.json';
+import v3Reactions from './game_configs/campaign_v3/reactions.json';
+import v3Recipes from './game_configs/campaign_v3/recipes.json';
+import v3Progression from './game_configs/campaign_v3/progression.json';
+import v3CombatRules from './game_configs/campaign_v3/combatRules.json';
+import v3BattleRules from './game_configs/campaign_v3/battleRules.json';
+import v3BattleSeed from './game_configs/campaign_v3/battleSeed.json';
+
 export const DEFAULT_GAME_CONFIG = 'default';
 
 export const GAME_CONFIGS: Record<string, GameConfig> = {
@@ -138,6 +162,39 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     combatRules: ctCombatRules,
     battleRules: ctBattleRules,
     battleSeed: ctBattleSeed,
+  }),
+  /** campaign_tight ×2 difficulty, uniform ramp, bosses lvl 7–12. */
+  campaign_x2: toGameConfig({
+    cards: cx2Cards,
+    enemies: cx2Enemies,
+    levels: cx2Levels,
+    levelCombat: cx2LevelCombat,
+    waves: cx2Waves,
+    reactions: cx2Reactions,
+    recipes: cx2Recipes,
+    progression: cx2Progression,
+    combatRules: cx2CombatRules,
+    battleRules: cx2BattleRules,
+    battleSeed: cx2BattleSeed,
+  }),
+  /**
+   * Onboarding-first 7-level campaign (player-feedback rebalance): gentle L1–3 with
+   * a restricted roster, difficulty for L4–7 between `default` and `campaign_x2`,
+   * one new mechanic introduced per level. Shared card/rule files track `default`;
+   * only levels/levelCombat/progression/enemies/battleSeed differ.
+   */
+  campaign_v3: toGameConfig({
+    cards: v3Cards,
+    enemies: v3Enemies,
+    levels: v3Levels,
+    levelCombat: v3LevelCombat,
+    waves: v3Waves,
+    reactions: v3Reactions,
+    recipes: v3Recipes,
+    progression: v3Progression,
+    combatRules: v3CombatRules,
+    battleRules: v3BattleRules,
+    battleSeed: v3BattleSeed,
   }),
 };
 
