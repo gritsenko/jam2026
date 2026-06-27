@@ -7,6 +7,7 @@ import { tween, Easings, type TweenHandle } from '../core/tween';
 import type { TutorialLesson } from '../config/tutorial';
 import { t, tutorialBody, tutorialTitle } from '../core/i18n';
 import { Button } from './Button';
+import { CloseButton } from './CloseButton';
 import { drawPanel, makeText, fitSprite, glowCircle } from './helpers';
 import { TUTORIAL_DEMOS, type TutorialDemo } from './TutorialDemos';
 
@@ -49,6 +50,8 @@ export class TutorialModal extends Container {
   private content = new Container();
   private dots = new Graphics();
   private nextBtn: Button;
+  /** Round ✕ in the top-right corner: skips the remaining lessons. */
+  private closeBtn: CloseButton;
 
   /** Illustration holder (floats for idle life); rebuilt per page. */
   private illu = new Container();
@@ -107,6 +110,10 @@ export class TutorialModal extends Container {
     this.advisorLayer.eventMode = 'none';
     this.card.addChild(this.advisorLayer);
 
+    // Skip control: a round ✕ in the top-right corner, topmost so it always taps.
+    this.closeBtn = new CloseButton(64, () => this.skip());
+    this.card.addChild(this.closeBtn);
+
     this.addChild(this.scrim, this.card);
 
     // Initial render at the default (max) size; layout() re-renders at the size
@@ -156,6 +163,8 @@ export class TutorialModal extends Container {
 
     this.drawCardBg();
     this.nextBtn.position.set(0, this.cardH / 2 - 70);
+    // Top-right corner, inset clear of the panel's rounded corner.
+    this.closeBtn.position.set(this.cardW / 2 - 52, -this.cardH / 2 + 52);
 
     // Tear down the previous page's content + demo.
     this.currentDemo?.destroy();
@@ -176,7 +185,10 @@ export class TutorialModal extends Container {
     });
     title.anchor.set(0.5, 0);
     const maxTitleW = this.cardW - PAD * 2;
-    if (title.width > maxTitleW) title.scale.set(maxTitleW / title.width);
+    // The title is centered, but reserve room on both sides so a long one never
+    // slides under the top-right ✕ (the body/illustration keep the full width).
+    const titleMaxW = maxTitleW - 60;
+    if (title.width > titleMaxW) title.scale.set(titleMaxW / title.width);
     const titleY = -this.cardH / 2 + 54;
     title.position.set(0, titleY);
     this.content.addChild(title);
@@ -331,6 +343,12 @@ export class TutorialModal extends Container {
       return;
     }
     this.renderPage(this.pageIndex + 1);
+  }
+
+  /** Skip the rest of the onboarding: marks every pending lesson done (onDone). */
+  private skip(): void {
+    this.audio.playSfx('sfx_click');
+    this.onDone();
   }
 
   /** Idle life: the illustration gently floats and its glow pulses; demos animate. */
