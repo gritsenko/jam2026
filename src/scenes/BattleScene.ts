@@ -5,6 +5,7 @@ import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
 import { cardShortName, elementLabel, gradeLabel, t } from '../core/i18n';
+import { gameSpeedScale } from '../core/gameSpeed';
 import { createBattleState } from '../config/battleState';
 import {
   HAND_RESPAWN_SEC,
@@ -874,7 +875,7 @@ export class BattleScene extends Scene {
     const cost = fieldBurnCost(this.burnsThisBattle);
     if (this.state.gold < cost) return;
     const def = getCard(placed.cardId);
-    this.services.audio.playSfx('sfx_burn');
+    this.services.audio.playSfx('impact_01');
     this.spendGold(cost, 'burn_field');
     this.burnsThisBattle++;
     this.overdriveStacks.push(OVERDRIVE_SEC);
@@ -1497,7 +1498,7 @@ export class BattleScene extends Scene {
    */
   private burnCard(card: BattleCard): void {
     const cost = this.burnCost();
-    this.services.audio.playSfx('sfx_burn');
+    this.services.audio.playSfx('impact_01');
     this.spendGold(cost, 'burn');
     this.burnsThisBattle++;
     this.overdriveStacks.push(OVERDRIVE_SEC);
@@ -1831,6 +1832,8 @@ export class BattleScene extends Scene {
     const overloaded = this.state.energyLoad > capacity;
     if (overloaded !== this.wasOverloaded) {
       this.wasOverloaded = overloaded;
+      // Stinger on the flip: grid tips into overload vs. recovers to effective.
+      this.services.audio.playSfx(overloaded ? 'power_down_01' : 'power_up_01');
       Telemetry.track('energy_overload', {
         on: overloaded,
         load: this.state.energyLoad,
@@ -3359,13 +3362,17 @@ export class BattleScene extends Scene {
     // load (Overdrive lifts the capacity that feeds this).
     if (this.sim.status === 'running') {
       this.sim.overload = overloadAmount(this.state.energyLoad, this.effectiveCapacity);
-      this.battleElapsed += dt; // telemetry durationSec (sim-time, FPS-independent enough)
+      this.battleElapsed += dt; // telemetry durationSec (real wall-clock, unscaled)
     }
-    this.sim.update(dt);
-    this.syncEnemies(dt);
+    // Global gameplay tempo (settings): scale the sim and its coupled visuals —
+    // enemy movement, projectile flight, turret rotation, fire cooldowns and every
+    // buff/debuff duration all advance off this `g`. UI chrome below keeps raw `dt`.
+    const g = dt * gameSpeedScale();
+    this.sim.update(g);
+    this.syncEnemies(g);
     this.syncProjectiles();
-    this.tickParticles(dt);
-    this.syncCooldowns(dt);
+    this.tickParticles(g);
+    this.syncCooldowns(g);
     this.updateWaveToast(dt);
     this.updateTelegraph(dt);
     this.modOverlay.tick(dt); // pulse the platform holo while a modernization card is dragged
@@ -3376,10 +3383,11 @@ export class BattleScene extends Scene {
     this.infoPanel.tick(dt);
 
     // Overdrive countdown: tick each burn stack; resync capacity when one expires.
+    // Scaled by game tempo so the buff lasts the same span of battle time.
     if (this.overdriveStacks.length > 0) {
       const before = this.overdriveStacks.length;
       for (let i = this.overdriveStacks.length - 1; i >= 0; i--) {
-        this.overdriveStacks[i]! -= dt;
+        this.overdriveStacks[i]! -= g;
         if (this.overdriveStacks[i]! <= 0) this.overdriveStacks.splice(i, 1);
       }
       if (this.overdriveStacks.length !== before) this.refreshEnergy();
@@ -3388,7 +3396,7 @@ export class BattleScene extends Scene {
     // Hand recharge: empty positions count down, then spawn a fresh card.
     for (const slot of this.hand) {
       if (slot.card) continue;
-      slot.cooldown -= dt;
+      slot.cooldown -= g;
       slot.charge.setProgress(1 - Math.max(0, slot.cooldown) / HAND_RESPAWN_SEC);
       if (slot.cooldown <= 0) this.spawnIntoSlot(slot);
     }

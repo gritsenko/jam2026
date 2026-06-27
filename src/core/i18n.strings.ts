@@ -105,6 +105,7 @@ const en: Dict = {
   'settings.analyticsOn': 'ANALYTICS: ON — TAP TO OPT OUT',
   'settings.analyticsOff': 'ANALYTICS: OFF',
   'settings.language': 'LANGUAGE',
+  'settings.gameSpeed': 'GAME SPEED',
 
   // --- end-of-battle banner ---
   'banner.victory': 'VICTORY',
@@ -268,6 +269,7 @@ const ru: Dict = {
   'settings.analyticsOn': 'АНАЛИТИКА ВКЛ — ОТКЛЮЧИТЬ',
   'settings.analyticsOff': 'АНАЛИТИКА ВЫКЛ',
   'settings.language': 'ЯЗЫК',
+  'settings.gameSpeed': 'СКОРОСТЬ ИГРЫ',
 
   // --- end-of-battle banner ---
   'banner.victory': 'ПОБЕДА',

@@ -101,6 +101,32 @@ export const AUDIO: AudioSpec[] = [
       'permanent base upgrade, warm rising harmonic shimmer resolving into a bright satisfying major chord chime, with a soft swelling power-up hum underneath, triumphant and rewarding, smooth and clean, 0.8 seconds',
   },
 
+  // ---- Energy grid state + Reactor burn (player-authored clips) ------------
+  // power_down/power_up are edge-triggered stingers when the energy network tips
+  // into / recovers from overload (see BattleScene.refreshEnergy); impact is the
+  // card-into-Reactor burn punch (replaces sfx_burn at the literal burn sites).
+  {
+    key: 'power_down_01',
+    kind: 'sfx',
+    volume: 0.5,
+    prompt:
+      'energy network overloading, deep descending power-down groan with a low warning hum, ominous but smooth, not harsh, 0.9 seconds',
+  },
+  {
+    key: 'power_up_01',
+    kind: 'sfx',
+    volume: 0.5,
+    prompt:
+      'energy network recovering from overload, rising warm power-up hum resolving into a clean confirming chime, relieving and bright, 0.9 seconds',
+  },
+  {
+    key: 'impact_01',
+    kind: 'sfx',
+    volume: 0.6,
+    prompt:
+      'feeding a card into an energy reactor, heavy fiery impact whoomph with a warm surging power charge, satisfying and weighty, not noisy, 0.8 seconds',
+  },
+
   // ---- Gameplay SFX: reward pickup (random variant on collect) -------------
   // Externally sourced clips; one of the N variants plays each time the reward
   // tokens land on the HUD chip. See playOneOf() / streamReward().

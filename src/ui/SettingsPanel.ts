@@ -5,12 +5,13 @@ import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Button } from './Button';
 import { Slider } from './Slider';
 import { LangSwitch } from './LangSwitch';
+import { SpeedStepper } from './SpeedStepper';
 import { drawPanel, makeText } from './helpers';
 import { t } from '../core/i18n';
 import * as Telemetry from '../telemetry/Telemetry';
 
 const CARD_W = 760;
-const CARD_H = 880;
+const CARD_H = 1010;
 const PAD = 52;
 
 /**
@@ -94,6 +95,14 @@ export class SettingsPanel extends Container {
     system.position.set(PAD, 320);
     this.card.addChild(music, effects, system);
 
+    // Gameplay tempo: scales the whole battle sim (movement, projectiles, turret
+    // rotation, cooldowns, buff/debuff durations) live. UI chrome is unaffected.
+    const speed = new SpeedStepper(sliderW, (v) => {
+      Telemetry.track('game_speed_change', { value: v });
+    });
+    speed.position.set(PAD, 408);
+    this.card.addChild(speed);
+
     this.muteBtn = new Button({
       label: this.muteLabel(),
       width: sliderW,
@@ -105,7 +114,7 @@ export class SettingsPanel extends Container {
         Telemetry.track('mute_toggle', { muted: this.audio.isMuted });
       },
     });
-    this.muteBtn.position.set(CARD_W / 2, 452);
+    this.muteBtn.position.set(CARD_W / 2, 582);
     this.card.addChild(this.muteBtn);
 
     // Privacy: opt in/out of anonymous gameplay telemetry. Toggling emits one
@@ -122,13 +131,13 @@ export class SettingsPanel extends Container {
         this.privacyBtn.setLabel(this.privacyLabel());
       },
     });
-    this.privacyBtn.position.set(CARD_W / 2, 540);
+    this.privacyBtn.position.set(CARD_W / 2, 670);
     this.card.addChild(this.privacyBtn);
 
     // Language picker (mirrors the start-screen control). Switching persists +
     // reloads the page, so a change applies even mid-battle.
     const langSwitch = new LangSwitch(sliderW, true);
-    langSwitch.position.set(PAD, 624);
+    langSwitch.position.set(PAD, 754);
     this.card.addChild(langSwitch);
 
     const closeBtn = new Button({
