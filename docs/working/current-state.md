@@ -332,8 +332,8 @@ Kingdom Rush) + тёмный дизельпанк-металл, якорь `docs
 `COMPOSED_AIM_SHEETS`, и он автоматически получит неподвижную базу.
 
 Остальные башни (Ледяная `frost_pulse`, Тесла `storm_coil`, Щит, Стабилизатор)
-**статичны** (без `_dirs`); гибриды — собственные `iconKey` (`steam_cannon`, …) с
-фоллбеком на родителя до PNG ([fusion-hybrid-assets.md](../planned/fusion-hybrid-assets.md)).
+**статичны** (без `_dirs`); гибриды — собственные `iconKey` (`steam_cannon`, …), PNG и
+per-card SFX на диске ([fusion-hybrid-assets.md](../done/fusion-hybrid-assets.md)).
 `<iconKey>.png` — арт для карточки в руке. Пайплайн доработки: положить новые 3×3-шиты
 `assets/sprites/<iconKey>_dirs_lvl{1,2,3}.png` (фон прозрачный) → перезапуск dev-сервера.
 Будущие состояния (idle/attack/loading) — отдельными шитами `<iconKey>_*`.

@@ -1,9 +1,10 @@
 # Fusion hybrid assets — playbook (спрайты и звуки)
 
-> **Статус: спрайты готовы, звук остаётся.** Манифесты и роутинг заведены; **6 PNG
-> сгенерированы** и фоллбеки на родителей сняты из `ASSET_FALLBACKS`. Остаются **6 MP3
-> вылета** (генерируются вручную — тулзы под звук в репо нет) + стретчи. После звука —
-> перенести в `docs/done/` и обновить [current-state.md](../working/current-state.md).
+> **Статус: спрайты и звук готовы.** Манифесты и роутинг заведены; **6 PNG** на диске,
+> фоллбеки на родителей сняты. **12 MP3** (shoot+hit на гибрид) на диске; вылет —
+> `TOWER_SHOOT_SFX`, попадание — `TOWER_HIT_SFX` (`onProjectileHit`/`onBeam`, `towerId`
+> из сим). Стретч: `_dirs`-шиты для вращающихся гибридов, уникальный `sfx_hit_storm`
+> для базовой Теслы (сейчас плейсхолдер).
 
 Источники: GDD §6.5 ([synergy-grid-td-v2.md](../backlog/synergy-grid-td-v2.md)),
 боевые перки — `hybridPerks` в `cards.json`, сим — [BattleSim.ts](../../src/game/BattleSim.ts).
@@ -16,7 +17,7 @@ flowchart LR
   manifest[assetManifest / audioManifest] --> gen[gen_sprite или MP3]
   gen --> disk["assets/sprites|audio"]
   disk --> cards["cards.json iconKey"]
-  disk --> sfx["TOWER_SHOOT_SFX"]
+  disk --> sfx["TOWER_SHOOT_SFX / TOWER_HIT_SFX"]
   disk --> restart[restart dev server]
   restart --> test[lvl_7 smoke test]
 ```
@@ -24,12 +25,12 @@ flowchart LR
 1. Запись в [assetManifest.ts](../../src/config/assetManifest.ts) + [tools/assets.manifest.json](../../tools/assets.manifest.json) (спрайты) и [audioManifest.ts](../../src/config/audioManifest.ts) (звуки).
 2. Генерация файлов на диск.
 3. `iconKey` гибрида = имя ключа (уже в `cards.json`).
-4. `TOWER_SHOOT_SFX` в [BattleScene.ts](../../src/scenes/BattleScene.ts) — по `cardId`.
+4. `TOWER_SHOOT_SFX` / `TOWER_HIT_SFX` в [BattleScene.ts](../../src/scenes/BattleScene.ts) — по `cardId`.
 5. Перезапуск `npm run dev` (glob ассетов на старте).
 6. Smoke: lvl_7, фьюжн → постановка → вылет/попадание слышны, спрайт не родительский.
 
-**MVP:** иконка+tower (512) для всех 6; `_dirs` и уникальные `sfx_hit_*` — второй проход.
-До PNG действуют [ASSET_FALLBACKS](../../src/config/assetManifest.ts) на родительские башни.
+**MVP:** иконка+tower (512) + shoot/hit MP3 для всех 6; `_dirs` для вращающихся гибридов —
+второй проход.
 
 ---
 
@@ -62,28 +63,32 @@ flowchart LR
 ## Звуки
 
 Контракт: [assets/audio/README.md](../../assets/audio/README.md), ключ = `assets/audio/<key>.mp3`.
-Роутинг вылета: `TOWER_SHOOT_SFX[cardId]` в BattleScene. Попадание — по стихии (`ELEMENT_HIT_SFX`);
-опционально `sfx_hit_steam` / `sfx_hit_thermo` для уникального фидбэка (стретч).
+Роутинг: `TOWER_SHOOT_SFX` / `TOWER_HIT_SFX[cardId]` в BattleScene; лучевые гибриды бьют
+через `onBeam`.
 
 | Гибрид | Вылет | Попадание | volume shoot |
 |--------|-------|-----------|--------------|
-| `steam_cannon` | `sfx_shoot_steam` | `sfx_hit_steam` (стретч) | 0.5 |
-| `cryo_discharge` | `sfx_shoot_cryo` | Electricity / `sfx_hit_storm` | 0.45 |
-| `ion_volley` | `sfx_shoot_ion` | Fire / `sfx_hit_plasma` | 0.5 |
-| `thermo_spear` | `sfx_shoot_thermo` | `sfx_hit_thermo` (стретч) | 0.6 |
-| `icebreaker` | `sfx_shoot_icebreaker` | Water / Physical | 0.55 |
-| `gauss_coil` | `sfx_shoot_gauss` | Electricity | 0.55 |
+| `steam_cannon` | `sfx_shoot_steam` | `sfx_hit_steam` | 0.5 |
+| `cryo_discharge` | `sfx_shoot_cryo` | `sfx_hit_cryo` | 0.45 |
+| `ion_volley` | `sfx_shoot_ion` | `sfx_hit_ion` | 0.5 |
+| `thermo_spear` | `sfx_shoot_thermo` | `sfx_hit_thermo` | 0.6 |
+| `icebreaker` | `sfx_shoot_icebreaker` | `sfx_hit_icebreaker` | 0.55 |
+| `gauss_coil` | `sfx_shoot_gauss` | `sfx_hit_gauss` | 0.55 |
 
 Промпты — в [audioManifest.ts](../../src/config/audioManifest.ts) (блок «Fusion hybrid towers»).
 
-- [ ] `sfx_shoot_steam.mp3`
-- [ ] `sfx_hit_steam.mp3` (стретч)
-- [ ] `sfx_shoot_cryo.mp3`
-- [ ] `sfx_shoot_ion.mp3`
-- [ ] `sfx_shoot_thermo.mp3`
-- [ ] `sfx_hit_thermo.mp3` (стретч)
-- [ ] `sfx_shoot_icebreaker.mp3`
-- [ ] `sfx_shoot_gauss.mp3`
+- [x] `sfx_shoot_steam.mp3`
+- [x] `sfx_hit_steam.mp3`
+- [x] `sfx_shoot_cryo.mp3`
+- [x] `sfx_hit_cryo.mp3`
+- [x] `sfx_shoot_ion.mp3`
+- [x] `sfx_hit_ion.mp3`
+- [x] `sfx_shoot_thermo.mp3`
+- [x] `sfx_hit_thermo.mp3`
+- [x] `sfx_shoot_icebreaker.mp3`
+- [x] `sfx_hit_icebreaker.mp3`
+- [x] `sfx_shoot_gauss.mp3`
+- [x] `sfx_hit_gauss.mp3`
 
 ---
 

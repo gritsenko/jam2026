@@ -99,14 +99,15 @@ Playbook ассетов: [fusion-hybrid-assets.md](fusion-hybrid-assets.md).
 
 ### 2. Звуки (MVP)
 
-Файлы `assets/audio/<key>.mp3` отсутствуют — играет фоллбек/тишина.
+Роутинг `TOWER_SHOOT_SFX` / `TOWER_HIT_SFX` по `cardId` ([BattleScene.ts](../../src/scenes/BattleScene.ts));
+все 12 MP3 гибридов на диске.
 
-- [ ] `sfx_shoot_steam.mp3`
-- [ ] `sfx_shoot_cryo.mp3`
-- [ ] `sfx_shoot_ion.mp3`
-- [ ] `sfx_shoot_thermo.mp3`
-- [ ] `sfx_shoot_icebreaker.mp3`
-- [ ] `sfx_shoot_gauss.mp3`
+- [x] `sfx_shoot_steam.mp3` / `sfx_hit_steam.mp3`
+- [x] `sfx_shoot_cryo.mp3` / `sfx_hit_cryo.mp3`
+- [x] `sfx_shoot_ion.mp3` / `sfx_hit_ion.mp3`
+- [x] `sfx_shoot_thermo.mp3` / `sfx_hit_thermo.mp3`
+- [x] `sfx_shoot_icebreaker.mp3` / `sfx_hit_icebreaker.mp3`
+- [x] `sfx_shoot_gauss.mp3` / `sfx_hit_gauss.mp3`
 
 Промпты — блок «Fusion hybrid towers» в [audioManifest.ts](../../src/config/audioManifest.ts).
 
@@ -116,9 +117,8 @@ Playbook ассетов: [fusion-hybrid-assets.md](fusion-hybrid-assets.md).
   без них турель на поле **статична** (сим целится, спрайт не крутится).
 - [ ] `ion_volley` в `COMPOSED_AIM_SHEETS` ([cards.ts](../../src/config/cards.ts)),
   если шит в композитной раскладке (центр = база).
-- [ ] **Уникальные hit-клипы** `sfx_hit_steam`, `sfx_hit_thermo` — в манифесте есть,
-  но [BattleScene.ts](../../src/scenes/BattleScene.ts) бьёт только через `ELEMENT_HIT_SFX`
-  по стихии; нужен per-card роутинг, если хотим отличать попадание.
+- [x] **Per-card hit-клипы** — `TOWER_HIT_SFX` в BattleScene (`onProjectileHit`/`onBeam`,
+  `towerId` из сим).
 - [ ] Опционально: `card_icon` 256px для руки, если tower 512 не читается на карточке.
 
 ### 4. Smoke в игре

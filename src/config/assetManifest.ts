@@ -347,7 +347,7 @@ export const ASSETS: AssetSpec[] = [
     placeholder: { shape: 'round', tint: N, label: 'CELL' },
   },
 
-  // ---- Fusion hybrids (v2 §6.5) — see docs/planned/fusion-hybrid-assets.md ----
+  // ---- Fusion hybrids (v2 §6.5) — see docs/done/fusion-hybrid-assets.md ----
   {
     key: 'steam_cannon',
     category: 'tower',
