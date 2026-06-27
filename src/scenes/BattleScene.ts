@@ -34,6 +34,7 @@ import { cardLoad, getCard } from '../config/cards';
 import { getEnemy } from '../config/enemies';
 import { FUSION_CRYSTAL_COST, fusionGoldCost, fusionResult } from '../config/fusion';
 import { combatForLevel, type LevelCombat } from '../config/levelCombat';
+import { decorForLevel, DECOR_REF_SIZE, DECOR_Z_FRONT } from '../config/levelDecor';
 import { DRAW_POOL, MOD_CARD_POOL, MOD_DRAW_CHANCE } from '../config/battleRules';
 import type { BattleStateMock, CardDef, HandCard } from '../config/types';
 import { towersUnlockedByClearing, unlockedMechanicsForLevel, unlockedTowersForLevel } from '../config/progression';
@@ -399,6 +400,23 @@ export class BattleScene extends Scene {
     // Y-sort enemies by their board Y each frame (zIndex set in syncEnemies).
     this.enemyLayer.sortableChildren = true;
     this.field.addChild(this.rangePreview, this.inspectRange, this.modOverlay, this.enemyLayer, this.fxLayer);
+
+    // Decorative props (parked vans «буханка», future scenery): per-level list
+    // from levelDecor — tune in LEVEL_DECOR. Coordinates/scale are authored at
+    // DECOR_REF_SIZE and re-scaled to this arena's actual texture size so they
+    // follow the level texture's scale. They live in the enemy layer so each
+    // prop's `z` sorts it against enemies (board-Y zIndex) — default in front,
+    // DECOR_Z_BACK to sit behind them.
+    const decorScaleX = this.arenaW / DECOR_REF_SIZE;
+    const decorScaleY = this.arenaH / DECOR_REF_SIZE;
+    for (const obj of decorForLevel(this.levelId)) {
+      const prop = new Sprite(assets.get(obj.texture));
+      prop.anchor.set(0.5);
+      prop.scale.set(obj.scale * decorScaleX);
+      prop.position.set(obj.x * decorScaleX, obj.y * decorScaleY);
+      prop.zIndex = obj.z ?? DECOR_Z_FRONT;
+      this.enemyLayer.addChild(prop);
+    }
 
     this.buildHud();
     this.buildHand();
@@ -2395,6 +2413,10 @@ export class BattleScene extends Scene {
         slot.setAim(null);
       }
       slot.tickAim(dt);
+      // Feed the sim the exact barrel tip of the turret's CURRENT facing frame, so
+      // shots and the muzzle flash leave the gun tip (next sim.update reads it).
+      // Rotating turrets only (null for the rest → sim uses its radial fallback).
+      this.sim.setTowerMuzzle(i, this.grid.muzzleScenePos(i));
       this.syncTowerBadge(slot, i, overload, frac);
       slot.tickDots(dt);
     }

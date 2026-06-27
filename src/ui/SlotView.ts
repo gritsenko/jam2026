@@ -1,6 +1,6 @@
 import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Texture, type PointData } from 'pixi.js';
 import { COLORS, ELEMENTS, hex, type ElementId } from '../theme';
-import { TOWER_SEAT_DEFAULT, type TowerSeat } from '../config/cards';
+import { TOWER_SEAT_DEFAULT, type MuzzleAnchor, type TowerSeat } from '../config/cards';
 import type { SynergyDot } from '../game/synergy';
 import { fitSprite, makeElementSymbol, makeText } from './helpers';
 
@@ -73,6 +73,13 @@ export class SlotView extends Container {
   private towerSprite?: Sprite;
   /** 8 directional aim frames (d0=N, d1=NE … d7=NW clockwise) from an `<id>_dirs` 3×3 sheet. */
   private dirFrames?: Texture[];
+  /**
+   * Per-octant barrel-tip muzzle points (cell-fraction offsets from cell center,
+   * one per aim frame). Combined with {@link displayOctant} and the seat transform
+   * into a slot-local muzzle point ({@link muzzleLocal}) so shots leave the exact gun
+   * tip of the shown frame. Undefined for towers without measured anchors.
+   */
+  private muzzleAnchors?: readonly MuzzleAnchor[];
   /** Seat geometry of the placed tower (base→slot width + lift); see {@link seatSprite}. */
   private seat: TowerSeat = TOWER_SEAT_DEFAULT;
   /**
@@ -145,6 +152,7 @@ export class SlotView extends Container {
     this.reso.clear();
     this.towerSprite = undefined;
     this.dirFrames = undefined;
+    this.muzzleAnchors = undefined;
     this.displayOctant = SlotView.DEFAULT_OCTANT;
     this.targetOctant = SlotView.DEFAULT_OCTANT;
     this.desiredOctant = SlotView.DEFAULT_OCTANT;
@@ -172,6 +180,7 @@ export class SlotView extends Container {
     dirStrip?: Texture,
     composedBase = false,
     seat: TowerSeat = TOWER_SEAT_DEFAULT,
+    gradeInArt = false,
   ): void {
     this.occupied = true;
     this.content.removeChildren().forEach((c) => c.destroy());
@@ -221,13 +230,17 @@ export class SlotView extends Container {
 
     this.drawDots(dots);
     this.drawResonance(resonant, skin.glow);
-    this.drawGrade(grade, skin.glow);
+    // Skip the grade pips when the art itself already reads the tier — rotating
+    // turrets now have per-grade aim sheets (`<id>_dirs_lvl<n>`), so the pips would
+    // double up. Towers whose art doesn't change with grade still get them.
+    if (!gradeInArt) this.drawGrade(grade, skin.glow);
   }
 
   /**
    * Merge-level indicator: `grade` small element-tinted pips at the top of the slot
-   * (none at Grade I). Reads the tower's tier at a glance even when its art doesn't
-   * change with grade (rotating turrets keep their base aim sheet). v3 polish.
+   * (none at Grade I). Reads the tower's tier at a glance when its art doesn't
+   * change with grade (statics without grade variants); suppressed for towers whose
+   * art is grade-specific (see `gradeInArt` in {@link setPlaced}). v3 polish.
    */
   private drawGrade(grade: number, color: number): void {
     if (grade < 2) return;
@@ -355,6 +368,27 @@ export class SlotView extends Container {
       sprite.texture = frames[this.displayOctant]!;
       this.seatSprite(sprite, this.seat); // equal-size cells → keeps scale/lift
     }
+  }
+
+  /** Provide the per-octant muzzle anchors for the placed tower (see {@link muzzleLocal}). */
+  setMuzzleAnchors(anchors: readonly MuzzleAnchor[] | undefined): void {
+    this.muzzleAnchors = anchors;
+  }
+
+  /**
+   * The barrel tip of the currently-shown facing frame, in this slot's LOCAL space
+   * (origin = slot center). The anchor is a cell-fraction offset from the aim-sheet
+   * cell center; we run it through the SAME seat transform {@link seatSprite} applies
+   * to the head sprite, so the point tracks the rotating barrel exactly. Returns null
+   * for towers without measured anchors (the sim then uses its radial muzzle). The
+   * `+0.5 − cyFrac` on Y re-bases the offset from the cell center to the seated base
+   * center (seatSprite lifts the sprite so the base center sits at the slot center).
+   */
+  muzzleLocal(): PointData | null {
+    const a = this.muzzleAnchors?.[this.displayOctant];
+    if (!a) return null;
+    const k = (this.size * SlotView.SEAT_FILL) / this.seat.wFrac;
+    return { x: a.x * k, y: (a.y + 0.5 - this.seat.cyFrac) * k };
   }
 
   /**

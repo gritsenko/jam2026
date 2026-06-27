@@ -15,13 +15,12 @@ import { activeGameConfig } from '../data/load';
 export const CARDS: Record<string, CardDef> = activeGameConfig.cards;
 
 /**
- * iconKeys whose `<iconKey>_dirs` 3×3 aim sheet uses the COMPOSED layout: the
- * center cell is a *stationary base* and the 8 perimeter cells are the rotating
- * *head only*. SlotView draws the base once underneath and crossfades the head
- * between octants for a smooth turn (the base stays outside the crossfade, so it
- * never ghosts). Sheets NOT listed here use the old layout — each cell is a full
- * turret with the base baked in — and hard-swap frames. Add an iconKey here once
- * its `_dirs` sheet is redrawn in the composed layout.
+ * iconKeys whose `<iconKey>_dirs_lvl<n>` 3×3 aim sheets use the COMPOSED layout:
+ * the center cell is a *stationary base* and the 8 perimeter cells are the rotating
+ * *head only*. SlotView draws the base once underneath and hard-swaps the head to
+ * the aimed octant (the base stays put). Sheets NOT listed here use the old layout —
+ * each cell is a full turret with the base baked in — and rotate the whole sprite.
+ * Add an iconKey here once its `_dirs` sheets are drawn in the composed layout.
  */
 export const COMPOSED_AIM_SHEETS = new Set<string>(['plasma_shutter', 'railgun']);
 
@@ -59,16 +58,67 @@ export function towerSeat(iconKey: string): TowerSeat {
 /**
  * Barrel length from the base center to the muzzle, as a fraction of the cell
  * size. Used to spawn a tower's projectile (and its muzzle flash) at the gun
- * tip along the aim direction instead of the slot center. Only meaningful for
- * rotating-turret towers whose barrel points at the target; 0 / no entry =>
- * the shot originates from the slot center (static towers).
+ * tip along the aim direction instead of the slot center. This is the RADIAL
+ * fallback (a single scalar along the aim line); a tower with per-octant
+ * {@link TOWER_MUZZLE_ANCHORS} overrides it with the exact barrel tip of its
+ * current facing frame whenever the scene feeds the muzzle in (headless runs
+ * with no renderer fall back to this radial value). Only meaningful for
+ * rotating-turret towers; 0 / no entry => the shot originates from the slot center.
  */
 export const TOWER_MUZZLE: Record<string, number> = {
-  plasma_shutter: 0.5, // подбирается на глаз под plasma_shutter_dirs.png
+  plasma_shutter: 0.5, // radial fallback; per-frame anchors in TOWER_MUZZLE_ANCHORS
   railgun: 0.34,
 };
 export function towerMuzzleFrac(iconKey: string): number {
   return TOWER_MUZZLE[iconKey] ?? 0;
+}
+
+/** A muzzle point: an offset from the aim-sheet CELL CENTER, in cell fractions. */
+export interface MuzzleAnchor {
+  /** +x = right of cell center (screen convention). */
+  readonly x: number;
+  /** +y = below cell center (screen convention); markers sit above center → negative. */
+  readonly y: number;
+}
+
+/**
+ * Per-octant barrel-tip muzzle points for rotating turrets, indexed by facing
+ * octant in the same order SlotView slices the `_dirs` sheet (d0=N, d1=NE, d2=E,
+ * d3=SE, d4=S, d5=SW, d6=W, d7=NW). Each entry is the green-marker centroid from
+ * the hand-made anchor sheet (`docs/visual_refs/anchors/<iconKey>_dirs_anchors.png`),
+ * measured as a fraction offset from that octant's cell center. SlotView turns the
+ * current facing's anchor into a slot-local point through the SAME seat transform
+ * the head sprite uses ({@link SlotView.muzzleLocal}); PlatformGrid maps it to scene
+ * space and feeds it to the sim so shots and the muzzle flash leave the exact gun
+ * tip of the displayed frame (vs. the radial {@link TOWER_MUZZLE} guess). Re-measured
+ * with tools (see docs) if a `_dirs` sheet's barrel geometry changes.
+ */
+export const TOWER_MUZZLE_ANCHORS: Record<string, readonly MuzzleAnchor[]> = {
+  plasma_shutter: [
+    { x: 0.0035, y: -0.4706 }, // d0 N
+    { x: 0.2817, y: -0.4238 }, // d1 NE
+    { x: 0.3637, y: -0.213 }, // d2 E
+    { x: 0.1906, y: -0.3154 }, // d3 SE
+    { x: -0.005, y: -0.2479 }, // d4 S
+    { x: -0.2371, y: -0.298 }, // d5 SW
+    { x: -0.357, y: -0.207 }, // d6 W
+    { x: -0.2691, y: -0.4209 }, // d7 NW
+  ],
+  railgun: [
+    { x: 0.003, y: -0.4218 }, // d0 N
+    { x: 0.2442, y: -0.3009 }, // d1 NE
+    { x: 0.2586, y: -0.1836 }, // d2 E
+    { x: 0.2258, y: -0.1304 }, // d3 SE
+    { x: 0.0002, y: -0.0413 }, // d4 S
+    { x: -0.2675, y: -0.1228 }, // d5 SW
+    { x: -0.3327, y: -0.184 }, // d6 W
+    { x: -0.3364, y: -0.3416 }, // d7 NW
+  ],
+};
+
+/** Per-octant muzzle anchors for a tower's iconKey (undefined → use the radial fallback). */
+export function towerMuzzleAnchors(iconKey: string): readonly MuzzleAnchor[] | undefined {
+  return TOWER_MUZZLE_ANCHORS[iconKey];
 }
 
 export const CARD_LIST: CardDef[] = Object.values(CARDS);

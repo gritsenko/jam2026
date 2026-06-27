@@ -1,119 +1,703 @@
 {
   "_comment": "Asset spec for the Nano Banana sprite pipeline. Mirrors src/config/assetManifest.ts (the in-game source of truth). Card art is named by card id (CLAUDE.md). 'prompt' is the English subject only — tools/gen_sprite.py prepends the shared style preamble and now auto-cleans the chroma-key fringe (erode + edge de-spill). Generate with: tools\\.venv\\Scripts\\python.exe tools\\gen_sprite.py \"<prompt>\" assets\\sprites\\<key>.png --category <category> --size <size>",
   "assets": [
-    { "key": "bg_arena", "file": "assets/sprites/bg_arena.png", "category": "background", "size": 1024, "aspect": "1:1", "prompt": "dark industrial steel and stone backdrop wall, muted desaturated charcoal and warm grey-brown tones, faint embossed gears and riveted metal panels in the same dark tone, low contrast, soft even ambient lighting, gentle dark vignette toward all edges, calm neutral non-distracting backdrop, no bright highlights, no focal subject" },
-    { "key": "bg_level", "file": "assets/sprites/bg_level.png", "category": "background", "size": 1024, "aspect": "1:1", "prompt": "top-down desert canyon battle arena, a worn dirt enemy road looping in a rounded square ring around a large open flat sandy plateau in the center, scattered rocks ruins and gears, warm tones, no characters" },
-
-    { "_comment": "Per-level arenas: the painted road follows each level's enemy-path shape (combatRules ENEMY_PATHS / levelCombat.pathId) so the baked road matches where units walk. Ring for bottom levels (1/2/3/7); L-bracket on two edges for top(4)/left(5)/right(6). Keyed bg_<levelId>; missing PNG falls back to bg_level." },
-    { "key": "bg_lvl_1", "file": "assets/sprites/bg_lvl_1.png", "category": "background", "size": 1024, "aspect": "1:1", "prompt": "top-down sunbaked desert gulch battle arena, dry cracked warm clay and scattered sandstone rocks, a worn dirt enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), warm golden tones, no characters (square 1:1)" },
-    { "key": "bg_lvl_2", "file": "assets/sprites/bg_lvl_2.png", "category": "background", "size": 1024, "aspect": "1:1", "prompt": "top-down abandoned rusted industrial water-spillway battle arena, rusty riveted metal channels and dried teal water stains on cracked concrete, a worn enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), warm rust and brown tones, no characters (square 1:1)" },
-    { "key": "bg_lvl_3", "file": "assets/sprites/bg_lvl_3.png", "category": "background", "size": 1024, "aspect": "1:1", "prompt": "top-down high desert mesa battle arena crackling with static electricity, violet electric arcs and glowing tesla nodes along the rocks, a worn enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), warm rock tones with violet electric glow, no characters (square 1:1)" },
-    { "key": "bg_lvl_4", "file": "assets/sprites/bg_lvl_4.png", "category": "background", "size": 1024, "aspect": "1:1", "prompt": "top-down volcanic ember-hollow battle arena, charred black volcanic rock with glowing molten-orange lava cracks and drifting ember sparks, a worn enemy road that runs horizontally across the top and turns at the upper-right corner to run straight down the right side, forming a backwards-L bracket hugging the top and right edges inset from the frame, the lower-left half is open empty ground with no road, a large open flat plateau fills the center, dark rock with fiery orange glow, no characters (square 1:1)" },
-    { "key": "bg_lvl_5", "file": "assets/sprites/bg_lvl_5.png", "category": "background", "size": 1024, "aspect": "1:1", "prompt": "top-down fused-glass desert dunes battle arena, smooth vitrified pale sand with turquoise and teal glass shards catching light, a worn enemy road that runs vertically up the left side and turns at the upper-left corner to run horizontally across the top, forming an L bracket hugging the left and top edges inset from the frame, the lower-right half is open empty ground with no road, a large open flat plateau fills the center, warm sand with cool turquoise glass accents, no characters (square 1:1)" },
-    { "key": "bg_lvl_6", "file": "assets/sprites/bg_lvl_6.png", "category": "background", "size": 1024, "aspect": "1:1", "prompt": "top-down frozen coolant-ridge battle arena, pale cyan ice and frost over dark rock with teal coolant pools and snow patches, a worn enemy road that runs vertically down the right side and turns at the lower-right corner to run horizontally across the bottom, forming an L bracket hugging the right and bottom edges inset from the frame, the upper-left half is open empty ground with no road, a large open flat plateau fills the center, cold cyan and teal tones, no characters (square 1:1)" },
-    { "key": "bg_lvl_7", "file": "assets/sprites/bg_lvl_7.png", "category": "background", "size": 1024, "aspect": "1:1", "prompt": "top-down overloaded reactor-spire battle arena, dark dieselpunk metal deck with glowing energy conduits and an intense multi-colored energy storm crackling around the edges, a worn enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), dark metal with vivid glowing energy accents, no characters (square 1:1)" },
-
-    { "key": "bg_menu", "file": "assets/sprites/bg_menu.png", "category": "background", "size": 1024, "prompt": "vast desert canyon at warm golden sunset, distant rune-carved mesas, heat haze, dramatic sky" },
-    { "key": "bg_worldmap", "file": "assets/sprites/bg_worldmap.png", "category": "background", "size": 1536, "aspect": "9:16", "prompt": "top-down stylized hand-painted fantasy campaign world-map, tall portrait orientation, a single worn trail snaking in a serpentine zigzag from the bottom edge up to the top edge, passing seven distinct themed regions stacked vertically in order from bottom to top: at the very bottom a warm sunbaked desert gulch of dry cracked canyons; above it rusted industrial water-spillway ruins with teal water channels and gears; then a rocky mesa crackling with violet static electricity; in the middle a glowing molten volcanic hollow with orange lava cracks; above it pale turquoise fused-glass dunes; then a frozen cyan coolant ridge with ice and snow; and at the very top a towering glowing energy reactor spire; warm sandy palette at the bottom shifting smoothly to cold blue and vivid energy-glow tones at the top, no characters, no text, no labels" },
-
-    { "_comment": "platform_board: the in-battle board (top-down plate whose nine recessed sockets ARE the build slots). PlatformGrid draws this instead of a procedural plate; SlotView no longer paints sockets. Slot geometry traced from this art in gridMetrics (sockets centered, pitch 310/1024, inner socket 235/1024). Hand-made (board1.psd), not gen_sprite." },
-    { "key": "platform_board", "file": "assets/sprites/platform_board.png", "category": "prop", "size": 1024, "aspect": "1:1", "prompt": "top-down dark dieselpunk iron tower-defense battle platform plate with riveted chamfered edges and rust streaks, nine large recessed metal build sockets in a clean 3x3 grid, transparent background around the plate, hand-made (board1.psd), not gen_sprite" },
-    { "key": "logo_title", "file": "assets/sprites/logo_title.png", "category": "prop", "size": 1024, "prompt": "ornate brass game-title emblem banner plate, energy crystals and gears, blank center for a logo" },
-    { "key": "decor_pylon", "file": "assets/sprites/decor_pylon.png", "category": "prop", "size": 512, "prompt": "weathered desert signal pylon with a glowing crystal antenna, leaning" },
-
-    { "key": "hero_avatar", "file": "assets/sprites/hero_avatar.png", "category": "icon", "size": 256, "prompt": "rugged desert engineer hero portrait, brass goggles and headset, confident half-smile, bust shot" },
-    { "key": "frame_avatar", "file": "assets/sprites/frame_avatar.png", "category": "ui", "size": 256, "prompt": "ornate circular filigree brass portrait frame, steampunk rivets and gears, empty transparent center" },
-
-    { "key": "icon_gold", "file": "assets/sprites/icon_gold.png", "category": "icon", "size": 256, "prompt": "stack of glowing gold coins, chunky readable silhouette" },
-    { "key": "icon_crystal", "file": "assets/sprites/icon_crystal.png", "category": "icon", "size": 256, "prompt": "cluster of glowing blue energy crystals" },
-    { "key": "icon_synergy", "file": "assets/sprites/icon_synergy.png", "category": "icon", "size": 256, "prompt": "green synergy spark emblem, interlocking glowing energy rings" },
-    { "key": "icon_energy", "file": "assets/sprites/icon_energy.png", "category": "icon", "size": 256, "prompt": "glowing energy bolt token, brass ring" },
-    { "key": "icon_reactor", "file": "assets/sprites/icon_reactor.png", "category": "icon", "size": 256, "prompt": "burning reactor furnace pictogram, orange flame inside a brass ring, hazard styling" },
-    { "key": "icon_star", "file": "assets/sprites/icon_star.png", "category": "icon", "size": 256, "prompt": "glowing gold five-point reward star, brass rim, clean readable game UI icon" },
-
-    { "key": "ui_button", "file": "assets/sprites/ui_button.png", "category": "ui", "size": 512, "prompt": "blank gold tower-defense button plate, glossy bevel, brass rim" },
-    { "key": "ui_panel", "file": "assets/sprites/ui_panel.png", "category": "ui", "size": 512, "prompt": "ornate horizontal HUD panel, brass frame with lion-head crests and gem corners, stone center" },
-    { "key": "ui_card_frame", "file": "assets/sprites/ui_card_frame.png", "category": "ui", "size": 512, "prompt": "ornate filigree card frame, brass and steel with gears, empty transparent center, portrait" },
-    { "key": "ui_button_overdrive", "file": "assets/sprites/ui_button_overdrive.png", "category": "ui", "size": 512, "prompt": "round reactor overdrive button, orange swirling plasma core, yellow-black hazard ring, brass bezel" },
-
-    { "key": "plasma_shutter", "file": "assets/sprites/plasma_shutter.png", "category": "tower", "size": 512, "prompt": "fire turret base mount, a chunky armored circular turntable with a glowing molten-orange plasma core at its center and a forward gun-mount cradle, dark burnished metal, three-quarter top-down view" },
-    { "key": "frost_pulse", "file": "assets/sprites/frost_pulse.png", "category": "tower", "size": 512, "prompt": "ice cannon turret base mount, a chunky armored circular turntable with a glowing pale-cyan frost crystal core and a forward gun-mount cradle, dark frosted metal, three-quarter top-down view" },
-    { "key": "storm_coil", "file": "assets/sprites/storm_coil.png", "category": "tower", "size": 512, "prompt": "tesla turret base mount, a chunky armored circular turntable with crackling violet electric arcs over copper rings and a glowing core, forward gun-mount cradle, dark metal, three-quarter top-down view" },
-    { "key": "railgun", "file": "assets/sprites/railgun.png", "category": "tower", "size": 512, "prompt": "heavy railgun turret base mount, a chunky reinforced steel turntable with a long rail-cradle and a glowing energy capacitor, dark gunmetal with brass bolts, three-quarter top-down view" },
-    { "key": "steam_cannon", "file": "assets/sprites/steam_cannon.png", "category": "tower", "size": 512, "prompt": "steam cannon hybrid turret, frost and fire fusion, chunky armored turntable with hissing steam vents and orange-ice dual glow core, three-quarter top-down view" },
-    { "key": "cryo_discharge", "file": "assets/sprites/cryo_discharge.png", "category": "tower", "size": 512, "prompt": "cryo discharge hybrid turret, tesla coil fused with frost crystals, violet lightning arcs over icy blue core on dark metal base, three-quarter top-down view" },
-    { "key": "ion_volley", "file": "assets/sprites/ion_volley.png", "category": "tower", "size": 512, "prompt": "ion volley hybrid turret, rapid-fire plasma gun with electric ionizer rings, fiery orange core with violet arc accents, three-quarter top-down view" },
-    { "key": "thermo_spear", "file": "assets/sprites/thermo_spear.png", "category": "tower", "size": 512, "prompt": "thermo spear hybrid turret, railgun fused with fire, long heated rail cradle glowing molten orange on heavy gunmetal base, three-quarter top-down view" },
-    { "key": "icebreaker", "file": "assets/sprites/icebreaker.png", "category": "tower", "size": 512, "prompt": "icebreaker hybrid turret, railgun fused with frost, long rail with pale cyan ice coating and frosted energy capacitor, three-quarter top-down view" },
-    { "key": "gauss_coil", "file": "assets/sprites/gauss_coil.png", "category": "tower", "size": 512, "prompt": "gauss coil hybrid turret, railgun fused with tesla, magnetic rail with crackling violet coils and brass capacitors, three-quarter top-down view" },
-    { "key": "shield_generator", "file": "assets/sprites/shield_generator.png", "category": "tower", "size": 512, "prompt": "shield dome generator turret, a squat armored emitter projecting a translucent glowing blue energy dome, dark metal base, three-quarter top-down view" },
-    { "key": "grid_stabilizer", "file": "assets/sprites/grid_stabilizer.png", "category": "tower", "size": 512, "prompt": "uranium battery stabilizer cell turret, a dark metal canister with glowing green energy rods and yellow-black hazard stripes, three-quarter top-down view" },
-
-    { "key": "plasma_shutter_dirs", "file": "assets/sprites/plasma_shutter_dirs.png", "category": "tower", "size": 1024, "_note": "hand-made 3x3 directional sheet (center=idle, perimeter cells point outward NW/N/NE..SW/S/SE); SlotView.sliceSheet3x3 slices it to aim. NOT gen_sprite — drop a transparent 3x3 sheet here." },
-    { "key": "railgun_dirs", "file": "assets/sprites/railgun_dirs.png", "category": "tower", "size": 1069, "_note": "hand-made 3x3 directional sheet for the gauss/railgun turret; see plasma_shutter_dirs" },
-
-    { "key": "sym_fire", "file": "assets/sprites/sym_fire.png", "category": "icon", "size": 256, "prompt": "a single bold stylized flame emblem, teardrop fire shape, warm orange and yellow glow, strong dark outline, clean readable game UI symbol" },
-    { "key": "sym_water", "file": "assets/sprites/sym_water.png", "category": "icon", "size": 256, "prompt": "a single bold six-point snowflake ice crystal emblem, cyan and pale white, strong dark outline, clean readable game UI symbol" },
-    { "key": "sym_electricity", "file": "assets/sprites/sym_electricity.png", "category": "icon", "size": 256, "prompt": "a single bold lightning bolt emblem, zigzag, violet and white glow, strong dark outline, clean readable game UI symbol" },
-    { "key": "sym_physical", "file": "assets/sprites/sym_physical.png", "category": "icon", "size": 256, "prompt": "a single bold bullet kinetic slug emblem with a sharp tip, polished steel grey, strong dark outline, clean readable game UI symbol" },
-    { "key": "sym_energy", "file": "assets/sprites/sym_energy.png", "category": "icon", "size": 256, "prompt": "a single bold glowing diamond energy-cell emblem, vivid green core, strong dark outline, clean readable game UI symbol" },
-
-    { "key": "Symbols", "file": "assets/sprites/Symbols.png", "category": "icon", "size": 210, "_note": "hand-made 5x2 element-symbol sheet for the influence dots on placed towers AND hand cards (row 0 off/unlit, row 1 on/lit; columns Fire/Energy/Water/Electricity/Physical). Sliced in helpers.sliceElementSymbolSheet. NOT gen_sprite." },
-
-    { "key": "cooldown", "file": "assets/sprites/cooldown.png", "category": "icon", "size": 362, "_note": "hand-made vertical 5-frame charge/cooldown battery sheet for the placed-tower charge bar (top->bottom: [0] empty/discharged, then ready colors [1] blue, [2] green, [3] yellow, [4] red). Sliced in helpers.sliceCooldownSheet. The bar reveals the chosen color frame over the empty frame by the recharge fraction; color encodes tower efficiency. NOT gen_sprite." },
-
-    { "key": "upgrade_back", "file": "assets/sprites/upgrade_back.png", "category": "icon", "size": 114, "_note": "hand-made dark rounded backing plate drawn behind the placed-tower influence/resonance dot row (SlotView.drawDots) so the element symbols read against the tower art. NOT gen_sprite." },
-
-    { "key": "isolation_circuit", "file": "assets/sprites/isolation_circuit.png", "category": "card_icon", "size": 512, "prompt": "isolation circuit upgrade emblem, layered brass insulation rings around a glowing green energy core, riveted heat-shield plating, no turret, three-quarter view" },
-    { "key": "elemental_focus", "file": "assets/sprites/elemental_focus.png", "category": "card_icon", "size": 512, "prompt": "elemental focus lens device, a brass prism splitting a white beam into five colored elemental rays, polished steel mount, no turret, three-quarter view" },
-    { "key": "emergency_overdrive", "file": "assets/sprites/emergency_overdrive.png", "category": "card_icon", "size": 512, "prompt": "emergency overdrive lever, a slammed red hazard switch venting orange plasma and sparks, yellow-black warning stripes, brass housing, no turret, three-quarter view" },
-
-    { "key": "enemy_magma_brute", "file": "assets/sprites/enemy_magma_brute.png", "category": "enemy", "size": 512, "prompt": "armored magma brute creature, glowing molten cracks, heavy walking pose" },
-    { "key": "enemy_frost_wisp", "file": "assets/sprites/enemy_frost_wisp.png", "category": "enemy", "size": 512, "prompt": "floating frost wisp spirit, translucent icy body, trailing cold mist" },
-    { "key": "enemy_volt_crawler", "file": "assets/sprites/enemy_volt_crawler.png", "category": "enemy", "size": 512, "prompt": "electric crawler insectoid, crackling blue-violet energy along its carapace" },
-    { "key": "enemy_iron_husk", "file": "assets/sprites/enemy_iron_husk.png", "category": "enemy", "size": 512, "prompt": "hulking scrap-metal husk golem, riveted plates, lumbering walk" },
-    { "key": "enemy_disruptor", "file": "assets/sprites/enemy_disruptor.png", "category": "enemy", "size": 512, "prompt": "menacing signal-jammer saboteur drone creature, bristling with broadcast antenna spikes, glitching red and violet disruptive energy arcs crackling around it, fast aggressive low crawling pose" },
-    { "key": "enemy_resonance_mote", "file": "assets/sprites/enemy_resonance_mote.png", "category": "enemy", "size": 512, "prompt": "floating resonance mote creature, warm amber-gold energy core, pulsing concentric aura rings rippling outward, hovering bobbing pose, no limbs" },
-    { "key": "enemy_coolant_mender", "file": "assets/sprites/enemy_coolant_mender.png", "category": "enemy", "size": 512, "prompt": "drifting coolant mender spirit, translucent teal jellyfish-like dome body, trailing restorative coolant vapor streams reaching outward, gentle floating pose" },
-    { "key": "enemy_aegis_beacon", "file": "assets/sprites/enemy_aegis_beacon.png", "category": "enemy", "size": 512, "prompt": "hovering aegis beacon drone creature, faceted hexagonal energy-shield emitter nodes, projecting translucent dome barriers outward, cool blue-gold glow, steady levitating defensive pose" },
-    { "key": "enemy_boss_warden", "file": "assets/sprites/enemy_boss_warden.png", "category": "enemy", "size": 512, "prompt": "massive grid warden boss creature, towering riveted scrap-metal golem with glowing energy grid lines across its plates, slow heavy menacing walk, dieselpunk tower-defense boss silhouette" },
-    { "key": "enemy_boss_titan", "file": "assets/sprites/enemy_boss_titan.png", "category": "enemy", "size": 512, "prompt": "colossal overload titan boss creature, molten reactor core chest with venting orange plasma and crackling energy crown, enormous slow lumbering final-boss silhouette, dieselpunk metal limbs" },
-
-    { "key": "map_node", "file": "assets/sprites/map_node.png", "category": "icon", "size": 256, "prompt": "glowing brass map node marker with a bright energy gem at its center, available" },
-    { "key": "map_node_locked", "file": "assets/sprites/map_node_locked.png", "category": "icon", "size": 256, "prompt": "dim cold map node marker with an iron padlock, deactivated" },
-
-    { "_comment": "Projectiles (shot_<style>): 4 base ship on disk; 6 hybrids fall back to their element base shot. category fx for gen_sprite (prop in assetManifest)." },
-    { "key": "shot_plasma", "file": "assets/sprites/shot_plasma.png", "category": "fx", "size": 256, "prompt": "fire plasma projectile orb, molten orange-red energy ball with a glowing white core, energy bolt" },
-    { "key": "shot_ice", "file": "assets/sprites/shot_ice.png", "category": "fx", "size": 256, "prompt": "ice projectile orb, pale cyan crackling frost energy ball with a bright core, energy bolt" },
-    { "key": "shot_tesla", "file": "assets/sprites/shot_tesla.png", "category": "fx", "size": 256, "prompt": "ball lightning projectile, violet electric plasma sphere wreathed in arcs, energy bolt" },
-    { "key": "shot_rail", "file": "assets/sprites/shot_rail.png", "category": "fx", "size": 256, "prompt": "railgun kinetic slug projectile, sleek metal capsule with a cyan energy sheath, side view" },
-    { "key": "shot_steam", "file": "assets/sprites/shot_steam.png", "category": "fx", "size": 256, "prompt": "steam burst projectile orb, hot white-orange steam cloud with cyan frost edges and a glowing molten core, energy bolt" },
-    { "key": "shot_ion", "file": "assets/sprites/shot_ion.png", "category": "fx", "size": 256, "prompt": "ion bolt projectile orb, fiery orange plasma core wrapped in crackling violet electric arcs, energy bolt" },
-    { "key": "shot_cryo", "file": "assets/sprites/shot_cryo.png", "category": "fx", "size": 256, "prompt": "cryo lightning projectile orb, icy pale-blue electric ball with frost shards and violet arcs, energy bolt" },
-    { "key": "shot_thermo", "file": "assets/sprites/shot_thermo.png", "category": "fx", "size": 256, "prompt": "molten kinetic slug projectile, glowing orange-hot pointed metal dart with a fire trail, side view" },
-    { "key": "shot_icebreaker", "file": "assets/sprites/shot_icebreaker.png", "category": "fx", "size": 256, "prompt": "frosted kinetic slug projectile, ice-coated pointed metal dart with a pale cyan glow, side view" },
-    { "key": "shot_gauss", "file": "assets/sprites/shot_gauss.png", "category": "fx", "size": 256, "prompt": "magnetic gauss slug projectile, sleek metal dart wrapped in crackling violet electric arcs, side view" },
-
-    { "_comment": "Combat VFX (reusable, tinted per element in code)." },
-    { "key": "fx_muzzle", "file": "assets/sprites/fx_muzzle.png", "category": "fx", "size": 256, "prompt": "muzzle flash burst, bright radial white-yellow energy flash with sharp light spikes, top-down" },
-    { "key": "fx_impact", "file": "assets/sprites/fx_impact.png", "category": "fx", "size": 256, "prompt": "impact explosion burst star, white-hot energy splash with radial shards and sparks, top-down" },
-    { "key": "fx_burn", "file": "assets/sprites/fx_burn.png", "category": "fx", "size": 256, "prompt": "burning fire effect, orange and yellow flames licking upward, vertical flame sprite" },
-    { "key": "fx_frost", "file": "assets/sprites/fx_frost.png", "category": "fx", "size": 256, "prompt": "frost ice debuff effect, pale cyan jagged ice crystals and frosty mist" },
-
-    { "_comment": "Tower grade variants (<iconKey>_g2/_g3). Static towers swap the in-slot sprite; rotating towers use these as card/inspect art. Missing grade art falls back to the base sprite." },
-    { "key": "plasma_shutter_g2", "file": "assets/sprites/plasma_shutter_g2.png", "category": "tower", "size": 512, "prompt": "upgraded fire turret base mount mark II, armored turntable with brighter molten-orange plasma core and extra armor plates, three-quarter top-down view" },
-    { "key": "plasma_shutter_g3", "file": "assets/sprites/plasma_shutter_g3.png", "category": "tower", "size": 512, "prompt": "heavily upgraded fire turret base mount mark III, ornate turntable with a blazing plasma reactor core and layered armor, three-quarter top-down view" },
-    { "key": "frost_pulse_g2", "file": "assets/sprites/frost_pulse_g2.png", "category": "tower", "size": 512, "prompt": "upgraded ice cannon turret base mount mark II, armored turntable with thicker pale-cyan frost crystals and brighter core, three-quarter top-down view" },
-    { "key": "frost_pulse_g3", "file": "assets/sprites/frost_pulse_g3.png", "category": "tower", "size": 512, "prompt": "heavily upgraded ice cannon turret base mount mark III, ornate turntable with a massive glowing cyan frost core and layered ice armor, three-quarter top-down view" },
-    { "key": "storm_coil_g2", "file": "assets/sprites/storm_coil_g2.png", "category": "tower", "size": 512, "prompt": "upgraded tesla turret base mount mark II, armored turntable with extra copper coil rings and brighter violet arcs, three-quarter top-down view" },
-    { "key": "storm_coil_g3", "file": "assets/sprites/storm_coil_g3.png", "category": "tower", "size": 512, "prompt": "heavily upgraded tesla turret base mount mark III, ornate turntable with stacked copper coils and intense violet lightning over a blazing core, three-quarter top-down view" },
-    { "key": "railgun_g2", "file": "assets/sprites/railgun_g2.png", "category": "tower", "size": 512, "prompt": "upgraded heavy railgun turret base mount mark II, reinforced steel turntable with a longer rail cradle and brighter energy capacitor, three-quarter top-down view" },
-    { "key": "railgun_g3", "file": "assets/sprites/railgun_g3.png", "category": "tower", "size": 512, "prompt": "heavily upgraded heavy railgun turret base mount mark III, massive turntable with twin rail cradle and a huge glowing energy capacitor, three-quarter top-down view" },
-    { "key": "shield_generator_g2", "file": "assets/sprites/shield_generator_g2.png", "category": "tower", "size": 512, "prompt": "upgraded shield dome generator turret mark II, armored emitter projecting a brighter blue energy dome with reinforced ribs, three-quarter top-down view" },
-    { "key": "shield_generator_g3", "file": "assets/sprites/shield_generator_g3.png", "category": "tower", "size": 512, "prompt": "heavily upgraded shield dome generator turret mark III, heavy emitter projecting an intense layered blue energy dome with glowing nodes, three-quarter top-down view" },
-    { "key": "grid_stabilizer_g2", "file": "assets/sprites/grid_stabilizer_g2.png", "category": "tower", "size": 512, "prompt": "upgraded uranium battery stabilizer cell turret mark II, dark metal canister with brighter glowing green energy rods and extra hazard plating, three-quarter top-down view" },
-    { "key": "grid_stabilizer_g3", "file": "assets/sprites/grid_stabilizer_g3.png", "category": "tower", "size": 512, "prompt": "heavily upgraded uranium battery stabilizer cell turret mark III, reinforced canister with triple glowing green energy rods and heavy hazard plating, three-quarter top-down view" },
-
-    { "key": "advisor_klodouglas", "file": "assets/sprites/advisor_klodouglas.png", "category": "icon", "size": 768, "prompt": "KloDouglas, a steampunk tech engineer advisor, full-body character holding a glowing schematic tablet, brown leather coat with brass fittings, friendly confident pose (cut from docs/visual_refs/visual_sources/advisors/tech.png)" }
+    {
+      "key": "bg_arena",
+      "file": "assets/sprites/bg_arena.png",
+      "category": "background",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "dark industrial steel and stone backdrop wall, muted desaturated charcoal and warm grey-brown tones, faint embossed gears and riveted metal panels in the same dark tone, low contrast, soft even ambient lighting, gentle dark vignette toward all edges, calm neutral non-distracting backdrop, no bright highlights, no focal subject"
+    },
+    {
+      "key": "bg_level",
+      "file": "assets/sprites/bg_level.png",
+      "category": "background",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "top-down desert canyon battle arena, a worn dirt enemy road looping in a rounded square ring around a large open flat sandy plateau in the center, scattered rocks ruins and gears, warm tones, no characters"
+    },
+    {
+      "_comment": "Per-level arenas: the painted road follows each level's enemy-path shape (combatRules ENEMY_PATHS / levelCombat.pathId) so the baked road matches where units walk. Ring for bottom levels (1/2/3/7); L-bracket on two edges for top(4)/left(5)/right(6). Keyed bg_<levelId>; missing PNG falls back to bg_level."
+    },
+    {
+      "key": "bg_lvl_1",
+      "file": "assets/sprites/bg_lvl_1.png",
+      "category": "background",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "top-down sunbaked desert gulch battle arena, dry cracked warm clay and scattered sandstone rocks, a worn dirt enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), warm golden tones, no characters (square 1:1)"
+    },
+    {
+      "key": "bg_lvl_2",
+      "file": "assets/sprites/bg_lvl_2.png",
+      "category": "background",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "top-down abandoned rusted industrial water-spillway battle arena, rusty riveted metal channels and dried teal water stains on cracked concrete, a worn enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), warm rust and brown tones, no characters (square 1:1)"
+    },
+    {
+      "key": "bg_lvl_3",
+      "file": "assets/sprites/bg_lvl_3.png",
+      "category": "background",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "top-down high desert mesa battle arena crackling with static electricity, violet electric arcs and glowing tesla nodes along the rocks, a worn enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), warm rock tones with violet electric glow, no characters (square 1:1)"
+    },
+    {
+      "key": "bg_lvl_4",
+      "file": "assets/sprites/bg_lvl_4.png",
+      "category": "background",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "top-down volcanic ember-hollow battle arena, charred black volcanic rock with glowing molten-orange lava cracks and drifting ember sparks, a worn enemy road that runs horizontally across the top and turns at the upper-right corner to run straight down the right side, forming a backwards-L bracket hugging the top and right edges inset from the frame, the lower-left half is open empty ground with no road, a large open flat plateau fills the center, dark rock with fiery orange glow, no characters (square 1:1)"
+    },
+    {
+      "key": "bg_lvl_5",
+      "file": "assets/sprites/bg_lvl_5.png",
+      "category": "background",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "top-down fused-glass desert dunes battle arena, smooth vitrified pale sand with turquoise and teal glass shards catching light, a worn enemy road that runs vertically up the left side and turns at the upper-left corner to run horizontally across the top, forming an L bracket hugging the left and top edges inset from the frame, the lower-right half is open empty ground with no road, a large open flat plateau fills the center, warm sand with cool turquoise glass accents, no characters (square 1:1)"
+    },
+    {
+      "key": "bg_lvl_6",
+      "file": "assets/sprites/bg_lvl_6.png",
+      "category": "background",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "top-down frozen coolant-ridge battle arena, pale cyan ice and frost over dark rock with teal coolant pools and snow patches, a worn enemy road that runs vertically down the right side and turns at the lower-right corner to run horizontally across the bottom, forming an L bracket hugging the right and bottom edges inset from the frame, the upper-left half is open empty ground with no road, a large open flat plateau fills the center, cold cyan and teal tones, no characters (square 1:1)"
+    },
+    {
+      "key": "bg_lvl_7",
+      "file": "assets/sprites/bg_lvl_7.png",
+      "category": "background",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "top-down overloaded reactor-spire battle arena, dark dieselpunk metal deck with glowing energy conduits and an intense multi-colored energy storm crackling around the edges, a worn enemy road looping in a rounded square ring inset from the frame edges around a large open flat plateau in the center (the road never crosses the center), dark metal with vivid glowing energy accents, no characters (square 1:1)"
+    },
+    {
+      "key": "bg_menu",
+      "file": "assets/sprites/bg_menu.png",
+      "category": "background",
+      "size": 1024,
+      "prompt": "vast desert canyon at warm golden sunset, distant rune-carved mesas, heat haze, dramatic sky"
+    },
+    {
+      "key": "bg_worldmap",
+      "file": "assets/sprites/bg_worldmap.png",
+      "category": "background",
+      "size": 1536,
+      "aspect": "9:16",
+      "prompt": "top-down stylized hand-painted fantasy campaign world-map, tall portrait orientation, a single worn trail snaking in a serpentine zigzag from the bottom edge up to the top edge, passing seven distinct themed regions stacked vertically in order from bottom to top: at the very bottom a warm sunbaked desert gulch of dry cracked canyons; above it rusted industrial water-spillway ruins with teal water channels and gears; then a rocky mesa crackling with violet static electricity; in the middle a glowing molten volcanic hollow with orange lava cracks; above it pale turquoise fused-glass dunes; then a frozen cyan coolant ridge with ice and snow; and at the very top a towering glowing energy reactor spire; warm sandy palette at the bottom shifting smoothly to cold blue and vivid energy-glow tones at the top, no characters, no text, no labels"
+    },
+    {
+      "_comment": "platform_board: the in-battle board (top-down plate whose nine recessed sockets ARE the build slots). PlatformGrid draws this instead of a procedural plate; SlotView no longer paints sockets. Slot geometry traced from this art in gridMetrics (sockets centered, pitch 310/1024, inner socket 235/1024). Hand-made (board1.psd), not gen_sprite."
+    },
+    {
+      "key": "platform_board",
+      "file": "assets/sprites/platform_board.png",
+      "category": "prop",
+      "size": 1024,
+      "aspect": "1:1",
+      "prompt": "top-down dark dieselpunk iron tower-defense battle platform plate with riveted chamfered edges and rust streaks, nine large recessed metal build sockets in a clean 3x3 grid, transparent background around the plate, hand-made (board1.psd), not gen_sprite"
+    },
+    {
+      "key": "logo_title",
+      "file": "assets/sprites/logo_title.png",
+      "category": "prop",
+      "size": 1024,
+      "prompt": "ornate brass game-title emblem banner plate, energy crystals and gears, blank center for a logo"
+    },
+    {
+      "key": "decor_pylon",
+      "file": "assets/sprites/decor_pylon.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "weathered desert signal pylon with a glowing crystal antenna, leaning"
+    },
+    {
+      "key": "hero_avatar",
+      "file": "assets/sprites/hero_avatar.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "rugged desert engineer hero portrait, brass goggles and headset, confident half-smile, bust shot"
+    },
+    {
+      "key": "frame_avatar",
+      "file": "assets/sprites/frame_avatar.png",
+      "category": "ui",
+      "size": 256,
+      "prompt": "ornate circular filigree brass portrait frame, steampunk rivets and gears, empty transparent center"
+    },
+    {
+      "key": "icon_gold",
+      "file": "assets/sprites/icon_gold.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "stack of glowing gold coins, chunky readable silhouette"
+    },
+    {
+      "key": "icon_crystal",
+      "file": "assets/sprites/icon_crystal.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "cluster of glowing blue energy crystals"
+    },
+    {
+      "key": "icon_synergy",
+      "file": "assets/sprites/icon_synergy.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "green synergy spark emblem, interlocking glowing energy rings"
+    },
+    {
+      "key": "icon_energy",
+      "file": "assets/sprites/icon_energy.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "glowing energy bolt token, brass ring"
+    },
+    {
+      "key": "icon_reactor",
+      "file": "assets/sprites/icon_reactor.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "burning reactor furnace pictogram, orange flame inside a brass ring, hazard styling"
+    },
+    {
+      "key": "icon_star",
+      "file": "assets/sprites/icon_star.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "glowing gold five-point reward star, brass rim, clean readable game UI icon"
+    },
+    {
+      "key": "ui_button",
+      "file": "assets/sprites/ui_button.png",
+      "category": "ui",
+      "size": 512,
+      "prompt": "blank gold tower-defense button plate, glossy bevel, brass rim"
+    },
+    {
+      "key": "ui_panel",
+      "file": "assets/sprites/ui_panel.png",
+      "category": "ui",
+      "size": 512,
+      "prompt": "ornate horizontal HUD panel, brass frame with lion-head crests and gem corners, stone center"
+    },
+    {
+      "key": "ui_card_frame",
+      "file": "assets/sprites/ui_card_frame.png",
+      "category": "ui",
+      "size": 512,
+      "prompt": "ornate filigree card frame, brass and steel with gears, empty transparent center, portrait"
+    },
+    {
+      "key": "ui_button_overdrive",
+      "file": "assets/sprites/ui_button_overdrive.png",
+      "category": "ui",
+      "size": 512,
+      "prompt": "round reactor overdrive button, orange swirling plasma core, yellow-black hazard ring, brass bezel"
+    },
+    {
+      "key": "plasma_shutter",
+      "file": "assets/sprites/plasma_shutter.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "fire turret base mount, a chunky armored circular turntable with a glowing molten-orange plasma core at its center and a forward gun-mount cradle, dark burnished metal, three-quarter top-down view"
+    },
+    {
+      "key": "frost_pulse",
+      "file": "assets/sprites/frost_pulse.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "ice cannon turret base mount, a chunky armored circular turntable with a glowing pale-cyan frost crystal core and a forward gun-mount cradle, dark frosted metal, three-quarter top-down view"
+    },
+    {
+      "key": "storm_coil",
+      "file": "assets/sprites/storm_coil.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "tesla turret base mount, a chunky armored circular turntable with crackling violet electric arcs over copper rings and a glowing core, forward gun-mount cradle, dark metal, three-quarter top-down view"
+    },
+    {
+      "key": "railgun",
+      "file": "assets/sprites/railgun.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "heavy railgun turret base mount, a chunky reinforced steel turntable with a long rail-cradle and a glowing energy capacitor, dark gunmetal with brass bolts, three-quarter top-down view"
+    },
+    {
+      "key": "steam_cannon",
+      "file": "assets/sprites/steam_cannon.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "steam cannon hybrid turret, frost and fire fusion, chunky armored turntable with hissing steam vents and orange-ice dual glow core, three-quarter top-down view"
+    },
+    {
+      "key": "cryo_discharge",
+      "file": "assets/sprites/cryo_discharge.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "cryo discharge hybrid turret, tesla coil fused with frost crystals, violet lightning arcs over icy blue core on dark metal base, three-quarter top-down view"
+    },
+    {
+      "key": "ion_volley",
+      "file": "assets/sprites/ion_volley.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "ion volley hybrid turret, rapid-fire plasma gun with electric ionizer rings, fiery orange core with violet arc accents, three-quarter top-down view"
+    },
+    {
+      "key": "thermo_spear",
+      "file": "assets/sprites/thermo_spear.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "thermo spear hybrid turret, railgun fused with fire, long heated rail cradle glowing molten orange on heavy gunmetal base, three-quarter top-down view"
+    },
+    {
+      "key": "icebreaker",
+      "file": "assets/sprites/icebreaker.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "icebreaker hybrid turret, railgun fused with frost, long rail with pale cyan ice coating and frosted energy capacitor, three-quarter top-down view"
+    },
+    {
+      "key": "gauss_coil",
+      "file": "assets/sprites/gauss_coil.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "gauss coil hybrid turret, railgun fused with tesla, magnetic rail with crackling violet coils and brass capacitors, three-quarter top-down view"
+    },
+    {
+      "key": "shield_generator",
+      "file": "assets/sprites/shield_generator.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "shield dome generator turret, a squat armored emitter projecting a translucent glowing blue energy dome, dark metal base, three-quarter top-down view"
+    },
+    {
+      "key": "grid_stabilizer",
+      "file": "assets/sprites/grid_stabilizer.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "uranium battery stabilizer cell turret, a dark metal canister with glowing green energy rods and yellow-black hazard stripes, three-quarter top-down view"
+    },
+    {
+      "key": "plasma_shutter_dirs_lvl1",
+      "file": "assets/sprites/plasma_shutter_dirs_lvl1.png",
+      "category": "tower",
+      "size": 1024,
+      "_note": "hand-made 3x3 directional sheet, Grade I plasma (center=stationary base, perimeter cells = rotating head pointing NW/N/NE..SW/S/SE); SlotView.sliceSheet3x3 slices it to aim. PER-GRADE: lvl1/lvl2/lvl3 = Grade I/II/III. NOT gen_sprite."
+    },
+    {
+      "key": "plasma_shutter_dirs_lvl2",
+      "file": "assets/sprites/plasma_shutter_dirs_lvl2.png",
+      "category": "tower",
+      "size": 1024,
+      "_note": "hand-made 3x3 directional sheet, Grade II plasma; see plasma_shutter_dirs_lvl1"
+    },
+    {
+      "key": "plasma_shutter_dirs_lvl3",
+      "file": "assets/sprites/plasma_shutter_dirs_lvl3.png",
+      "category": "tower",
+      "size": 1024,
+      "_note": "hand-made 3x3 directional sheet, Grade III plasma; see plasma_shutter_dirs_lvl1"
+    },
+    {
+      "key": "railgun_dirs_lvl1",
+      "file": "assets/sprites/railgun_dirs_lvl1.png",
+      "category": "tower",
+      "size": 1024,
+      "_note": "hand-made 3x3 directional sheet, Grade I gauss/railgun; see plasma_shutter_dirs_lvl1"
+    },
+    {
+      "key": "railgun_dirs_lvl2",
+      "file": "assets/sprites/railgun_dirs_lvl2.png",
+      "category": "tower",
+      "size": 1024,
+      "_note": "hand-made 3x3 directional sheet, Grade II gauss/railgun; see plasma_shutter_dirs_lvl1"
+    },
+    {
+      "key": "railgun_dirs_lvl3",
+      "file": "assets/sprites/railgun_dirs_lvl3.png",
+      "category": "tower",
+      "size": 1024,
+      "_note": "hand-made 3x3 directional sheet, Grade III gauss/railgun; see plasma_shutter_dirs_lvl1"
+    },
+    {
+      "key": "sym_fire",
+      "file": "assets/sprites/sym_fire.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "a single bold stylized flame emblem, teardrop fire shape, warm orange and yellow glow, strong dark outline, clean readable game UI symbol"
+    },
+    {
+      "key": "sym_water",
+      "file": "assets/sprites/sym_water.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "a single bold six-point snowflake ice crystal emblem, cyan and pale white, strong dark outline, clean readable game UI symbol"
+    },
+    {
+      "key": "sym_electricity",
+      "file": "assets/sprites/sym_electricity.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "a single bold lightning bolt emblem, zigzag, violet and white glow, strong dark outline, clean readable game UI symbol"
+    },
+    {
+      "key": "sym_physical",
+      "file": "assets/sprites/sym_physical.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "a single bold bullet kinetic slug emblem with a sharp tip, polished steel grey, strong dark outline, clean readable game UI symbol"
+    },
+    {
+      "key": "sym_energy",
+      "file": "assets/sprites/sym_energy.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "a single bold glowing diamond energy-cell emblem, vivid green core, strong dark outline, clean readable game UI symbol"
+    },
+    {
+      "key": "Symbols",
+      "file": "assets/sprites/Symbols.png",
+      "category": "icon",
+      "size": 210,
+      "_note": "hand-made 5x2 element-symbol sheet for the influence dots on placed towers AND hand cards (row 0 off/unlit, row 1 on/lit; columns Fire/Energy/Water/Electricity/Physical). Sliced in helpers.sliceElementSymbolSheet. NOT gen_sprite."
+    },
+    {
+      "key": "cooldown",
+      "file": "assets/sprites/cooldown.png",
+      "category": "icon",
+      "size": 362,
+      "_note": "hand-made vertical 5-frame charge/cooldown battery sheet for the placed-tower charge bar (top->bottom: [0] empty/discharged, then ready colors [1] blue, [2] green, [3] yellow, [4] red). Sliced in helpers.sliceCooldownSheet. The bar reveals the chosen color frame over the empty frame by the recharge fraction; color encodes tower efficiency. NOT gen_sprite."
+    },
+    {
+      "key": "upgrade_back",
+      "file": "assets/sprites/upgrade_back.png",
+      "category": "icon",
+      "size": 114,
+      "_note": "hand-made dark rounded backing plate drawn behind the placed-tower influence/resonance dot row (SlotView.drawDots) so the element symbols read against the tower art. NOT gen_sprite."
+    },
+    {
+      "key": "isolation_circuit",
+      "file": "assets/sprites/isolation_circuit.png",
+      "category": "card_icon",
+      "size": 512,
+      "prompt": "isolation circuit upgrade emblem, layered brass insulation rings around a glowing green energy core, riveted heat-shield plating, no turret, three-quarter view"
+    },
+    {
+      "key": "elemental_focus",
+      "file": "assets/sprites/elemental_focus.png",
+      "category": "card_icon",
+      "size": 512,
+      "prompt": "elemental focus lens device, a brass prism splitting a white beam into five colored elemental rays, polished steel mount, no turret, three-quarter view"
+    },
+    {
+      "key": "emergency_overdrive",
+      "file": "assets/sprites/emergency_overdrive.png",
+      "category": "card_icon",
+      "size": 512,
+      "prompt": "emergency overdrive lever, a slammed red hazard switch venting orange plasma and sparks, yellow-black warning stripes, brass housing, no turret, three-quarter view"
+    },
+    {
+      "key": "enemy_magma_brute",
+      "file": "assets/sprites/enemy_magma_brute.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "armored magma brute creature, glowing molten cracks, heavy walking pose"
+    },
+    {
+      "key": "enemy_frost_wisp",
+      "file": "assets/sprites/enemy_frost_wisp.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "floating frost wisp spirit, translucent icy body, trailing cold mist"
+    },
+    {
+      "key": "enemy_volt_crawler",
+      "file": "assets/sprites/enemy_volt_crawler.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "electric crawler insectoid, crackling blue-violet energy along its carapace"
+    },
+    {
+      "key": "enemy_iron_husk",
+      "file": "assets/sprites/enemy_iron_husk.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "hulking scrap-metal husk golem, riveted plates, lumbering walk"
+    },
+    {
+      "key": "enemy_disruptor",
+      "file": "assets/sprites/enemy_disruptor.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "menacing signal-jammer saboteur drone creature, bristling with broadcast antenna spikes, glitching red and violet disruptive energy arcs crackling around it, fast aggressive low crawling pose"
+    },
+    {
+      "key": "enemy_resonance_mote",
+      "file": "assets/sprites/enemy_resonance_mote.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "floating resonance mote creature, warm amber-gold energy core, pulsing concentric aura rings rippling outward, hovering bobbing pose, no limbs"
+    },
+    {
+      "key": "enemy_coolant_mender",
+      "file": "assets/sprites/enemy_coolant_mender.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "drifting coolant mender spirit, translucent teal jellyfish-like dome body, trailing restorative coolant vapor streams reaching outward, gentle floating pose"
+    },
+    {
+      "key": "enemy_aegis_beacon",
+      "file": "assets/sprites/enemy_aegis_beacon.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "hovering aegis beacon drone creature, faceted hexagonal energy-shield emitter nodes, projecting translucent dome barriers outward, cool blue-gold glow, steady levitating defensive pose"
+    },
+    {
+      "key": "enemy_boss_warden",
+      "file": "assets/sprites/enemy_boss_warden.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "massive grid warden boss creature, towering riveted scrap-metal golem with glowing energy grid lines across its plates, slow heavy menacing walk, dieselpunk tower-defense boss silhouette"
+    },
+    {
+      "key": "enemy_boss_titan",
+      "file": "assets/sprites/enemy_boss_titan.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "colossal overload titan boss creature, molten reactor core chest with venting orange plasma and crackling energy crown, enormous slow lumbering final-boss silhouette, dieselpunk metal limbs"
+    },
+    {
+      "key": "map_node",
+      "file": "assets/sprites/map_node.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "glowing brass map node marker with a bright energy gem at its center, available"
+    },
+    {
+      "key": "map_node_locked",
+      "file": "assets/sprites/map_node_locked.png",
+      "category": "icon",
+      "size": 256,
+      "prompt": "dim cold map node marker with an iron padlock, deactivated"
+    },
+    {
+      "_comment": "Projectiles (shot_<style>): 4 base ship on disk; 6 hybrids fall back to their element base shot. category fx for gen_sprite (prop in assetManifest)."
+    },
+    {
+      "key": "shot_plasma",
+      "file": "assets/sprites/shot_plasma.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "fire plasma projectile orb, molten orange-red energy ball with a glowing white core, energy bolt"
+    },
+    {
+      "key": "shot_ice",
+      "file": "assets/sprites/shot_ice.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "ice projectile orb, pale cyan crackling frost energy ball with a bright core, energy bolt"
+    },
+    {
+      "key": "shot_tesla",
+      "file": "assets/sprites/shot_tesla.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "ball lightning projectile, violet electric plasma sphere wreathed in arcs, energy bolt"
+    },
+    {
+      "key": "shot_rail",
+      "file": "assets/sprites/shot_rail.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "railgun kinetic slug projectile, sleek metal capsule with a cyan energy sheath, side view"
+    },
+    {
+      "key": "shot_steam",
+      "file": "assets/sprites/shot_steam.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "steam burst projectile orb, hot white-orange steam cloud with cyan frost edges and a glowing molten core, energy bolt"
+    },
+    {
+      "key": "shot_ion",
+      "file": "assets/sprites/shot_ion.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "ion bolt projectile orb, fiery orange plasma core wrapped in crackling violet electric arcs, energy bolt"
+    },
+    {
+      "key": "shot_cryo",
+      "file": "assets/sprites/shot_cryo.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "cryo lightning projectile orb, icy pale-blue electric ball with frost shards and violet arcs, energy bolt"
+    },
+    {
+      "key": "shot_thermo",
+      "file": "assets/sprites/shot_thermo.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "molten kinetic slug projectile, glowing orange-hot pointed metal dart with a fire trail, side view"
+    },
+    {
+      "key": "shot_icebreaker",
+      "file": "assets/sprites/shot_icebreaker.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "frosted kinetic slug projectile, ice-coated pointed metal dart with a pale cyan glow, side view"
+    },
+    {
+      "key": "shot_gauss",
+      "file": "assets/sprites/shot_gauss.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "magnetic gauss slug projectile, sleek metal dart wrapped in crackling violet electric arcs, side view"
+    },
+    {
+      "_comment": "Combat VFX (reusable, tinted per element in code)."
+    },
+    {
+      "key": "fx_muzzle",
+      "file": "assets/sprites/fx_muzzle.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "muzzle flash burst, bright radial white-yellow energy flash with sharp light spikes, top-down"
+    },
+    {
+      "key": "fx_impact",
+      "file": "assets/sprites/fx_impact.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "impact explosion burst star, white-hot energy splash with radial shards and sparks, top-down"
+    },
+    {
+      "key": "fx_burn",
+      "file": "assets/sprites/fx_burn.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "burning fire effect, orange and yellow flames licking upward, vertical flame sprite"
+    },
+    {
+      "key": "fx_frost",
+      "file": "assets/sprites/fx_frost.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "frost ice debuff effect, pale cyan jagged ice crystals and frosty mist"
+    },
+    {
+      "_comment": "Tower grade variants (<iconKey>_g2/_g3). Static towers swap the in-slot sprite; rotating towers use these as card/inspect art. Missing grade art falls back to the base sprite."
+    },
+    {
+      "key": "plasma_shutter_g2",
+      "file": "assets/sprites/plasma_shutter_g2.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "upgraded fire turret base mount mark II, armored turntable with brighter molten-orange plasma core and extra armor plates, three-quarter top-down view"
+    },
+    {
+      "key": "plasma_shutter_g3",
+      "file": "assets/sprites/plasma_shutter_g3.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "heavily upgraded fire turret base mount mark III, ornate turntable with a blazing plasma reactor core and layered armor, three-quarter top-down view"
+    },
+    {
+      "key": "frost_pulse_g2",
+      "file": "assets/sprites/frost_pulse_g2.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "upgraded ice cannon turret base mount mark II, armored turntable with thicker pale-cyan frost crystals and brighter core, three-quarter top-down view"
+    },
+    {
+      "key": "frost_pulse_g3",
+      "file": "assets/sprites/frost_pulse_g3.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "heavily upgraded ice cannon turret base mount mark III, ornate turntable with a massive glowing cyan frost core and layered ice armor, three-quarter top-down view"
+    },
+    {
+      "key": "storm_coil_g2",
+      "file": "assets/sprites/storm_coil_g2.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "upgraded tesla turret base mount mark II, armored turntable with extra copper coil rings and brighter violet arcs, three-quarter top-down view"
+    },
+    {
+      "key": "storm_coil_g3",
+      "file": "assets/sprites/storm_coil_g3.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "heavily upgraded tesla turret base mount mark III, ornate turntable with stacked copper coils and intense violet lightning over a blazing core, three-quarter top-down view"
+    },
+    {
+      "key": "railgun_g2",
+      "file": "assets/sprites/railgun_g2.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "upgraded heavy railgun turret base mount mark II, reinforced steel turntable with a longer rail cradle and brighter energy capacitor, three-quarter top-down view"
+    },
+    {
+      "key": "railgun_g3",
+      "file": "assets/sprites/railgun_g3.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "heavily upgraded heavy railgun turret base mount mark III, massive turntable with twin rail cradle and a huge glowing energy capacitor, three-quarter top-down view"
+    },
+    {
+      "key": "shield_generator_g2",
+      "file": "assets/sprites/shield_generator_g2.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "upgraded shield dome generator turret mark II, armored emitter projecting a brighter blue energy dome with reinforced ribs, three-quarter top-down view"
+    },
+    {
+      "key": "shield_generator_g3",
+      "file": "assets/sprites/shield_generator_g3.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "heavily upgraded shield dome generator turret mark III, heavy emitter projecting an intense layered blue energy dome with glowing nodes, three-quarter top-down view"
+    },
+    {
+      "key": "grid_stabilizer_g2",
+      "file": "assets/sprites/grid_stabilizer_g2.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "upgraded uranium battery stabilizer cell turret mark II, dark metal canister with brighter glowing green energy rods and extra hazard plating, three-quarter top-down view"
+    },
+    {
+      "key": "grid_stabilizer_g3",
+      "file": "assets/sprites/grid_stabilizer_g3.png",
+      "category": "tower",
+      "size": 512,
+      "prompt": "heavily upgraded uranium battery stabilizer cell turret mark III, reinforced canister with triple glowing green energy rods and heavy hazard plating, three-quarter top-down view"
+    },
+    {
+      "key": "advisor_klodouglas",
+      "file": "assets/sprites/advisor_klodouglas.png",
+      "category": "icon",
+      "size": 768,
+      "prompt": "KloDouglas, a steampunk tech engineer advisor, full-body character holding a glowing schematic tablet, brown leather coat with brass fittings, friendly confident pose (cut from docs/visual_refs/visual_sources/advisors/tech.png)"
+    },
+    {
+      "key": "buhanka_1",
+      "file": "assets/sprites/buhanka_1.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "rugged off-road dieselpunk van loaded with gear on the roof rack, parked, three-quarter view"
+    },
+    {
+      "key": "buhanka",
+      "file": "assets/sprites/buhanka.png",
+      "category": "prop",
+      "size": 256,
+      "prompt": "rugged off-road dieselpunk van, parked, three-quarter view"
+    }
   ]
 }

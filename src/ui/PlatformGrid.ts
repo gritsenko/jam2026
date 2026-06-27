@@ -1,7 +1,7 @@
 import { Container, Graphics, Sprite, Texture, type PointData } from 'pixi.js';
 import { COLORS, ELEMENTS, ELEMENT_IDS, elementSymbolKey, hex, type ElementId } from '../theme';
 import type { AssetLoader } from '../core/AssetLoader';
-import { CARDS, COMPOSED_AIM_SHEETS, cardGrade, towerSeat } from '../config/cards';
+import { CARDS, COMPOSED_AIM_SHEETS, cardGrade, towerMuzzleAnchors, towerSeat } from '../config/cards';
 import type { BattleStateMock, CardDef, PlacedCard } from '../config/types';
 import { computeSynergy, type SlotSynergy } from '../game/synergy';
 import { gridMetrics } from '../game/platformGeometry';
@@ -149,14 +149,13 @@ export class PlatformGrid extends Container {
         const def = CARDS[placed.cardId];
         const syn = this.synergy[i];
         if (def) {
-          // Aim frames live under `<iconKey>_dirs` (hybrids share their parent's
-          // strip via iconKey); absent for supports/un-generated art → static.
-          // Composed sheets (COMPOSED_AIM_SHEETS) split base/head and crossfade.
-          // Prefer a grade-specific aim sheet (`<id>_g2_dirs`) when present, else base.
-          const gradedDirs = placed.grade > 1 ? `${def.iconKey}_g${placed.grade}_dirs` : '';
-          const dirsKey =
-            gradedDirs && this.assets.has(gradedDirs) ? gradedDirs : `${def.iconKey}_dirs`;
-          const dirStrip = this.assets.has(dirsKey) ? this.assets.get(dirsKey) : undefined;
+          // Aim frames live under per-grade sheets `<iconKey>_dirs_lvl<grade>`
+          // (grade 1..3; hybrids share their parent's via iconKey); absent for
+          // supports/un-generated art → static. Composed sheets (COMPOSED_AIM_SHEETS)
+          // split base/head. When the exact-grade sheet exists the art itself reads
+          // the tier, so the slot drops its grade pips (gradeInArt).
+          const gradeInArt = this.assets.has(`${def.iconKey}_dirs_lvl${placed.grade}`);
+          const dirStrip = this.dirSheetFor(def.iconKey, placed.grade);
           slot.setPlaced(
             this.artFor(def.iconKey, placed.grade),
             def.element,
@@ -166,7 +165,9 @@ export class PlatformGrid extends Container {
             dirStrip,
             COMPOSED_AIM_SHEETS.has(def.iconKey),
             towerSeat(def.iconKey),
+            gradeInArt,
           );
+          slot.setMuzzleAnchors(dirStrip ? towerMuzzleAnchors(def.iconKey) : undefined);
         } else slot.setEmpty();
       } else {
         slot.setEmpty();
@@ -184,6 +185,23 @@ export class PlatformGrid extends Container {
     const slot = this.slots[index];
     if (!slot) return { x: this.x, y: this.y };
     return { x: this.x + slot.x * this.scale.x, y: this.y + slot.y * this.scale.y };
+  }
+
+  /**
+   * The barrel tip (muzzle) of the tower in `slot index`, in this grid's *parent*
+   * (field = sim) coordinate space, for the tower's current facing — or null if it
+   * has no measured muzzle anchors (rotating turrets only). The scene feeds this to
+   * the sim so shots and the muzzle flash leave the exact gun tip of the shown frame.
+   */
+  muzzleScenePos(index: number): PointData | null {
+    const slot = this.slots[index];
+    if (!slot) return null;
+    const ml = slot.muzzleLocal();
+    if (!ml) return null;
+    return {
+      x: this.x + (slot.x + ml.x) * this.scale.x,
+      y: this.y + (slot.y + ml.y) * this.scale.y,
+    };
   }
 
   /** Is a global point over the platform plate? (Modernization release-anywhere, §5.) */
@@ -421,6 +439,11 @@ export class PlatformGrid extends Container {
       if (!syn) continue;
       const bySource = new Map<number, number>();
       for (const buff of syn.incoming) {
+        // Only draw an arrow into a neighbor that actually wants the source's
+        // element ("resource of that colour"). Support auras and drains land in
+        // `incoming` regardless of desire (the sim still applies them), but they
+        // shouldn't paint a link into a card that has no slot for that element.
+        if (!buff.desired) continue;
         bySource.set(buff.from, (bySource.get(buff.from) ?? 0) + buff.value);
       }
       for (const [from, net] of bySource) {
@@ -498,6 +521,19 @@ export class PlatformGrid extends Container {
     ];
     g.poly(pts).fill({ color: fill, alpha: 0.95 });
     g.poly(pts).stroke({ width: this.cell * 0.016, color: edge, alpha: 0.85, join: 'round' });
+  }
+
+  /**
+   * Per-grade turret aim sheet for an iconKey: `<iconKey>_dirs_lvl<grade>` (grade
+   * 1..3), falling back to the lvl1 sheet if a higher grade's is missing. Returns
+   * undefined for towers with no directional sheet (supports/statics → no aim).
+   */
+  private dirSheetFor(iconKey: string, grade: number): Texture | undefined {
+    const exact = `${iconKey}_dirs_lvl${grade}`;
+    if (this.assets.has(exact)) return this.assets.get(exact);
+    const lvl1 = `${iconKey}_dirs_lvl1`;
+    if (this.assets.has(lvl1)) return this.assets.get(lvl1);
+    return undefined;
   }
 
   private artFor(cardId: string, grade = 1): ReturnType<AssetLoader['get']> {

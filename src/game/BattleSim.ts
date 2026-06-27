@@ -164,15 +164,26 @@ export interface SimTower extends HitEffects {
   aimX: number;
   aimY: number;
   hasAim: boolean;
+  /**
+   * Exact barrel-tip muzzle (arena coords) for the tower's currently-DISPLAYED
+   * facing, pushed in each frame by the renderer ({@link BattleSim.setTowerMuzzle})
+   * from the rotating turret's anchor sheet. When {@link hasMuzzle}, shots/flash
+   * leave this point; otherwise the sim falls back to the radial {@link muzzleLen}
+   * (so headless runs with no renderer still fire from the gun tip approximately).
+   */
+  muzzleX: number;
+  muzzleY: number;
+  hasMuzzle: boolean;
 }
 
 /**
  * Spec the scene feeds in for each tower; the sim owns the per-frame runtime
- * state (cooldown + interrupt-stun), so those are filled in by {@link BattleSim.setTowers}.
+ * state (cooldown + interrupt-stun + renderer-fed muzzle), so those are filled in
+ * by {@link BattleSim.setTowers}.
  */
 export type TowerSpec = Omit<
   SimTower,
-  'cdLeft' | 'cdMax' | 'disabledUntil' | 'aimX' | 'aimY' | 'hasAim'
+  'cdLeft' | 'cdMax' | 'disabledUntil' | 'aimX' | 'aimY' | 'hasAim' | 'muzzleX' | 'muzzleY' | 'hasMuzzle'
 >;
 
 /**
@@ -374,8 +385,30 @@ export class BattleSim {
         aimX: p?.aimX ?? 0,
         aimY: p?.aimY ?? 0,
         hasAim: p?.hasAim ?? false,
+        muzzleX: p?.muzzleX ?? 0,
+        muzzleY: p?.muzzleY ?? 0,
+        hasMuzzle: p?.hasMuzzle ?? false,
       };
     });
+  }
+
+  /**
+   * Set (or clear, with `p = null`) the exact muzzle point for the tower in
+   * `slotIndex` — the barrel tip of its currently-shown facing frame, in arena
+   * coords. The renderer pushes this each frame from the rotating turret's anchor
+   * sheet so shots and the muzzle flash leave the gun tip of the displayed frame.
+   * No-op for an empty slot. Cleared → the sim reverts to its radial muzzle.
+   */
+  setTowerMuzzle(slotIndex: number, p: { x: number; y: number } | null): void {
+    const tower = this.towers.find((t) => t.slotIndex === slotIndex);
+    if (!tower) return;
+    if (p) {
+      tower.muzzleX = p.x;
+      tower.muzzleY = p.y;
+      tower.hasMuzzle = true;
+    } else {
+      tower.hasMuzzle = false;
+    }
   }
 
   /**
@@ -768,12 +801,14 @@ export class BattleSim {
   }
 
   /**
-   * Where this tower's shot leaves it (arena coords): offset from the slot center
-   * by {@link SimTower.muzzleLen} along the aim direction so a rotating turret
-   * fires from its barrel tip, not its center. Static towers (muzzleLen 0) just
-   * use the center. `tx/ty` is the point being aimed at.
+   * Where this tower's shot leaves it (arena coords). Prefers the exact barrel tip
+   * the renderer fed in for the current facing frame ({@link SimTower.hasMuzzle},
+   * set via {@link setTowerMuzzle}); otherwise falls back to offsetting from the slot
+   * center by {@link SimTower.muzzleLen} along the aim direction (rotating turret) or
+   * the center itself (static towers). `tx/ty` is the point being aimed at.
    */
   private muzzleOrigin(tower: SimTower, tx: number, ty: number): { x: number; y: number } {
+    if (tower.hasMuzzle) return { x: tower.muzzleX, y: tower.muzzleY };
     if (tower.muzzleLen <= 0) return { x: tower.x, y: tower.y };
     const a = Math.atan2(ty - tower.y, tx - tower.x);
     return {

@@ -23,6 +23,15 @@ export interface IncomingBuff {
   readonly stat: BuffStat;
   /** Signed percent (+22 = +22%, -15 = a penalty). */
   readonly value: number;
+  /**
+   * Whether this turret *desires* the source's element (its element fills one of
+   * this turret's active synergy slots). Attacking positive buffs only land when
+   * desired, but support auras and drains pass through regardless — so they can
+   * carry `desired: false`. Display layers (the floor link arrows) use this to
+   * draw an arrow into a neighbor only when it actually wants that element's
+   * "resource"; the sim multipliers count every buff either way.
+   */
+  readonly desired: boolean;
 }
 
 /** One influence dot under a card (v2 §9). */
@@ -131,11 +140,12 @@ function resolveSlot(
     if (!ndef) continue;
     const g = cardGrade(ndef, n.grade);
 
+    const wanted = desires(ndef.element);
     const push = (stat: BuffStat, value: number) => {
       if (value === 0) return;
       // Gate positive attacking-element buffs by desire; auras/drains pass through.
-      if (value > 0 && ndef.category === 'attacking' && !desires(ndef.element)) return;
-      incoming.push({ from: j, element: ndef.element, stat, value });
+      if (value > 0 && ndef.category === 'attacking' && !wanted) return;
+      incoming.push({ from: j, element: ndef.element, stat, value, desired: wanted });
       if (stat === 'damage') dmgPct += value;
       else if (stat === 'range') rangePct += value;
       else if (stat === 'tempo') tempoPct += value;

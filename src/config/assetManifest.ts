@@ -13,8 +13,8 @@ import { COLORS, ELEMENTS } from '../theme';
  * Status note (2026): the whole gameplay set was re-skinned to one style — flat
  * flash-cartoon (Iron Marines / Kingdom Rush) + dark dieselpunk metal, anchored
  * to docs/visual_refs/new_style.jpg. On disk: backgrounds, platform, 6 towers
- * (hand-made) + 6 fusion-hybrid towers + 2 `<id>_dirs` 3×3 aim sheets for the
- * rotating turrets (plasma_shutter, railgun; other towers are static), 5 enemies, map nodes,
+ * (hand-made) + 6 fusion-hybrid towers + per-grade `<id>_dirs_lvl<n>` 3×3 aim sheets
+ * for the rotating turrets (plasma_shutter, railgun; other towers are static), 5 enemies, map nodes,
  * icon_star, the 3 modernization cards, the sym_* element marks. The HUD chrome
  * is procedural (drawPanel /
  * PlatformGrid.buildPlate), so the legacy ui_panel/ui_button/ui_card_frame keys
@@ -183,6 +183,23 @@ export const ASSETS: AssetSpec[] = [
     prompt: 'weathered desert signal pylon with a glowing crystal antenna, leaning',
     placeholder: { shape: 'round', tint: 0x4a3a26, label: '' },
   },
+  {
+    // Parked dieselpunk van («буханка») used as per-level arena scenery
+    // (placement in config/levelDecor.ts). Big detailed variant.
+    key: 'buhanka_1',
+    category: 'prop',
+    size: 512,
+    prompt: 'rugged off-road dieselpunk van loaded with gear on the roof rack, parked, three-quarter view',
+    placeholder: { shape: 'round', tint: 0x6a4a2a, label: '' },
+  },
+  {
+    // Smaller parked van variant for tighter arenas (config/levelDecor.ts).
+    key: 'buhanka',
+    category: 'prop',
+    size: 256,
+    prompt: 'rugged off-road dieselpunk van, parked, three-quarter view',
+    placeholder: { shape: 'round', tint: 0x6a4a2a, label: '' },
+  },
 
   // ---- Hero + frame --------------------------------------------------------
   {
@@ -281,8 +298,8 @@ export const ASSETS: AssetSpec[] = [
 
   // ---- Tower art (keyed by card id) ----------------------------------------
   // `<id>` is the tower's hand-card art. Rotating turrets (plasma_shutter,
-  // railgun) ALSO have an `<id>_dirs` 3×3 directional sheet that the slot slices
-  // to aim at the lead enemy (see the "Turret aim sheets" block); for those the
+  // railgun) ALSO have per-grade `<id>_dirs_lvl<n>` 3×3 directional sheets that the
+  // slot slices to aim at the lead enemy (see the "Turret aim sheets" block); for those the
   // in-game tower renders from the sheet, not `<id>`. Non-rotating towers
   // (frost_pulse, storm_coil, shield_generator, grid_stabilizer) are a single
   // static sprite. Hybrids have dedicated iconKeys and now ship their own PNGs
@@ -384,20 +401,50 @@ export const ASSETS: AssetSpec[] = [
   // (center = idle) and rotate the whole sprite. Either way the facing frame is hard-
   // swapped (no crossfade) one octant at a time. SlotView slices the sheet and
   // aims it ([SlotView.sliceSheet3x3] / [BattleSim.towerAim]). NOT generated —
-  // drop a transparent 3×3 sheet here as `<iconKey>_dirs.png`. Only rotating
-  // turrets have one (static towers omit it → no aim).
+  // drop a transparent 3×3 sheet here. Sheets are PER-GRADE — `<iconKey>_dirs_lvl<n>`
+  // (lvl1/lvl2/lvl3 = Grade I/II/III) — so the in-slot art reads the tier and the
+  // grade pips are dropped for these towers (see PlatformGrid.dirSheetFor /
+  // SlotView gradeInArt). Only rotating turrets have one (static towers omit it → no aim).
   {
-    key: 'plasma_shutter_dirs',
+    key: 'plasma_shutter_dirs_lvl1',
     category: 'tower',
     size: 1024,
-    prompt: 'hand-made 3x3 directional sheet for the plasma turret (see plasma_shutter); not gen_sprite',
+    prompt: 'hand-made 3x3 directional sheet for the Grade I plasma turret (see plasma_shutter); not gen_sprite',
     placeholder: { shape: 'round', tint: F, label: '' },
   },
   {
-    key: 'railgun_dirs',
+    key: 'plasma_shutter_dirs_lvl2',
     category: 'tower',
-    size: 1069,
-    prompt: 'hand-made 3x3 directional sheet for the gauss/railgun turret (see railgun); not gen_sprite',
+    size: 1024,
+    prompt: 'hand-made 3x3 directional sheet for the Grade II plasma turret (see plasma_shutter_g2); not gen_sprite',
+    placeholder: { shape: 'round', tint: F, label: '' },
+  },
+  {
+    key: 'plasma_shutter_dirs_lvl3',
+    category: 'tower',
+    size: 1024,
+    prompt: 'hand-made 3x3 directional sheet for the Grade III plasma turret (see plasma_shutter_g3); not gen_sprite',
+    placeholder: { shape: 'round', tint: F, label: '' },
+  },
+  {
+    key: 'railgun_dirs_lvl1',
+    category: 'tower',
+    size: 1024,
+    prompt: 'hand-made 3x3 directional sheet for the Grade I gauss/railgun turret (see railgun); not gen_sprite',
+    placeholder: { shape: 'round', tint: P, label: '' },
+  },
+  {
+    key: 'railgun_dirs_lvl2',
+    category: 'tower',
+    size: 1024,
+    prompt: 'hand-made 3x3 directional sheet for the Grade II gauss/railgun turret (see railgun_g2); not gen_sprite',
+    placeholder: { shape: 'round', tint: P, label: '' },
+  },
+  {
+    key: 'railgun_dirs_lvl3',
+    category: 'tower',
+    size: 1024,
+    prompt: 'hand-made 3x3 directional sheet for the Grade III gauss/railgun turret (see railgun_g3); not gen_sprite',
     placeholder: { shape: 'round', tint: P, label: '' },
   },
 
@@ -702,8 +749,8 @@ export const ASSETS: AssetSpec[] = [
   // ---- Tower grade variants (<iconKey>_g2 / _g3) ---------------------------
   // Merge-level art for the 6 base towers. Static towers (frost_pulse,
   // storm_coil, shield_generator, grid_stabilizer) swap the in-slot sprite
-  // directly; rotating towers (plasma_shutter, railgun) keep their _dirs sheet
-  // and these serve as card/inspect art (grade _dirs sheets are future hand-work).
+  // directly; rotating towers (plasma_shutter, railgun) render in-slot from their
+  // per-grade `_dirs_lvl<n>` sheets, so these `_g2`/`_g3` serve as card/inspect art.
   // Missing grade art falls back to the base sprite via AssetLoader.has().
   {
     key: 'plasma_shutter_g2',
