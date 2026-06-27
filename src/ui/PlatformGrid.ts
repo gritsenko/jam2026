@@ -167,7 +167,9 @@ export class PlatformGrid extends Container {
             towerSeat(def.iconKey),
             gradeInArt,
           );
-          slot.setMuzzleAnchors(dirStrip ? towerMuzzleAnchors(def.iconKey) : undefined);
+          // Rotating turrets index anchors by facing; static towers with an entry
+          // (e.g. frost_pulse, top-center spawn) hold at DEFAULT_OCTANT and use it too.
+          slot.setMuzzleAnchors(towerMuzzleAnchors(def.iconKey));
         } else slot.setEmpty();
       } else {
         slot.setEmpty();

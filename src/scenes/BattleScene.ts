@@ -69,7 +69,7 @@ import { ModOverlay } from '../ui/ModOverlay';
 import { MoveCostReadout, type CostPart } from '../ui/MoveCostReadout';
 import { PlatformGrid } from '../ui/PlatformGrid';
 import { ProjectileView } from '../ui/Projectile';
-import { shotStyle } from '../config/projectiles';
+import { shotStyle, muzzleFlashKey } from '../config/projectiles';
 import { ReactorZone } from '../ui/ReactorZone';
 import { ResourceChip } from '../ui/ResourceChip';
 import { SceneBackground } from '../ui/SceneBackground';
@@ -104,6 +104,10 @@ const ROAD_SPAN = 0.76;
 const PLATFORM_FRAC = 0.5;
 /** Pointer travel (screen px) before a card press becomes a drag rather than a tap. */
 const DRAG_THRESHOLD_SQ = 12 * 12;
+
+/** Muzzle flash (per-tower FX sprite): seconds held at full alpha, then fade duration. */
+const MUZZLE_HOLD = 0.1;
+const MUZZLE_FADE = 0.2;
 
 /**
  * Per-tower fire SFX by card id (see docs/planned/tower-sound-design.md). Towers
@@ -2413,9 +2417,14 @@ export class BattleScene extends Scene {
         slot.setAim(null);
       }
       slot.tickAim(dt);
-      // Feed the sim the exact barrel tip of the turret's CURRENT facing frame, so
-      // shots and the muzzle flash leave the gun tip (next sim.update reads it).
-      // Rotating turrets only (null for the rest → sim uses its radial fallback).
+      // Gate the (next) sim shot on the head having finished turning onto the target:
+      // a rotating turret holds fire until it's lined up so bolts don't leave a
+      // mid-rotation barrel. Static towers report true and are never gated.
+      this.sim.setTowerAimReady(i, slot.isAimed());
+      // Feed the sim the tower's muzzle point for its CURRENT facing frame, so shots
+      // and the muzzle flash leave it (next sim.update reads it): rotating turrets'
+      // per-octant anchor, or a static tower's fixed point (e.g. frost_pulse top-center).
+      // null for towers with no anchor entry → sim uses its radial fallback.
       this.sim.setTowerMuzzle(i, this.grid.muzzleScenePos(i));
       this.syncTowerBadge(slot, i, overload, frac);
       slot.tickDots(dt);
@@ -2587,6 +2596,34 @@ export class BattleScene extends Scene {
     );
   }
 
+  /**
+   * Per-tower muzzle flash: an additive-blended FX sprite (its art is already
+   * bright/colored, so no tint) that pops at full alpha, holds {@link MUZZLE_HOLD}
+   * seconds, then fades over {@link MUZZLE_FADE}. Used by onTowerFired for the four
+   * attacking elements; static fall-through stays on the generic fx_muzzle.
+   */
+  private spawnMuzzleFlash(key: string, x: number, y: number, size: number): void {
+    if (!this.services.assets.has(key)) return;
+    const s = new Sprite(this.services.assets.get(key));
+    fitSprite(s, size, size);
+    s.position.set(x, y);
+    s.blendMode = 'add';
+    this.fxLayer.addChild(s);
+    const total = MUZZLE_HOLD + MUZZLE_FADE;
+    this.track(
+      tween({
+        duration: total,
+        easing: Easings.linear,
+        onUpdate: (_eased, raw) => {
+          if (s.destroyed) return;
+          const elapsed = raw * total;
+          s.alpha = elapsed <= MUZZLE_HOLD ? 1 : Math.max(0, 1 - (elapsed - MUZZLE_HOLD) / MUZZLE_FADE);
+        },
+        onComplete: () => { if (!s.destroyed) s.destroy(); },
+      }),
+    );
+  }
+
   /** Radial shrapnel burst: small spinning shards thrown outward, falling under gravity. */
   private spawnShards(x: number, y: number, color: number, count: number, speed: number): void {
     const r = this.arenaW * 0.006;
@@ -2672,7 +2709,14 @@ export class BattleScene extends Scene {
     // scene coords), so it lines up with the bolt leaving a rotating turret.
     const color = ELEMENTS[def.element].glow;
     this.burst(originX, originY, color, this.arenaW * 0.022);
-    this.spawnFxSprite('fx_muzzle', originX, originY, 0xffffff, this.arenaW * 0.055, 0.16);
+    // Per-element muzzle flash on actual shots (additive FX-pack art); the Shield's
+    // barrier pulse and anything without art fall back to the generic fx_muzzle.
+    const muzzleKey = def.category === 'attacking' ? muzzleFlashKey(def.element) : undefined;
+    if (muzzleKey && this.services.assets.has(muzzleKey)) {
+      this.spawnMuzzleFlash(muzzleKey, originX, originY, this.arenaW * 0.17);
+    } else {
+      this.spawnFxSprite('fx_muzzle', originX, originY, 0xffffff, this.arenaW * 0.055, 0.16);
+    }
     // Spark cone in the firing direction (toward the lead enemy the sim aimed at).
     const aim = this.sim.towerAim(slotIndex);
     if (aim) {

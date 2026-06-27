@@ -82,28 +82,63 @@ export interface MuzzleAnchor {
 }
 
 /**
- * Per-octant barrel-tip muzzle points for rotating turrets, indexed by facing
- * octant in the same order SlotView slices the `_dirs` sheet (d0=N, d1=NE, d2=E,
- * d3=SE, d4=S, d5=SW, d6=W, d7=NW). Each entry is the green-marker centroid from
- * the hand-made anchor sheet (`docs/visual_refs/anchors/<iconKey>_dirs_anchors.png`),
- * measured as a fraction offset from that octant's cell center. SlotView turns the
- * current facing's anchor into a slot-local point through the SAME seat transform
- * the head sprite uses ({@link SlotView.muzzleLocal}); PlatformGrid maps it to scene
- * space and feeds it to the sim so shots and the muzzle flash leave the exact gun
- * tip of the displayed frame (vs. the radial {@link TOWER_MUZZLE} guess). Re-measured
- * with tools (see docs) if a `_dirs` sheet's barrel geometry changes.
+ * Per-octant muzzle points indexed by facing octant in the same order SlotView
+ * slices the `_dirs` sheet (d0=N, d1=NE, d2=E, d3=SE, d4=S, d5=SW, d6=W, d7=NW).
+ * Each value is a cell-fraction offset from the rendered texture's center (a 3×3
+ * cell for `_dirs` towers, the full sprite for static ones). SlotView runs the
+ * current facing's anchor through the SAME seat transform the head sprite uses
+ * ({@link SlotView.muzzleLocal}); PlatformGrid maps it to scene space and feeds it
+ * to the sim so shots and the muzzle flash leave that point (vs. the radial
+ * {@link TOWER_MUZZLE} fallback used in headless runs with no renderer).
+ *
+ * Two conventions live here:
+ *  - **Barrel tip** (`plasma_shutter`, `railgun`): the green-marker centroid per octant
+ *    from the hand-made anchor sheet `docs/visual_refs/anchors/<iconKey>_dirs_anchors.png`
+ *    — the exact gun tip of each facing, so the shot leaves the rotating barrel. Re-measure
+ *    (green-pixel centroid per cell → cell-fraction offset) if that sheet's barrel geometry
+ *    changes.
+ *  - **Top-center of the sprite** (`frost_pulse`, `storm_coil`): x = 0 (centered), y = the
+ *    sprite's top (frost: alpha top edge; storm: crown of the discharge ball). The shot
+ *    leaves the top of the turret, not a barrel. Both are static (no `_dirs`):
+ *    displayOctant holds at {@link SlotView.DEFAULT_OCTANT}, so all 8 entries are the same point.
  */
 export const TOWER_MUZZLE_ANCHORS: Record<string, readonly MuzzleAnchor[]> = {
+  // Barrel tips from green markers in plasma_shutter_dirs_anchors.png.
   plasma_shutter: [
-    { x: 0.0035, y: -0.4706 }, // d0 N
-    { x: 0.2817, y: -0.4238 }, // d1 NE
-    { x: 0.3637, y: -0.213 }, // d2 E
-    { x: 0.1906, y: -0.3154 }, // d3 SE
-    { x: -0.005, y: -0.2479 }, // d4 S
-    { x: -0.2371, y: -0.298 }, // d5 SW
-    { x: -0.357, y: -0.207 }, // d6 W
-    { x: -0.2691, y: -0.4209 }, // d7 NW
+    { x: 0.0026, y: -0.4707 }, // d0 N
+    { x: 0.2795, y: -0.4239 }, // d1 NE
+    { x: 0.3619, y: -0.2134 }, // d2 E
+    { x: 0.1888, y: -0.3177 }, // d3 SE
+    { x: -0.0065, y: -0.2499 }, // d4 S
+    { x: -0.2367, y: -0.2998 }, // d5 SW
+    { x: -0.3565, y: -0.2069 }, // d6 W
+    { x: -0.2692, y: -0.4209 }, // d7 NW
   ],
+  // Static (no `_dirs`): top-center of the full sprite, same for every octant.
+  frost_pulse: [
+    { x: 0, y: -0.4776 }, // d0 N
+    { x: 0, y: -0.4776 }, // d1 NE
+    { x: 0, y: -0.4776 }, // d2 E
+    { x: 0, y: -0.4776 }, // d3 SE
+    { x: 0, y: -0.4776 }, // d4 S
+    { x: 0, y: -0.4776 }, // d5 SW
+    { x: 0, y: -0.4776 }, // d6 W
+    { x: 0, y: -0.4776 }, // d7 NW
+  ],
+  // Static (no `_dirs`): top-center, at the crown of the copper ball emitter
+  // (alpha measured: ball top ≈ y5/535 → y_frac ≈ -0.49, x centered). Tesla bolts
+  // leave the discharge ball atop the coil; same point for every octant.
+  storm_coil: [
+    { x: 0, y: -0.49 }, // d0 N
+    { x: 0, y: -0.49 }, // d1 NE
+    { x: 0, y: -0.49 }, // d2 E
+    { x: 0, y: -0.49 }, // d3 SE
+    { x: 0, y: -0.49 }, // d4 S
+    { x: 0, y: -0.49 }, // d5 SW
+    { x: 0, y: -0.49 }, // d6 W
+    { x: 0, y: -0.49 }, // d7 NW
+  ],
+  // Barrel tips from green markers in railgun_dirs_anchors.png.
   railgun: [
     { x: 0.003, y: -0.4218 }, // d0 N
     { x: 0.2442, y: -0.3009 }, // d1 NE

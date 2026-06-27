@@ -174,6 +174,15 @@ export interface SimTower extends HitEffects {
   muzzleX: number;
   muzzleY: number;
   hasMuzzle: boolean;
+  /**
+   * Whether the renderer's rotating turret head has finished turning onto the
+   * current lead target (lined up within ~one octant), pushed each frame via
+   * {@link BattleSim.setTowerAimReady}. A rotating turret holds its shot — staying
+   * cooldown-ready — until this is true, so it finishes aiming before it fires (no
+   * bolt leaving the side of a mid-rotation barrel). Always true for static towers
+   * and headless runs with no renderer, so those are never gated.
+   */
+  aimReady: boolean;
 }
 
 /**
@@ -183,7 +192,16 @@ export interface SimTower extends HitEffects {
  */
 export type TowerSpec = Omit<
   SimTower,
-  'cdLeft' | 'cdMax' | 'disabledUntil' | 'aimX' | 'aimY' | 'hasAim' | 'muzzleX' | 'muzzleY' | 'hasMuzzle'
+  | 'cdLeft'
+  | 'cdMax'
+  | 'disabledUntil'
+  | 'aimX'
+  | 'aimY'
+  | 'hasAim'
+  | 'muzzleX'
+  | 'muzzleY'
+  | 'hasMuzzle'
+  | 'aimReady'
 >;
 
 /**
@@ -388,6 +406,7 @@ export class BattleSim {
         muzzleX: p?.muzzleX ?? 0,
         muzzleY: p?.muzzleY ?? 0,
         hasMuzzle: p?.hasMuzzle ?? false,
+        aimReady: p?.aimReady ?? true,
       };
     });
   }
@@ -409,6 +428,18 @@ export class BattleSim {
     } else {
       tower.hasMuzzle = false;
     }
+  }
+
+  /**
+   * Tell the sim whether the rotating turret in `slotIndex` has finished turning
+   * onto its target (see {@link SimTower.aimReady}). The renderer pushes this each
+   * frame from {@link SlotView.isAimed}; while `false`, the tower holds its shot
+   * (stays cooldown-ready) so it finishes aiming before firing. No-op for an empty
+   * slot. Static towers report `true`, so only the rotating turrets are gated.
+   */
+  setTowerAimReady(slotIndex: number, ready: boolean): void {
+    const tower = this.towers.find((t) => t.slotIndex === slotIndex);
+    if (tower) tower.aimReady = ready;
   }
 
   /**
@@ -659,6 +690,16 @@ export class BattleSim {
       }
       if (!target) {
         tower.cdLeft = 0; // stay ready; fire the instant a target enters range
+        continue;
+      }
+
+      // Rotating turrets finish aiming before they fire (the renderer reports when
+      // the head has lined up via setTowerAimReady): while it's still swinging onto
+      // the lead, hold the shot but stay ready (cdLeft pinned to 0) so it fires the
+      // instant the barrel arrives — the cooldown still ran down during the turn, so
+      // this costs almost no DPS. Static towers report aimReady = true (never gated).
+      if (!tower.aimReady) {
+        tower.cdLeft = 0;
         continue;
       }
 

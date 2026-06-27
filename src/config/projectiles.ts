@@ -66,3 +66,21 @@ const BY_ELEMENT: Record<ElementId, ShotStyle> = {
 export function shotStyle(iconKey: string, element: ElementId): ShotStyle {
   return BY_ICON[iconKey] ?? BY_ELEMENT[element];
 }
+
+/**
+ * Muzzle-flash sprite key per attacking element (additive bloom that pops at the
+ * gun tip on fire). Keyed by element so fusion hybrids inherit their parent's
+ * flash for free (each base attacker maps 1:1 to its element). Towers/elements
+ * not listed fall back to the generic `fx_muzzle` in BattleScene.
+ */
+const MUZZLE_BY_ELEMENT: Partial<Record<ElementId, string>> = {
+  Fire: 'muzzle_plasma', // plasma_shutter
+  Water: 'muzzle_ice', // frost_pulse
+  Electricity: 'muzzle_tesla', // storm_coil
+  Physical: 'muzzle_gauss', // railgun
+};
+
+/** Muzzle-flash sprite key for a tower's element, or undefined → generic fx_muzzle. */
+export function muzzleFlashKey(element: ElementId): string | undefined {
+  return MUZZLE_BY_ELEMENT[element];
+}

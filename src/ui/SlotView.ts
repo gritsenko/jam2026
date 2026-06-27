@@ -74,10 +74,12 @@ export class SlotView extends Container {
   /** 8 directional aim frames (d0=N, d1=NE … d7=NW clockwise) from an `<id>_dirs` 3×3 sheet. */
   private dirFrames?: Texture[];
   /**
-   * Per-octant barrel-tip muzzle points (cell-fraction offsets from cell center,
-   * one per aim frame). Combined with {@link displayOctant} and the seat transform
-   * into a slot-local muzzle point ({@link muzzleLocal}) so shots leave the exact gun
-   * tip of the shown frame. Undefined for towers without measured anchors.
+   * Per-octant muzzle points (texture-fraction offsets from the rendered texture's
+   * center, one per aim frame — a barrel tip or a fixed top-center, see
+   * {@link TOWER_MUZZLE_ANCHORS}). Combined with {@link displayOctant} and the seat
+   * transform into a slot-local muzzle point ({@link muzzleLocal}) so shots leave that
+   * point of the shown frame. Static towers hold {@link DEFAULT_OCTANT}. Undefined for
+   * towers without an anchor entry.
    */
   private muzzleAnchors?: readonly MuzzleAnchor[];
   /** Seat geometry of the placed tower (base→slot width + lift); see {@link seatSprite}. */
@@ -370,25 +372,49 @@ export class SlotView extends Container {
     }
   }
 
+  /**
+   * Whether the rotating turret's SHOWN facing is lined up on its live target —
+   * the sim gates a rotating turret's shot on this ({@link BattleSim.setTowerAimReady})
+   * so it finishes turning before firing instead of loosing a bolt out the side of a
+   * mid-rotation barrel. "Lined up" = the head has settled on its committed
+   * {@link targetOctant} AND that octant still points within one octant (~45°) of the
+   * raw target direction ({@link desiredOctant}) — the one-octant slack keeps a target
+   * sitting on an octant boundary from stuttering the fire. Towers without a
+   * directional sheet (statics) are always "aimed", so only the rotating turrets are
+   * gated; firing is otherwise unchanged.
+   */
+  isAimed(): boolean {
+    if (!this.dirFrames) return true;
+    if (this.displayOctant !== this.targetOctant) return false; // still swinging
+    const diff = Math.abs(this.displayOctant - this.desiredOctant);
+    return Math.min(diff, 8 - diff) <= 1;
+  }
+
   /** Provide the per-octant muzzle anchors for the placed tower (see {@link muzzleLocal}). */
   setMuzzleAnchors(anchors: readonly MuzzleAnchor[] | undefined): void {
     this.muzzleAnchors = anchors;
   }
 
   /**
-   * The barrel tip of the currently-shown facing frame, in this slot's LOCAL space
-   * (origin = slot center). The anchor is a cell-fraction offset from the aim-sheet
-   * cell center; we run it through the SAME seat transform {@link seatSprite} applies
-   * to the head sprite, so the point tracks the rotating barrel exactly. Returns null
-   * for towers without measured anchors (the sim then uses its radial muzzle). The
-   * `+0.5 − cyFrac` on Y re-bases the offset from the cell center to the seated base
-   * center (seatSprite lifts the sprite so the base center sits at the slot center).
+   * The muzzle point of the currently-shown frame, in this slot's LOCAL space
+   * (origin = slot center). The anchor is a texture-fraction offset from the rendered
+   * texture's center; we run it through the SAME seat transform {@link seatSprite}
+   * applies to the head sprite, so the point tracks the sprite exactly. We scale the
+   * x offset by texture WIDTH and the y offset by texture HEIGHT (seatSprite's scale
+   * is uniform but the offsets are per-axis fractions) so non-square static sprites
+   * map correctly; square `_dirs` cells are unaffected (tw === th). Returns null for
+   * towers without anchors or before the sprite exists (sim then uses its radial
+   * muzzle). The `+0.5 − cyFrac` on Y re-bases the offset from the texture center to
+   * the seated base center (seatSprite lifts the sprite so the base sits at slot center).
    */
   muzzleLocal(): PointData | null {
     const a = this.muzzleAnchors?.[this.displayOctant];
-    if (!a) return null;
-    const k = (this.size * SlotView.SEAT_FILL) / this.seat.wFrac;
-    return { x: a.x * k, y: (a.y + 0.5 - this.seat.cyFrac) * k };
+    const tex = this.towerSprite?.texture;
+    if (!a || !tex) return null;
+    const tw = tex.width || 1;
+    const th = tex.height || 1;
+    const scale = (this.size * SlotView.SEAT_FILL) / (tw * this.seat.wFrac);
+    return { x: a.x * tw * scale, y: (a.y + 0.5 - this.seat.cyFrac) * th * scale };
   }
 
   /**

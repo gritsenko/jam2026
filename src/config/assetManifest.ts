@@ -745,6 +745,38 @@ export const ASSETS: AssetSpec[] = [
     prompt: 'frost ice debuff effect, pale cyan jagged ice crystals and frosty mist',
     placeholder: { shape: 'disc', tint: W, label: '' },
   },
+  // Per-tower muzzle flashes (additive bloom at the gun tip on fire), keyed by the
+  // source tower's element — see muzzleFlashKey() in src/config/projectiles.ts and
+  // BattleScene.spawnMuzzleFlash. Art is dropped in from an external FX pack, so
+  // these prompts are descriptive only (the real PNGs already exist on disk).
+  {
+    key: 'muzzle_plasma',
+    category: 'prop',
+    size: 256,
+    prompt: 'soft round yellow-white energy flash burst, bright bloom, top-down',
+    placeholder: { shape: 'disc', tint: F, label: '' },
+  },
+  {
+    key: 'muzzle_ice',
+    category: 'prop',
+    size: 256,
+    prompt: 'cyan frost burst flare, jagged cold energy bloom, top-down',
+    placeholder: { shape: 'disc', tint: W, label: '' },
+  },
+  {
+    key: 'muzzle_gauss',
+    category: 'prop',
+    size: 256,
+    prompt: 'eight-point cyan-white star sparkle burst, sharp light spikes, top-down',
+    placeholder: { shape: 'star', tint: P, label: '' },
+  },
+  {
+    key: 'muzzle_tesla',
+    category: 'prop',
+    size: 256,
+    prompt: 'concentric magenta electric shock rings burst, glowing energy halo, top-down',
+    placeholder: { shape: 'disc', tint: E, label: '' },
+  },
 
   // ---- Tower grade variants (<iconKey>_g2 / _g3) ---------------------------
   // Merge-level art for the 6 base towers. Static towers (frost_pulse,

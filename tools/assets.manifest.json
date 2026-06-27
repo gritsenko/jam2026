@@ -592,6 +592,37 @@
       "prompt": "frost ice debuff effect, pale cyan jagged ice crystals and frosty mist"
     },
     {
+      "_comment": "Per-tower muzzle flashes (additive bloom at the gun tip on fire), keyed by the source tower's element — see muzzleFlashKey() in src/config/projectiles.ts. Art imported from an external FX pack; prompts are descriptive only."
+    },
+    {
+      "key": "muzzle_plasma",
+      "file": "assets/sprites/muzzle_plasma.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "soft round yellow-white energy flash burst, bright bloom, top-down"
+    },
+    {
+      "key": "muzzle_ice",
+      "file": "assets/sprites/muzzle_ice.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "cyan frost burst flare, jagged cold energy bloom, top-down"
+    },
+    {
+      "key": "muzzle_gauss",
+      "file": "assets/sprites/muzzle_gauss.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "eight-point cyan-white star sparkle burst, sharp light spikes, top-down"
+    },
+    {
+      "key": "muzzle_tesla",
+      "file": "assets/sprites/muzzle_tesla.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "concentric magenta electric shock rings burst, glowing energy halo, top-down"
+    },
+    {
       "_comment": "Tower grade variants (<iconKey>_g2/_g3). Static towers swap the in-slot sprite; rotating towers use these as card/inspect art. Missing grade art falls back to the base sprite."
     },
     {
