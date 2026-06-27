@@ -15,3 +15,6 @@ How it works:
 
 Keep it light: SFX trimmed mono mp3 (~5–20 KB each), music as seamless mono loops
 at 64–96 kbps (~0.3–0.6 MB/min). Tune per-clip loudness via `volume` in the manifest.
+
+Per-tower hit clips (`sfx_hit_*`) route via `TOWER_HIT_SFX` in BattleScene; `sfx_hit_storm`
+is still a cryo placeholder — replace with a unique chain-lightning sample when ready.
