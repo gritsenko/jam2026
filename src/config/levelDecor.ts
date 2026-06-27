@@ -21,6 +21,17 @@ export interface DecorObject {
   /** Scale at the reference resolution (auto-adjusted to the real texture size). */
   readonly scale: number;
   /**
+   * If set, `texture` is an **animated WebP** (`assets/sprites/<texture>.webp`)
+   * played on a loop instead of a still PNG. Decoded frame-by-frame at runtime
+   * (see {@link ../ui/AnimatedDecor}); the `scale` is applied to the frame size.
+   */
+  readonly animated?: boolean;
+  /**
+   * Draw a soft grounded shadow ellipse under the prop (same look as the enemy
+   * tokens). Currently honoured for animated props (see {@link ../ui/AnimatedDecor}).
+   */
+  readonly shadow?: boolean;
+  /**
    * Draw order **relative to enemies**. The prop is sorted into the same layer as
    * the enemies, whose sort key is their board Y (≈0 at the top of the map ..
    * ≈DECOR_REF_SIZE at the bottom). Higher = closer to the camera. Omit for the
@@ -58,7 +69,11 @@ const DEFAULT_BUHANKA: DecorObject = { texture: 'buhanka_1', x: 733, y: 923, sca
  */
 export const LEVEL_DECOR: Record<string, DecorObject[]> = {
   lvl_1: [{ ...DEFAULT_BUHANKA }],
-  lvl_2: [{ ...DEFAULT_BUHANKA }],
+  // Level 2 also parks a looping animated character (decor.webp) beside the van.
+  lvl_2: [
+    { texture: 'decor', x: 875, y: 845, scale: 0.35, animated: true, shadow: true },
+    { ...DEFAULT_BUHANKA },
+  ],
   lvl_3: [{ ...DEFAULT_BUHANKA }],
   lvl_4: [{ ...DEFAULT_BUHANKA }],
   lvl_5: [{ ...DEFAULT_BUHANKA }],

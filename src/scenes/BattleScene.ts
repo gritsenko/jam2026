@@ -53,6 +53,7 @@ import {
   type TowerSpec,
 } from '../game/BattleSim';
 import { computeSynergy, type SlotSynergy } from '../game/synergy';
+import { AnimatedDecor } from '../ui/AnimatedDecor';
 import { BattleBanner } from '../ui/BattleBanner';
 import { BattleCard } from '../ui/BattleCard';
 import { Button } from '../ui/Button';
@@ -152,6 +153,8 @@ export class BattleScene extends Scene {
 
   /** Campaign level being played (drives unlocks + where a clear is recorded). */
   private levelId = 'lvl_1';
+  /** Looping animated-WebP decor props; ticked in update(), freed in onExit(). */
+  private animatedDecor: AnimatedDecor[] = [];
   /** This level's wave script + difficulty tier (resolved in onEnter). */
   private levelCombat: LevelCombat = combatForLevel('lvl_1');
   /** Tower card ids the player may draw this battle (campaign roster, progression §7). */
@@ -414,9 +417,21 @@ export class BattleScene extends Scene {
     // DECOR_Z_BACK to sit behind them.
     const decorScaleX = this.arenaW / DECOR_REF_SIZE;
     const decorScaleY = this.arenaH / DECOR_REF_SIZE;
+    this.animatedDecor.length = 0;
     for (const obj of decorForLevel(this.levelId)) {
-      const prop = new Sprite(assets.get(obj.texture));
-      prop.anchor.set(0.5);
+      let prop: Container;
+      if (obj.animated) {
+        // Animated WebP (e.g. a parked character): decode frames and loop them.
+        // The container centres its own frame and draws its optional shadow.
+        const anim = new AnimatedDecor({ shadow: obj.shadow });
+        void anim.load(obj.texture);
+        this.animatedDecor.push(anim);
+        prop = anim;
+      } else {
+        const sprite = new Sprite(assets.get(obj.texture));
+        sprite.anchor.set(0.5);
+        prop = sprite;
+      }
       prop.scale.set(obj.scale * decorScaleX);
       prop.position.set(obj.x * decorScaleX, obj.y * decorScaleY);
       prop.zIndex = obj.z ?? DECOR_Z_FRONT;
@@ -2340,7 +2355,13 @@ export class BattleScene extends Scene {
       const depth = Math.min(1, Math.max(0, e.y / this.arenaH));
       view.scale.set(0.9 + 0.18 * depth);
       // Face the way it's marching (art faces left; flip when heading right).
-      view.setFacing(this.path.headingAt(e.t).x);
+      // On (near-)vertical legs there's no horizontal heading, so face the arena
+      // center — the enemy looks "inward" toward the platform instead of keeping
+      // a stale left/right carried over from a previous horizontal leg.
+      const heading = this.path.headingAt(e.t);
+      const faceDx =
+        Math.abs(heading.x) >= Math.abs(heading.y) ? heading.x : this.arenaW * 0.5 - e.x;
+      view.setFacing(faceDx);
       // Status overlays/wash from the sim's live deadlines.
       view.setStatus({
         burning: e.dotUntil > now && e.dotDps > 0,
@@ -3356,6 +3377,7 @@ export class BattleScene extends Scene {
   override update(dt: number): void {
     this.gauge.tick(dt);
     this.tutorial?.tick(dt); // idle float + scripted demo animation while open
+    for (const d of this.animatedDecor) d.advance(dt); // ambient looping props (real time)
 
     // Drive the combat simulation, then mirror it into sprites. Overload from
     // too much energy load slows each tower's fire rate in proportion to its own
@@ -3434,5 +3456,8 @@ export class BattleScene extends Scene {
     this.enemyHpSeen.clear();
     this.projViews.clear();
     this.projPrev.clear();
+    // Decor sprites (and their frame textures) are freed by the scene's
+    // destroy({children:true}) right after onExit — just drop our references.
+    this.animatedDecor.length = 0;
   }
 }
