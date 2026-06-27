@@ -152,10 +152,13 @@ export class PlatformGrid extends Container {
           // Aim frames live under `<iconKey>_dirs` (hybrids share their parent's
           // strip via iconKey); absent for supports/un-generated art → static.
           // Composed sheets (COMPOSED_AIM_SHEETS) split base/head and crossfade.
-          const dirsKey = `${def.iconKey}_dirs`;
+          // Prefer a grade-specific aim sheet (`<id>_g2_dirs`) when present, else base.
+          const gradedDirs = placed.grade > 1 ? `${def.iconKey}_g${placed.grade}_dirs` : '';
+          const dirsKey =
+            gradedDirs && this.assets.has(gradedDirs) ? gradedDirs : `${def.iconKey}_dirs`;
           const dirStrip = this.assets.has(dirsKey) ? this.assets.get(dirsKey) : undefined;
           slot.setPlaced(
-            this.artFor(def.iconKey),
+            this.artFor(def.iconKey, placed.grade),
             def.element,
             placed.grade,
             syn?.dots ?? [],
@@ -497,7 +500,12 @@ export class PlatformGrid extends Container {
     g.poly(pts).stroke({ width: this.cell * 0.016, color: edge, alpha: 0.85, join: 'round' });
   }
 
-  private artFor(cardId: string): ReturnType<AssetLoader['get']> {
+  private artFor(cardId: string, grade = 1): ReturnType<AssetLoader['get']> {
+    // Prefer a merge-level variant (`<id>_g2`/`_g3`) when it exists; else the base art.
+    if (grade > 1) {
+      const gk = `${cardId}_g${grade}`;
+      if (this.assets.has(gk)) return this.assets.get(gk);
+    }
     return this.assets.get(cardId);
   }
 

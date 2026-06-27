@@ -30,6 +30,8 @@ export interface PanelOptions {
   edgeWidth?: number;
   /** Inner highlight for a beveled, machined-metal feel. */
   bevel?: boolean;
+  /** Where the glossy top band meets the deeper bottom shade, as a fraction of height (default 0.5). */
+  bevelSplit?: number;
   /** Rivets in the corners. */
   rivets?: boolean;
 }
@@ -53,15 +55,17 @@ export function drawPanel(
     edge = COLORS.brass,
     edgeWidth = 4,
     bevel = true,
+    bevelSplit = 0.5,
     rivets = false,
   } = opts;
 
   g.roundRect(x, y, w, h, radius).fill({ color: fill, alpha: fillAlpha });
   if (bevel) {
     // Glossy top band + deeper bottom shade read as machined dieselpunk plate.
-    g.roundRect(x + edgeWidth, y + edgeWidth, w - edgeWidth * 2, (h - edgeWidth * 2) * 0.5, radius)
+    // `bevelSplit` moves the seam (default mid-height).
+    g.roundRect(x + edgeWidth, y + edgeWidth, w - edgeWidth * 2, (h - edgeWidth * 2) * bevelSplit, radius)
       .fill({ color: COLORS.white, alpha: 0.07 });
-    g.roundRect(x + edgeWidth, y + h * 0.5, w - edgeWidth * 2, h * 0.5 - edgeWidth, radius)
+    g.roundRect(x + edgeWidth, y + h * bevelSplit, w - edgeWidth * 2, h * (1 - bevelSplit) - edgeWidth, radius)
       .fill({ color: COLORS.black, alpha: 0.18 });
   }
   // Dark steel keyline under the brass edge for depth, then the brass edge itself.

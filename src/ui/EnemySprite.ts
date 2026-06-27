@@ -23,6 +23,12 @@ export interface AuraView {
  * soft pulsing ring; any enemy carrying an Aegis-Beacon shield shows a bubble
  * (driven by {@link setShield}).
  */
+/** Shared status-overlay textures (fire/frost), passed in so EnemySprite stays Pixi-only. */
+export interface StatusFx {
+  readonly burn?: Texture;
+  readonly frost?: Texture;
+}
+
 export class EnemySprite extends Container {
   private readonly sprite: Sprite;
   private readonly hpBar = new Graphics();
@@ -37,14 +43,25 @@ export class EnemySprite extends Container {
   private hitFlash = 0;
   /** Current shield fill 0..1 (0 = no bubble). */
   private shieldFrac = 0;
+  /** Fitted |scale.x| of the body sprite, so facing-flip keeps a constant size. */
+  private baseScaleX = 1;
+  /** Element-wash tint applied between hit flashes (Wet/chill); white = none. */
+  private statusTint = 0xffffff;
+  /** Lazy status overlays (created on first use) + their source textures. */
+  private readonly fxBurnTex?: Texture;
+  private readonly fxFrostTex?: Texture;
+  private fireFx?: Sprite;
+  private frostFx?: Sprite;
 
-  constructor(texture: Texture, size: number, phase = 0, aura?: AuraView) {
+  constructor(texture: Texture, size: number, phase = 0, aura?: AuraView, fx: StatusFx = {}) {
     super();
     this.size = size;
     this.phase = phase;
     this.bobAmp = size * 0.04;
     this.auraColor = aura?.color ?? 0;
     this.auraRadius = aura?.radiusPx ?? 0;
+    this.fxBurnTex = fx.burn;
+    this.fxFrostTex = fx.frost;
 
     // Aura ring sits lowest so the mob (and everyone in its reach) draws over it.
     if (aura) {
@@ -58,6 +75,7 @@ export class EnemySprite extends Container {
 
     this.sprite = new Sprite(texture);
     fitSprite(this.sprite, size, size);
+    this.baseScaleX = this.sprite.scale.x; // remember the fitted size for facing-flips
     this.addChild(this.sprite);
 
     // Shield bubble wraps the sprite; HP bar stays on top of everything.
@@ -108,6 +126,51 @@ export class EnemySprite extends Container {
     this.sprite.tint = 0xffc9b0;
   }
 
+  /**
+   * Face the direction of travel. The art is authored facing LEFT (−x); moving
+   * right mirrors the body sprite (only the sprite — not the HP bar / aura / shield).
+   * Near-zero `dx` keeps the last facing so a stalled enemy doesn't flicker.
+   */
+  setFacing(dx: number): void {
+    if (Math.abs(dx) < 0.001) return;
+    this.sprite.scale.x = dx > 0 ? -this.baseScaleX : this.baseScaleX;
+  }
+
+  /**
+   * Reflect active statuses (driven each frame from the sim's deadlines): a flame
+   * overlay while burning (DoT), a frost overlay while chilled/frozen, and a cool
+   * body wash for Wet/chill. See docs/done/projectiles-vfx-and-enemy-polish.md.
+   */
+  setStatus(s: { burning: boolean; wet: boolean; chilled: boolean }): void {
+    if (this.fireFx) this.fireFx.visible = s.burning;
+    else if (s.burning) this.ensureFire();
+
+    if (this.frostFx) this.frostFx.visible = s.chilled;
+    else if (s.chilled) this.ensureFrost();
+
+    // Wet wins the body wash (it's the synergy linchpin); else a chill tint; else none.
+    this.statusTint = s.wet ? 0x8fb8ff : s.chilled ? 0xc2ecff : 0xffffff;
+  }
+
+  private ensureFire(): void {
+    if (this.fireFx || !this.fxBurnTex) return;
+    const f = new Sprite(this.fxBurnTex);
+    fitSprite(f, this.size * 0.8, this.size * 0.8);
+    f.anchor.set(0.5, 0.9); // flames rise from around the feet
+    this.fireFx = f;
+    this.addChild(f); // above the body, below the HP bar would be ideal — but HP bar is added first; this draws over it briefly which is fine
+  }
+
+  private ensureFrost(): void {
+    if (this.frostFx || !this.fxFrostTex) return;
+    const f = new Sprite(this.fxFrostTex);
+    fitSprite(f, this.size * 0.78, this.size * 0.78);
+    f.anchor.set(0.5, 0.5);
+    f.alpha = 0.85;
+    this.frostFx = f;
+    this.addChildAt(f, this.getChildIndex(this.sprite) + 1); // just over the body
+  }
+
   tick(dt: number): void {
     this.phase += dt * 2.2;
     const bob = Math.sin(this.phase) * this.bobAmp;
@@ -135,9 +198,21 @@ export class EnemySprite extends Container {
         .stroke({ width: 2 + 1.5 * p, color: SHIELD_COLOR, alpha: (0.35 + 0.25 * p) * this.shieldFrac });
     }
 
+    // Fire overlay rides the bob and flickers; frost overlay rides the bob.
+    if (this.fireFx?.visible) {
+      this.fireFx.y = bob + this.size * 0.18;
+      const flick = 0.78 + 0.22 * Math.sin(this.phase * 7.3);
+      this.fireFx.alpha = flick;
+      this.fireFx.scale.y = this.fireFx.scale.x * (0.92 + 0.12 * (0.5 + 0.5 * Math.sin(this.phase * 5.1)));
+    }
+    if (this.frostFx?.visible) this.frostFx.y = bob;
+
+    // Hit flash wins briefly; otherwise the body carries its status wash (or none).
     if (this.hitFlash > 0) {
       this.hitFlash -= dt;
-      if (this.hitFlash <= 0) this.sprite.tint = 0xffffff;
+      if (this.hitFlash <= 0) this.sprite.tint = this.statusTint;
+    } else {
+      this.sprite.tint = this.statusTint;
     }
   }
 }

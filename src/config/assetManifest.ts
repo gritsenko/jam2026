@@ -593,6 +593,211 @@ export const ASSETS: AssetSpec[] = [
     prompt: 'dim cold map node marker with an iron padlock, deactivated',
     placeholder: { shape: 'disc', tint: COLORS.metalLight, label: '' },
   },
+
+  // ---- Projectiles (shot_<style>) ------------------------------------------
+  // Per-tower travelling shot art (see src/config/projectiles.ts). The 4 base
+  // styles ship on disk; the 6 hybrids fall back to their element's base shot
+  // (ASSET_FALLBACKS) until generated. The view rotates/arcs/trails them.
+  {
+    key: 'shot_plasma',
+    category: 'prop',
+    size: 256,
+    prompt: 'fire plasma projectile orb, molten orange-red energy ball with a glowing white core, energy bolt',
+    placeholder: { shape: 'disc', tint: F, label: '' },
+  },
+  {
+    key: 'shot_ice',
+    category: 'prop',
+    size: 256,
+    prompt: 'ice projectile orb, pale cyan crackling frost energy ball with a bright core, energy bolt',
+    placeholder: { shape: 'disc', tint: W, label: '' },
+  },
+  {
+    key: 'shot_tesla',
+    category: 'prop',
+    size: 256,
+    prompt: 'ball lightning projectile, violet electric plasma sphere wreathed in arcs, energy bolt',
+    placeholder: { shape: 'disc', tint: E, label: '' },
+  },
+  {
+    key: 'shot_rail',
+    category: 'prop',
+    size: 256,
+    prompt: 'railgun kinetic slug projectile, sleek metal capsule with a cyan energy sheath, side view',
+    placeholder: { shape: 'disc', tint: P, label: '' },
+  },
+  {
+    key: 'shot_steam',
+    category: 'prop',
+    size: 256,
+    prompt: 'steam burst projectile orb, hot white-orange steam cloud with cyan frost edges and a glowing molten core, energy bolt',
+    placeholder: { shape: 'disc', tint: W, label: '' },
+  },
+  {
+    key: 'shot_ion',
+    category: 'prop',
+    size: 256,
+    prompt: 'ion bolt projectile orb, fiery orange plasma core wrapped in crackling violet electric arcs, energy bolt',
+    placeholder: { shape: 'disc', tint: F, label: '' },
+  },
+  {
+    key: 'shot_cryo',
+    category: 'prop',
+    size: 256,
+    prompt: 'cryo lightning projectile orb, icy pale-blue electric ball with frost shards and violet arcs, energy bolt',
+    placeholder: { shape: 'disc', tint: E, label: '' },
+  },
+  {
+    key: 'shot_thermo',
+    category: 'prop',
+    size: 256,
+    prompt: 'molten kinetic slug projectile, glowing orange-hot pointed metal dart with a fire trail, side view',
+    placeholder: { shape: 'disc', tint: F, label: '' },
+  },
+  {
+    key: 'shot_icebreaker',
+    category: 'prop',
+    size: 256,
+    prompt: 'frosted kinetic slug projectile, ice-coated pointed metal dart with a pale cyan glow, side view',
+    placeholder: { shape: 'disc', tint: W, label: '' },
+  },
+  {
+    key: 'shot_gauss',
+    category: 'prop',
+    size: 256,
+    prompt: 'magnetic gauss slug projectile, sleek metal dart wrapped in crackling violet electric arcs, side view',
+    placeholder: { shape: 'disc', tint: E, label: '' },
+  },
+
+  // ---- Combat VFX (reusable, tinted per element in code) -------------------
+  {
+    key: 'fx_muzzle',
+    category: 'prop',
+    size: 256,
+    prompt: 'muzzle flash burst, bright radial white-yellow energy flash with sharp light spikes, top-down',
+    placeholder: { shape: 'disc', tint: COLORS.brassLight, label: '' },
+  },
+  {
+    key: 'fx_impact',
+    category: 'prop',
+    size: 256,
+    prompt: 'impact explosion burst star, white-hot energy splash with radial shards and sparks, top-down',
+    placeholder: { shape: 'star', tint: COLORS.brassLight, label: '' },
+  },
+  {
+    key: 'fx_burn',
+    category: 'prop',
+    size: 256,
+    prompt: 'burning fire effect, orange and yellow flames licking upward, vertical flame sprite',
+    placeholder: { shape: 'disc', tint: F, label: '' },
+  },
+  {
+    key: 'fx_frost',
+    category: 'prop',
+    size: 256,
+    prompt: 'frost ice debuff effect, pale cyan jagged ice crystals and frosty mist',
+    placeholder: { shape: 'disc', tint: W, label: '' },
+  },
+
+  // ---- Tower grade variants (<iconKey>_g2 / _g3) ---------------------------
+  // Merge-level art for the 6 base towers. Static towers (frost_pulse,
+  // storm_coil, shield_generator, grid_stabilizer) swap the in-slot sprite
+  // directly; rotating towers (plasma_shutter, railgun) keep their _dirs sheet
+  // and these serve as card/inspect art (grade _dirs sheets are future hand-work).
+  // Missing grade art falls back to the base sprite via AssetLoader.has().
+  {
+    key: 'plasma_shutter_g2',
+    category: 'tower',
+    size: 512,
+    prompt: 'upgraded fire turret base mount mark II, armored turntable with brighter molten-orange plasma core and extra armor plates, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: F, label: 'II' },
+  },
+  {
+    key: 'plasma_shutter_g3',
+    category: 'tower',
+    size: 512,
+    prompt: 'heavily upgraded fire turret base mount mark III, ornate turntable with a blazing plasma reactor core and layered armor, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: F, label: 'III' },
+  },
+  {
+    key: 'frost_pulse_g2',
+    category: 'tower',
+    size: 512,
+    prompt: 'upgraded ice cannon turret base mount mark II, armored turntable with thicker pale-cyan frost crystals and brighter core, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: W, label: 'II' },
+  },
+  {
+    key: 'frost_pulse_g3',
+    category: 'tower',
+    size: 512,
+    prompt: 'heavily upgraded ice cannon turret base mount mark III, ornate turntable with a massive glowing cyan frost core and layered ice armor, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: W, label: 'III' },
+  },
+  {
+    key: 'storm_coil_g2',
+    category: 'tower',
+    size: 512,
+    prompt: 'upgraded tesla turret base mount mark II, armored turntable with extra copper coil rings and brighter violet arcs, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: E, label: 'II' },
+  },
+  {
+    key: 'storm_coil_g3',
+    category: 'tower',
+    size: 512,
+    prompt: 'heavily upgraded tesla turret base mount mark III, ornate turntable with stacked copper coils and intense violet lightning over a blazing core, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: E, label: 'III' },
+  },
+  {
+    key: 'railgun_g2',
+    category: 'tower',
+    size: 512,
+    prompt: 'upgraded heavy railgun turret base mount mark II, reinforced steel turntable with a longer rail cradle and brighter energy capacitor, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: P, label: 'II' },
+  },
+  {
+    key: 'railgun_g3',
+    category: 'tower',
+    size: 512,
+    prompt: 'heavily upgraded heavy railgun turret base mount mark III, massive turntable with twin rail cradle and a huge glowing energy capacitor, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: P, label: 'III' },
+  },
+  {
+    key: 'shield_generator_g2',
+    category: 'tower',
+    size: 512,
+    prompt: 'upgraded shield dome generator turret mark II, armored emitter projecting a brighter blue energy dome with reinforced ribs, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: P, label: 'II' },
+  },
+  {
+    key: 'shield_generator_g3',
+    category: 'tower',
+    size: 512,
+    prompt: 'heavily upgraded shield dome generator turret mark III, heavy emitter projecting an intense layered blue energy dome with glowing nodes, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: P, label: 'III' },
+  },
+  {
+    key: 'grid_stabilizer_g2',
+    category: 'tower',
+    size: 512,
+    prompt: 'upgraded uranium battery stabilizer cell turret mark II, dark metal canister with brighter glowing green energy rods and extra hazard plating, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: N, label: 'II' },
+  },
+  {
+    key: 'grid_stabilizer_g3',
+    category: 'tower',
+    size: 512,
+    prompt: 'heavily upgraded uranium battery stabilizer cell turret mark III, reinforced canister with triple glowing green energy rods and heavy hazard plating, three-quarter top-down view',
+    placeholder: { shape: 'round', tint: N, label: 'III' },
+  },
+
+  // ---- Tutorial advisor ----------------------------------------------------
+  {
+    key: 'advisor_klodouglas',
+    category: 'icon',
+    size: 768,
+    prompt: 'KloDouglas, a steampunk tech engineer advisor, full-body character holding a glowing schematic tablet, brown leather coat with brass fittings, friendly confident pose (cut from docs/visual_refs/visual_sources/advisors/tech.png)',
+    placeholder: { shape: 'rect', tint: COLORS.brass, label: 'KLO' },
+  },
 ];
 
 export const ASSET_BY_KEY: Record<string, AssetSpec> = Object.fromEntries(
@@ -619,4 +824,14 @@ export const ASSET_FALLBACKS: Record<string, string> = {
   icon_reactor: 'ui_button_overdrive',
   // Fusion hybrids now have dedicated PNGs on disk (steam_cannon, cryo_discharge,
   // ion_volley, thermo_spear, icebreaker, gauss_coil), so no parent fallbacks remain.
+  // Hybrid projectiles borrow their element's base shot until their own art lands.
+  shot_steam: 'shot_ice',
+  shot_ion: 'shot_plasma',
+  shot_cryo: 'shot_tesla',
+  shot_thermo: 'shot_rail',
+  shot_icebreaker: 'shot_rail',
+  shot_gauss: 'shot_rail',
+  // Status overlays borrow the element emblem until their own art lands.
+  fx_burn: 'sym_fire',
+  fx_frost: 'sym_water',
 };

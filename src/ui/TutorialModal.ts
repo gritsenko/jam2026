@@ -56,6 +56,9 @@ export class TutorialModal extends Container {
   private illuBaseY = 0;
   private currentDemo: TutorialDemo | null = null;
 
+  /** Advisor (KloDouglas) layer, drawn ON TOP of the card so the figure overlaps its right edge. */
+  private readonly advisorLayer = new Container();
+
   /** Current card size (clamped to the safe area by layout). */
   private cardW = MAX_CARD_W;
   private cardH = MAX_CARD_H;
@@ -100,6 +103,10 @@ export class TutorialModal extends Container {
     });
     this.card.addChild(this.nextBtn);
 
+    // Advisor sits above everything in the card; passive so taps reach the button.
+    this.advisorLayer.eventMode = 'none';
+    this.card.addChild(this.advisorLayer);
+
     this.addChild(this.scrim, this.card);
 
     // Initial render at the default (max) size; layout() re-renders at the size
@@ -126,12 +133,17 @@ export class TutorialModal extends Container {
   /** Redraw the brass panel at the current card size. */
   private drawCardBg(): void {
     this.cardBg.clear();
+    // Seat the light/dark seam just below the illustration so the title + icon sit
+    // on the glossy band and the body copy reads on the darker plate below.
+    const illuBottom = 54 + 96 + ILLU; // px from the panel's top edge (see renderPage)
+    const bevelSplit = Math.min(0.46, Math.max(0.3, (illuBottom + 18) / this.cardH));
     drawPanel(this.cardBg, -this.cardW / 2, -this.cardH / 2, this.cardW, this.cardH, {
       radius: 28,
       fill: COLORS.metalMid,
       edge: COLORS.brass,
       edgeWidth: 5,
       bevel: true,
+      bevelSplit,
       rivets: true,
     });
   }
@@ -149,6 +161,7 @@ export class TutorialModal extends Container {
     this.currentDemo?.destroy();
     this.currentDemo = null;
     this.content.removeChildren().forEach((c) => c.destroy({ children: true }));
+    this.advisorLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
     this.illu = new Container();
     this.illuGlow = new Graphics();
     this.illu.addChild(this.illuGlow);
@@ -176,6 +189,11 @@ export class TutorialModal extends Container {
     this.illu.position.set(0, this.illuBaseY);
     this.content.addChild(this.illu);
 
+    // Advisor (KloDouglas) leans in from the card's bottom-right; only the body
+    // text yields width to it. The illustration stays centered (the advisor sits
+    // below it and never reaches the icon's row).
+    const reserve = this.buildAdvisor();
+
     // Body — word-wrapped to the panel width and font-scaled to fill the space
     // between the illustration and the dots/button.
     const hasDots = this.lessons.length >= 2;
@@ -183,9 +201,9 @@ export class TutorialModal extends Container {
     const dotsY = this.cardH / 2 - 150;
     const bodyBottom = (hasDots ? dotsY : this.cardH / 2 - 120) - 28;
     const regionH = Math.max(60, bodyBottom - bodyTop);
-    const body = this.fitBody(tutorialBody(lesson.id), maxTitleW, regionH);
+    const body = this.fitBody(tutorialBody(lesson.id), maxTitleW - reserve, regionH);
     body.anchor.set(0.5, 0);
-    body.position.set(0, bodyTop + Math.max(0, (regionH - body.height) / 2));
+    body.position.set(-reserve / 2, bodyTop + Math.max(0, (regionH - body.height) / 2));
     this.content.addChild(body);
 
     this.refreshDots();
@@ -238,6 +256,49 @@ export class TutorialModal extends Container {
     const s = new Sprite(this.assets.get(key));
     fitSprite(s, ILLU, ILLU);
     return s;
+  }
+
+  /**
+   * Stand the advisor (KloDouglas) tall on the card's RIGHT side, drawn on top of
+   * the panel: his head sits at the illustration row, his feet just above the button,
+   * and his body straddles the right edge (torso on the panel, the rest hanging off).
+   * Only the body copy yields width to him (its right edge stops at `textRightX`).
+   * Returns the px the body should reserve. Hidden on narrow/short cards or with no art.
+   */
+  private buildAdvisor(): number {
+    const KEY = 'advisor_klodouglas';
+    if (this.cardW < 640 || this.cardH < 820 || !this.assets.has(KEY)) return 0;
+
+    const tex = this.assets.get(KEY);
+    // Vertical span: head crown ~ at the icon row, feet a touch above the button.
+    const headY = this.illuBaseY - ILLU * 0.04;
+    const feetY = this.cardH / 2 - 135;
+    const targetH = Math.max(200, feetY - headY);
+    const scale = tex.height > 0 ? targetH / tex.height : 1;
+    const w = tex.width * scale;
+
+    // His body starts ~13% right of center; his right side hangs off the edge.
+    const gap = 22;
+    const textRightX = this.cardW * 0.03;
+
+    const holder = new Container();
+    holder.eventMode = 'none';
+
+    // Soft brass glow behind the torso so the figure reads over the panel/board.
+    const glow = glowCircle(targetH * 0.3, COLORS.brass, 0.26);
+    glow.position.set(textRightX + w * 0.32, feetY - targetH * 0.5);
+    holder.addChild(glow);
+
+    const sprite = new Sprite(tex);
+    sprite.anchor.set(0, 1); // bottom-left → his left edge anchors at textRightX
+    sprite.scale.set(scale);
+    sprite.position.set(textRightX, feetY);
+    holder.addChild(sprite);
+
+    this.advisorLayer.addChild(holder);
+    // Body right edge = textRightX - gap. body uses (maxTitleW - reserve), x = -reserve/2,
+    // so its right edge is maxTitleW/2 - reserve ⇒ solve for reserve:
+    return this.cardW / 2 - PAD - (textRightX - gap);
   }
 
   /** Page indicator dots (hidden for single-lesson levels). */

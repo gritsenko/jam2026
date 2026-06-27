@@ -6,6 +6,14 @@ import { getEnemy } from '../config/enemies';
 import { buildSpawnQueue } from '../data/waveRules';
 import { cardGrade, cardLoad, hasHybridPerk, towerMuzzleFrac } from '../config/cards';
 import {
+  shotStyle,
+  BALLISTIC_ARC,
+  BALLISTIC_SPEED_MULT,
+  HOMING_ACCEL_MULT,
+  HOMING_MAX_MULT,
+  HOMING_START_MULT,
+} from '../config/projectiles';
+import {
   AOE_SPLASH_FRAC,
   AURA_HASTE_CAP_PCT,
   AURA_SHIELD_DECAY_PER_SEC,
@@ -106,6 +114,8 @@ export interface HitEffects {
 export interface SimTower extends HitEffects {
   readonly slotIndex: number;
   readonly element: ElementId;
+  /** Firing tower's iconKey → the renderer picks its shot sprite & travel style. */
+  readonly iconKey: string;
   x: number;
   y: number;
   /** Targeting radius in arena pixels. */
@@ -175,12 +185,24 @@ export interface SimProjectile extends HitEffects {
   x: number;
   y: number;
   readonly target: SimEnemy;
-  /** Fixed aim point for a non-homing shockwave shot; undefined = homing. */
+  /** Fixed aim point for a non-homing shockwave / ballistic-lob shot; undefined = homing. */
   readonly firePos?: { x: number; y: number };
   readonly speed: number;
   readonly damage: number;
   readonly element: ElementId;
   alive: boolean;
+  // --- Cosmetic carry-through for the renderer (sim stays authoritative on hits) ---
+  /** Muzzle the shot left from (for the view's ballistic-arc progress fraction). */
+  readonly originX: number;
+  readonly originY: number;
+  /** Ballistic arc peak as a fraction of arena width (0 = flat / homing). */
+  readonly arcPeak: number;
+  /** Homing self-acceleration in px/s² (0 = constant `speed`); ramps `curSpeed` to the `speed` cap. */
+  readonly accel: number;
+  /** Runtime ramped speed for accelerating shots (px/s). */
+  curSpeed?: number;
+  /** iconKey of the firing tower → the view picks the shot sprite/style. */
+  readonly sourceIcon: string;
 }
 
 export type SimStatus = 'idle' | 'running' | 'victory' | 'defeat';
@@ -197,8 +219,8 @@ export interface SimCallbacks {
   onTowerFired?(slotIndex: number, target: SimEnemy, originX: number, originY: number): void;
   /** A projectile actually connected (vs. fizzling on an already-dead target). */
   onProjectileHit?(x: number, y: number, element: ElementId): void;
-  /** A chain-lightning hop / pierce beam — draw a line between two points. */
-  onBeam?(x1: number, y1: number, x2: number, y2: number, element: ElementId): void;
+  /** A chain-lightning hop / pierce beam — draw a line (+ tracer slug) between two points. `iconKey` = source tower, for the tracer sprite. */
+  onBeam?(x1: number, y1: number, x2: number, y2: number, element: ElementId, iconKey?: string): void;
   /** A Shield barrier engaged on the road at (x,y). */
   onBarrier?(x: number, y: number): void;
   onWaveStart?(waveNumber: number): void;
@@ -261,6 +283,12 @@ export class BattleSim {
 
   /** Monotonic sim clock (seconds) — status deadlines are measured against this. */
   private clock = 0;
+
+  /** Read-only sim clock, so the scene can evaluate per-enemy status deadlines (Wet/slow/DoT) for overlays. */
+  get now(): number {
+    return this.clock;
+  }
+
   /** Optional seeded PRNG + per-enemy sub-streams (see BattleSimOptions.rng). */
   private rng?: Rng;
   private enemyRng = new Map<number, Rng>();
@@ -653,7 +681,9 @@ export class BattleSim {
       this.applyHit(e, tower.damage, tower);
       if (tower.aoeRadius > 0) this.applyAoESplash(e.x, e.y, tower.damage, tower, e);
     }
-    this.cb.onBeam?.(tower.x, tower.y, tower.x + dx * len, tower.y + dy * len, tower.element);
+    // Draw the tracer from the barrel tip (muzzle), not the turret center.
+    const muzzle = this.muzzleOrigin(tower, lead.x, lead.y);
+    this.cb.onBeam?.(muzzle.x, muzzle.y, tower.x + dx * len, tower.y + dy * len, tower.element, tower.iconKey);
     if (tower.chainAfterPierce > 0) {
       const hit = new Set<SimEnemy>(pierced);
       let from = lead;
@@ -663,7 +693,7 @@ export class BattleSim {
         if (!next) break;
         dmg *= CHAIN_FALLOFF;
         this.applyHit(next, dmg, tower);
-        this.cb.onBeam?.(from.x, from.y, next.x, next.y, tower.element);
+        this.cb.onBeam?.(from.x, from.y, next.x, next.y, tower.element, tower.iconKey);
         hit.add(next);
         from = next;
       }
@@ -753,17 +783,35 @@ export class BattleSim {
   }
 
   private fireProjectile(tower: SimTower, target: SimEnemy): void {
-    // Plasma shockwave mode (v3 §5): a slow, non-homing round lobbed at where the
-    // target stands now, detonating there in an area even if it has since moved.
+    const style = shotStyle(tower.iconKey, tower.element);
+    // Ballistic (Fire/Water) shots are LOBBED to a fixed aim point so the view can
+    // arc them (the emitters fire up at an angle). Plasma's shockwave mode (v3 §5)
+    // is already lobbed; both detonate at the fire-time spot even if the target moves.
+    const ballistic = style.motion === 'ballistic';
+    const homing = style.motion === 'homing';
     const slow = tower.slowProjectile;
+    const lobbed = slow || ballistic;
     const origin = this.muzzleOrigin(tower, target.x, target.y);
+
+    // Speed: shockwave > ballistic > base; homing rounds start slow and accelerate.
+    let speed = this.projectileSpeed;
+    if (slow) speed = this.projectileSpeed * PLASMA_SLOW_PROJECTILE_MULT;
+    else if (ballistic) speed = this.projectileSpeed * BALLISTIC_SPEED_MULT;
+    else if (homing) speed = this.projectileSpeed * HOMING_MAX_MULT; // cap; curSpeed ramps to it
+
     this.projectiles.push({
       id: this.projSeq++,
       x: origin.x,
       y: origin.y,
       target,
-      firePos: slow ? { x: target.x, y: target.y } : undefined,
-      speed: slow ? this.projectileSpeed * PLASMA_SLOW_PROJECTILE_MULT : this.projectileSpeed,
+      firePos: lobbed ? { x: target.x, y: target.y } : undefined,
+      speed,
+      curSpeed: homing ? this.projectileSpeed * HOMING_START_MULT : undefined,
+      accel: homing ? this.projectileSpeed * HOMING_ACCEL_MULT : 0,
+      arcPeak: ballistic ? BALLISTIC_ARC : 0,
+      originX: origin.x,
+      originY: origin.y,
+      sourceIcon: tower.iconKey,
       damage: tower.damage,
       element: tower.element,
       alive: true,
@@ -795,7 +843,13 @@ export class BattleSim {
         continue;
       }
       const dest = p.firePos ?? p.target;
-      const step = p.speed * dt;
+      // Homing rounds (Tesla) accelerate from a slow start so they always catch up.
+      let v = p.speed;
+      if (p.accel > 0) {
+        p.curSpeed = Math.min((p.curSpeed ?? p.speed) + p.accel * dt, p.speed);
+        v = p.curSpeed;
+      }
+      const step = v * dt;
       const dx = dest.x - p.x;
       const dy = dest.y - p.y;
       const d = Math.hypot(dx, dy);
@@ -841,7 +895,7 @@ export class BattleSim {
         if (!next) break;
         dmg *= CHAIN_FALLOFF;
         this.applyHit(next, dmg, p);
-        this.cb.onBeam?.(from.x, from.y, next.x, next.y, p.element);
+        this.cb.onBeam?.(from.x, from.y, next.x, next.y, p.element, p.sourceIcon);
         hit.add(next);
         from = next;
       }
@@ -1112,6 +1166,7 @@ export function buildTowerSpec(
   return {
     slotIndex: -1, // set by the caller
     element: def.element,
+    iconKey: def.iconKey,
     x: pos.x,
     y: pos.y,
     range: base.rangeCells * mods.rangeMult * cellPx,

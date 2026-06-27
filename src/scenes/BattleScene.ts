@@ -68,6 +68,7 @@ import { ModOverlay } from '../ui/ModOverlay';
 import { MoveCostReadout, type CostPart } from '../ui/MoveCostReadout';
 import { PlatformGrid } from '../ui/PlatformGrid';
 import { ProjectileView } from '../ui/Projectile';
+import { shotStyle } from '../config/projectiles';
 import { ReactorZone } from '../ui/ReactorZone';
 import { ResourceChip } from '../ui/ResourceChip';
 import { SceneBackground } from '../ui/SceneBackground';
@@ -240,6 +241,18 @@ export class BattleScene extends Scene {
   /** Last HP seen per enemy id, to trigger a hit-flash when it drops. */
   private enemyHpSeen = new Map<number, number>();
   private projViews = new Map<number, ProjectileView>();
+  /** Last RENDER position per projectile id (incl. arc lift), for velocity-angle rotation. */
+  private projPrev = new Map<number, { x: number; y: number }>();
+  /** Live VFX particles (muzzle sparks / impact shrapnel), ticked manually for gravity. */
+  private fxParticles: {
+    node: Container;
+    vx: number;
+    vy: number;
+    spin: number;
+    life: number;
+    ttl: number;
+    grav: number;
+  }[] = [];
   private enemySize = 1;
   private banner?: BattleBanner;
   /** Range footprint shown under the dragged card before it is placed. */
@@ -383,6 +396,8 @@ export class BattleScene extends Scene {
     this.enemySize = this.arenaW * 0.12;
     this.rangePreview.visible = false;
     this.inspectRange.visible = false;
+    // Y-sort enemies by their board Y each frame (zIndex set in syncEnemies).
+    this.enemyLayer.sortableChildren = true;
     this.field.addChild(this.rangePreview, this.inspectRange, this.modOverlay, this.enemyLayer, this.fxLayer);
 
     this.buildHud();
@@ -421,8 +436,8 @@ export class BattleScene extends Scene {
         },
         onTowerFired: (slotIndex, _target, originX, originY) =>
           this.onTowerFired(slotIndex, originX, originY),
-        onProjectileHit: (x, y, element) => this.burst(x, y, ELEMENTS[element].glow, this.arenaW * 0.03),
-        onBeam: (x1, y1, x2, y2, element) => this.beam(x1, y1, x2, y2, ELEMENTS[element].glow),
+        onProjectileHit: (x, y, element) => this.impact(x, y, element),
+        onBeam: (x1, y1, x2, y2, element, iconKey) => this.beam(x1, y1, x2, y2, element, iconKey),
         onBarrier: (x, y) => {
           this.services.audio.playSfx('sfx_barrier');
           this.burst(x, y, COLORS.brassLight, this.arenaW * 0.05);
@@ -2180,7 +2195,8 @@ export class BattleScene extends Scene {
   }
 
   /** A brief line FX for chain-lightning hops and Railgun pierce beams. */
-  private beam(x1: number, y1: number, x2: number, y2: number, color: number): void {
+  private beam(x1: number, y1: number, x2: number, y2: number, element: ElementId, iconKey?: string): void {
+    const color = ELEMENTS[element].glow;
     const g = new Graphics();
     g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: this.arenaW * 0.011, color, alpha: 0.9 });
     g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: this.arenaW * 0.004, color: COLORS.white, alpha: 0.9 });
@@ -2193,6 +2209,31 @@ export class BattleScene extends Scene {
         onComplete: () => { if (!g.destroyed) g.destroy(); },
       }),
     );
+    // A fast tracer slug shoots from the muzzle to the far end, leaving a fading
+    // trail — the "projectile" of an instant pierce/chain beam (Railgun et al.).
+    const style = shotStyle(iconKey ?? '', element);
+    const tex = this.services.assets.has(style.shot) ? this.services.assets.get(style.shot) : null;
+    if (tex) {
+      const slug = new ProjectileView(tex, element, this.arenaW * 0.014, {
+        trail: true,
+        baseAngle: style.baseAngle,
+      });
+      slug.setAngle(Math.atan2(y2 - y1, x2 - x1));
+      slug.setPos(x1, y1);
+      this.fxLayer.addChild(slug);
+      this.track(
+        tween({
+          duration: 0.13,
+          easing: Easings.linear,
+          onUpdate: (t) => {
+            if (slug.destroyed) return;
+            slug.setPos(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t);
+            slug.setAngle(Math.atan2(y2 - y1, x2 - x1));
+          },
+          onComplete: () => { if (!slug.destroyed) slug.destroy(); },
+        }),
+      );
+    }
   }
 
   /**
@@ -2246,6 +2287,7 @@ export class BattleScene extends Scene {
   /** Create/update an EnemySprite per live sim enemy; bob + HP bar + hit flash. */
   private syncEnemies(dt: number): void {
     const { assets } = this.services;
+    const now = this.sim.now;
     for (const e of this.sim.enemies) {
       let view = this.enemyViews.get(e.id);
       if (!view) {
@@ -2254,7 +2296,11 @@ export class BattleScene extends Scene {
           e.def.archetype === 'support' && e.def.auraRadiusFrac
             ? { color: ELEMENTS[e.def.element].glow, radiusPx: e.def.auraRadiusFrac * this.arenaW }
             : undefined;
-        view = new EnemySprite(assets.get(e.def.iconKey), this.enemySize, e.id * 0.7, aura);
+        const fx = {
+          burn: assets.has('fx_burn') ? assets.get('fx_burn') : undefined,
+          frost: assets.has('fx_frost') ? assets.get('fx_frost') : undefined,
+        };
+        view = new EnemySprite(assets.get(e.def.iconKey), this.enemySize, e.id * 0.7, aura, fx);
         this.enemyViews.set(e.id, view);
         this.enemyHpSeen.set(e.id, e.hp);
         this.enemyLayer.addChild(view);
@@ -2263,6 +2309,19 @@ export class BattleScene extends Scene {
       if (prev !== undefined && e.hp < prev) view.playHit();
       this.enemyHpSeen.set(e.id, e.hp);
       view.position.set(e.x, e.y);
+      // Y-sort (lower on the board draws over those further up) + a gentle perspective
+      // scale (closer = bigger) for the slightly tilted arena.
+      view.zIndex = e.y;
+      const depth = Math.min(1, Math.max(0, e.y / this.arenaH));
+      view.scale.set(0.9 + 0.18 * depth);
+      // Face the way it's marching (art faces left; flip when heading right).
+      view.setFacing(this.path.headingAt(e.t).x);
+      // Status overlays/wash from the sim's live deadlines.
+      view.setStatus({
+        burning: e.dotUntil > now && e.dotDps > 0,
+        wet: e.wetUntil > now,
+        chilled: (e.slowUntil > now && e.slowFactor < 1) || e.stunUntil > now,
+      });
       view.setHpFrac(e.hp / e.maxHp);
       view.setShield(e.shield, e.shieldMax);
       view.tick(dt);
@@ -2273,22 +2332,43 @@ export class BattleScene extends Scene {
    *  Impact flashes are driven by the sim's onProjectileHit (real hits only), so
    *  a bolt that fizzles on an already-dead target leaves no phantom burst. */
   private syncProjectiles(): void {
-    const radius = this.arenaW * 0.014;
+    const radius = this.arenaW * 0.016;
+    const { assets } = this.services;
     const live = new Set<number>();
     for (const p of this.sim.projectiles) {
       live.add(p.id);
       let view = this.projViews.get(p.id);
       if (!view) {
-        view = new ProjectileView(p.element, radius);
+        const style = shotStyle(p.sourceIcon, p.element);
+        const tex = assets.has(style.shot) ? assets.get(style.shot) : null;
+        view = new ProjectileView(tex, p.element, radius, {
+          trail: style.motion === 'homing',
+          baseAngle: style.baseAngle,
+        });
         this.projViews.set(p.id, view);
         this.fxLayer.addChild(view);
       }
-      view.setPos(p.x, p.y);
+      // Ballistic shots lift on a cosmetic parabola over the ground line (the sim's
+      // p.x/p.y — and thus the impact/splash point — stay on the ground).
+      let ry = p.y;
+      if (p.arcPeak > 0 && p.firePos) {
+        const total = Math.hypot(p.firePos.x - p.originX, p.firePos.y - p.originY);
+        const trav = Math.hypot(p.x - p.originX, p.y - p.originY);
+        const f = total > 0 ? Math.min(1, trav / total) : 1;
+        ry = p.y - this.arenaW * p.arcPeak * Math.sin(Math.PI * f);
+      }
+      view.setPos(p.x, ry);
+      const prev = this.projPrev.get(p.id);
+      if (prev && (p.x !== prev.x || ry !== prev.y)) {
+        view.setAngle(Math.atan2(ry - prev.y, p.x - prev.x));
+      }
+      this.projPrev.set(p.id, { x: p.x, y: ry });
     }
     for (const [id, view] of this.projViews) {
       if (live.has(id)) continue;
       view.destroy();
       this.projViews.delete(id);
+      this.projPrev.delete(id);
     }
   }
 
@@ -2442,6 +2522,124 @@ export class BattleScene extends Scene {
     );
   }
 
+  /**
+   * Impact VFX (onProjectileHit): an element-colored glow bloom, a fx_impact flash
+   * sprite, and a radial spray of shrapnel shards that arc out under gravity.
+   */
+  private impact(x: number, y: number, element: ElementId): void {
+    const color = ELEMENTS[element].glow;
+    this.burst(x, y, color, this.arenaW * 0.03);
+    this.spawnFxSprite('fx_impact', x, y, color, this.arenaW * 0.09, 0.3);
+    this.spawnShards(x, y, color, 9, this.arenaW * 0.5);
+  }
+
+  /** A one-shot tinted VFX sprite that blooms (scale + fade) and self-destructs. */
+  private spawnFxSprite(
+    key: string,
+    x: number,
+    y: number,
+    tint: number,
+    size: number,
+    dur: number,
+    angle = 0,
+  ): void {
+    if (!this.services.assets.has(key)) return;
+    const s = new Sprite(this.services.assets.get(key));
+    fitSprite(s, size, size);
+    const base = s.scale.x;
+    s.tint = tint;
+    s.rotation = angle;
+    s.position.set(x, y);
+    this.fxLayer.addChild(s);
+    this.track(
+      tween({
+        duration: dur,
+        easing: Easings.outCubic,
+        onUpdate: (t) => {
+          if (s.destroyed) return;
+          s.alpha = 1 - t;
+          s.scale.set(base * (0.7 + 0.6 * t));
+        },
+        onComplete: () => { if (!s.destroyed) s.destroy(); },
+      }),
+    );
+  }
+
+  /** Radial shrapnel burst: small spinning shards thrown outward, falling under gravity. */
+  private spawnShards(x: number, y: number, color: number, count: number, speed: number): void {
+    const r = this.arenaW * 0.006;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = speed * (0.5 + Math.random());
+      const g = new Graphics();
+      g.poly([-r, 0, r * 0.6, -r * 0.8, r, r * 0.5]).fill({ color });
+      g.position.set(x, y);
+      g.rotation = a;
+      this.fxLayer.addChild(g);
+      this.fxParticles.push({
+        node: g,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - speed * 0.2, // slight upward bias before gravity pulls down
+        spin: (Math.random() - 0.5) * 12,
+        life: 0.45,
+        ttl: 0.45,
+        grav: this.arenaW * 1.1,
+      });
+    }
+  }
+
+  /** A forward cone of bright sparks (muzzle flash) around `angle`. */
+  private spawnSparks(
+    x: number,
+    y: number,
+    color: number,
+    count: number,
+    speed: number,
+    angle: number,
+    spread: number,
+  ): void {
+    const r = this.arenaW * 0.004;
+    for (let i = 0; i < count; i++) {
+      const a = angle + (Math.random() - 0.5) * spread * 2;
+      const sp = speed * (0.5 + Math.random());
+      const g = new Graphics();
+      g.circle(0, 0, r * 1.8).fill({ color, alpha: 0.5 });
+      g.circle(0, 0, r).fill({ color: COLORS.white });
+      g.position.set(x, y);
+      this.fxLayer.addChild(g);
+      this.fxParticles.push({
+        node: g,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        spin: 0,
+        life: 0.28,
+        ttl: 0.28,
+        grav: 0,
+      });
+    }
+  }
+
+  /** Advance VFX particles (position, gravity, spin, fade); reap the dead. Called each frame. */
+  private tickParticles(dt: number): void {
+    if (this.fxParticles.length === 0) return;
+    for (let i = this.fxParticles.length - 1; i >= 0; i--) {
+      const p = this.fxParticles[i]!;
+      p.life -= dt;
+      if (p.life <= 0 || p.node.destroyed) {
+        if (!p.node.destroyed) p.node.destroy();
+        this.fxParticles.splice(i, 1);
+        continue;
+      }
+      p.vy += p.grav * dt;
+      p.node.x += p.vx * dt;
+      p.node.y += p.vy * dt;
+      p.node.rotation += p.spin * dt;
+      const f = p.life / p.ttl;
+      p.node.alpha = Math.min(1, f * 1.6);
+      p.node.scale.set(0.4 + 0.6 * f);
+    }
+  }
+
   private onTowerFired(slotIndex: number, originX: number, originY: number): void {
     const placed = this.state.slots[slotIndex];
     if (!placed) return;
@@ -2450,7 +2648,15 @@ export class BattleScene extends Scene {
     this.services.audio.playSfx(TOWER_SHOOT_SFX[placed.cardId] ?? 'sfx_shoot');
     // The muzzle flash blooms at the gun tip the sim fired from (sim coords ==
     // scene coords), so it lines up with the bolt leaving a rotating turret.
-    this.burst(originX, originY, ELEMENTS[def.element].glow, this.arenaW * 0.026);
+    const color = ELEMENTS[def.element].glow;
+    this.burst(originX, originY, color, this.arenaW * 0.022);
+    this.spawnFxSprite('fx_muzzle', originX, originY, 0xffffff, this.arenaW * 0.055, 0.16);
+    // Spark cone in the firing direction (toward the lead enemy the sim aimed at).
+    const aim = this.sim.towerAim(slotIndex);
+    if (aim) {
+      const ang = Math.atan2(aim.y - originY, aim.x - originX);
+      this.spawnSparks(originX, originY, color, 5, this.arenaW * 0.5, ang, 0.5);
+    }
   }
 
   private onEnemyKilled(e: SimEnemy): void {
@@ -3092,6 +3298,7 @@ export class BattleScene extends Scene {
     this.sim.update(dt);
     this.syncEnemies(dt);
     this.syncProjectiles();
+    this.tickParticles(dt);
     this.syncCooldowns(dt);
     this.updateWaveToast(dt);
     this.updateTelegraph(dt);
@@ -3147,8 +3354,11 @@ export class BattleScene extends Scene {
     this.closeSettings();
     this.closeTutorial();
     this.rewardLayer.removeChildren().forEach((c) => c.destroy());
+    for (const p of this.fxParticles) if (!p.node.destroyed) p.node.destroy();
+    this.fxParticles.length = 0;
     this.enemyViews.clear();
     this.enemyHpSeen.clear();
     this.projViews.clear();
+    this.projPrev.clear();
   }
 }

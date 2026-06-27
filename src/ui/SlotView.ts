@@ -166,7 +166,7 @@ export class SlotView extends Container {
   setPlaced(
     art: Texture,
     element: ElementId,
-    _grade: number,
+    grade: number,
     dots: readonly SynergyDot[] = [],
     resonant = false,
     dirStrip?: Texture,
@@ -221,6 +221,38 @@ export class SlotView extends Container {
 
     this.drawDots(dots);
     this.drawResonance(resonant, skin.glow);
+    this.drawGrade(grade, skin.glow);
+  }
+
+  /**
+   * Merge-level indicator: `grade` small element-tinted pips at the top of the slot
+   * (none at Grade I). Reads the tower's tier at a glance even when its art doesn't
+   * change with grade (rotating turrets keep their base aim sheet). v3 polish.
+   */
+  private drawGrade(grade: number, color: number): void {
+    if (grade < 2) return;
+    const s = this.size;
+    const r = s * 0.05;
+    const gap = r * 2.1;
+    const pad = s * 0.05;
+    const lastX = s * 0.5 - pad - r; // rightmost pip center (top-right corner, clear of the centered barrel)
+    const firstX = lastX - (grade - 1) * gap;
+    const cy = -s * 0.5 + pad + r;
+    const g = new Graphics();
+    // Dark pill behind the pips so they read over any tower art.
+    g.roundRect(
+      firstX - r - s * 0.025,
+      cy - r - s * 0.025,
+      lastX - firstX + 2 * r + s * 0.05,
+      2 * r + s * 0.05,
+      r + s * 0.025,
+    ).fill({ color: COLORS.black, alpha: 0.5 });
+    for (let i = 0; i < grade; i++) {
+      const x = firstX + i * gap;
+      g.circle(x, cy, r).fill({ color });
+      g.circle(x, cy, r * 0.42).fill({ color: COLORS.white, alpha: 0.9 });
+    }
+    this.content.addChild(g);
   }
 
   /**

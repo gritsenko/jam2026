@@ -303,6 +303,56 @@ Kingdom Rush) + тёмный дизельпанк-металл, якорь `docs
 `assets/sprites/<iconKey>_dirs.png` (фон прозрачный) → перезапуск dev-сервера. Будущие
 состояния (idle/attack/loading) и грейд-версии — отдельными шитами `<iconKey>_*`.
 
+**Грейд-вариации башен.** У занятого слота показываются **пипсы грейда** (II/III точек
+в правом-верхнем углу, цвет = стихия; на грейде I пипсов нет) —
+[SlotView.drawGrade](../../src/ui/SlotView.ts). Спрайт башни тоже меняется по грейду:
+[PlatformGrid.artFor](../../src/ui/PlatformGrid.ts) пробует `<iconKey>_g2`/`_g3`, иначе
+базу; для вращающихся ещё `<iconKey>_g{2,3}_dirs`, иначе базовый шит. На диске сейчас
+одиночные `_g2`/`_g3` для всех 6 базовых башен — **статичные** (`frost_pulse`,
+`storm_coil`, `shield_generator`, `grid_stabilizer`) подставляют их в слот напрямую;
+вращающиеся (`plasma_shutter`, `railgun`) держат базовый `_dirs`-шит (грейд-`_dirs`-шиты —
+ручная работа на будущее), грейд читается по пипсам. Фоллбек по `AssetLoader.has`.
+
+## Снаряды, VFX и статус-визуалы врагов
+
+Спека — [../done/projectiles-vfx-and-enemy-polish.md](../done/projectiles-vfx-and-enemy-polish.md).
+Сим остаётся headless и **авторитетен по попаданиям**; вся траектория/частицы/оверлеи —
+в рендере, сим лишь несёт косметические поля снаряда.
+
+- **Спрайты снарядов и стиль полёта** — таблица по `iconKey`
+  ([projectiles.ts](../../src/config/projectiles.ts), фоллбек по стихии): `ballistic`
+  (Fire/Water — `plasma_shutter`/`frost_pulse`/`steam_cannon`/`ion_volley`, спрайты
+  `shot_plasma`/`shot_ice`/`shot_steam`/`shot_ion`) — снаряд **лобается** в фикс-точку
+  (`firePos`) и в рендере поднимается по **параболе** (`arcPeak`); `homing` (Electricity —
+  `storm_coil`/`cryo_discharge`, `shot_tesla`/`shot_cryo`) — **шаровая молния** стартует
+  медленно и **разгоняется** (`accel`/`curSpeed` в `moveProjectiles`), всегда догоняя цель;
+  `tracer` (пронзающие — `railgun`/`thermo_spear`/`icebreaker`/`gauss_coil`,
+  `shot_rail`/`shot_thermo`/`shot_icebreaker`/`shot_gauss`) — мгновенный луч `onBeam`
+  рисует **трассер-слизень** с затухающим следом от дула. `SimProjectile` несёт
+  `sourceIcon`/`originX,Y`/`arcPeak`/`accel`. Болт — [ProjectileView](../../src/ui/Projectile.ts)
+  (спрайт + glow + поворот к вектору + след у homing), фоллбек на процедурный болт.
+- **VFX** ([BattleScene](../../src/scenes/BattleScene.ts) `impact`/`onTowerFired` +
+  пул-частицы `tickParticles`): дульная вспышка `fx_muzzle` + искры по направлению
+  выстрела; на попадании — `fx_impact` + **разлёт осколков** (процедурные частицы с
+  гравитацией), тонированные стихией.
+- **Статус-оверлеи на врагах** ([EnemySprite.setStatus](../../src/ui/EnemySprite.ts),
+  драйв из `syncEnemies` по дедлайнам сима через `BattleSim.now`): горящий враг —
+  спрайт пламени `fx_burn` (фликер; триггер = активный DoT, напр. Паровой Выброс), мокрый
+  /замедленный — `fx_frost` (иней) + холодный тинт тела. Поджиг от самой плазмы по
+  умолчанию **off** (тунабл — чтобы не трогать баланс).
+- **Враги: ориентация, сортировка, перспектива** ([syncEnemies](../../src/scenes/BattleScene.ts)):
+  спрайт **разворачивается по движению** (`path.headingAt(e.t).x`; канон арта — лицом
+  **влево**, флипается только спрайт, не hp/аура); слой `enemyLayer.sortableChildren`,
+  `zIndex = e.y` → кто **ниже, тот поверх**; лёгкий **перспективный масштаб** по `y`.
+
+## Советник в туториале
+
+Модалки обучения ([TutorialModal](../../src/ui/TutorialModal.ts)) показывают советника
+**KloDouglas** (`advisor_klodouglas`, вырезан из
+`docs/visual_refs/visual_sources/advisors/tech.png`) у **правой границы** карточки; тело
+текста и иллюстрация смещаются влево, чтобы не залезать под фигуру. На узких/низких
+карточках советник скрывается.
+
 ## Звук
 
 Аудио-слой подключён ([AudioBus.ts](../../src/core/AudioBus.ts), нативный Web Audio,
