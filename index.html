@@ -55,11 +55,28 @@
       #boot.boot-hidden {
         opacity: 0;
       }
-      .boot-title {
-        font-size: 14px;
-        letter-spacing: 0.25em;
-        text-transform: uppercase;
-        opacity: 0.8;
+      .boot-logo {
+        width: 300px;
+        max-width: 64vw;
+        height: auto;
+        filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 0.5));
+        /* Fade + ease in so the splash never looks frozen on the first paint. */
+        animation: boot-logo-in 0.55s ease-out both;
+      }
+      @keyframes boot-logo-in {
+        from {
+          opacity: 0;
+          transform: scale(0.92);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-logo {
+          animation: none;
+        }
       }
       .boot-track {
         position: relative;
@@ -107,7 +124,7 @@
   <body>
     <div id="app"></div>
     <div id="boot">
-      <div class="boot-title">Synergy Grid TD</div>
+      <img class="boot-logo" src="assets/sprites/loader.png" alt="Buhanka 3000 — Tower Defense" />
       <div class="boot-track boot-indeterminate"><div class="boot-fill"></div></div>
     </div>
     <script>
