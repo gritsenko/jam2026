@@ -9,6 +9,7 @@ import { AdminHud } from '../ui/AdminHud';
 import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
 import { glowCircle, makeText } from '../ui/helpers';
+import * as progress from '../game/progress';
 import * as Telemetry from '../telemetry/Telemetry';
 
 /** Title screen: themed backdrop, title cluster, and a Start CTA. */
@@ -64,7 +65,14 @@ export class MainMenuScene extends Scene {
       onClick: () => {
         this.services.audio.playSfx('sfx_click');
         Telemetry.track('menu_play');
-        this.services.navigate('worldmap');
+        // First start of the campaign rolls the intro cutscene (Buhanka briefing);
+        // afterwards START goes straight to the map. Admin replays it. The intro
+        // hands off to the world map when it ends.
+        if (progress.shouldPlayStory('intro')) {
+          this.services.navigate('cutscene', { id: 'intro', next: { route: 'worldmap' } });
+        } else {
+          this.services.navigate('worldmap');
+        }
       },
     });
     this.addChild(this.startBtn);

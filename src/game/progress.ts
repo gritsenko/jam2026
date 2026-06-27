@@ -30,10 +30,17 @@ interface ProgressData {
   burnFieldEnabled: boolean;
   /** Ids of tutorial lessons already shown (docs/done/tutorial-modals.md §4). */
   seenTutorials: string[];
+  /**
+   * Ids of story beats already shown (cutscenes + dialogue scripts, see
+   * config/dialogue.ts / config/cutscenes.ts). Mirrors {@link seenTutorials}: a
+   * beat plays the first time it's reached and is then skipped on replays unless
+   * Admin mode is on (which re-plays everything, so story can be re-checked).
+   */
+  seenStory: string[];
 }
 
 function fresh(): ProgressData {
-  return { cleared: [], stars: {}, admin: false, sellEnabled: false, burnFieldEnabled: false, seenTutorials: [] };
+  return { cleared: [], stars: {}, admin: false, sellEnabled: false, burnFieldEnabled: false, seenTutorials: [], seenStory: [] };
 }
 
 function read(): ProgressData {
@@ -51,6 +58,9 @@ function read(): ProgressData {
       // tutorials will show once, which is fine).
       seenTutorials: Array.isArray(parsed.seenTutorials)
         ? parsed.seenTutorials.filter((s) => typeof s === 'string')
+        : [],
+      seenStory: Array.isArray(parsed.seenStory)
+        ? parsed.seenStory.filter((s) => typeof s === 'string')
         : [],
     };
   } catch {
@@ -169,4 +179,26 @@ export function markTutorialsSeen(ids: Iterable<string>): void {
     }
   }
   if (changed) write();
+}
+
+/**
+ * Whether a story beat (cutscene / dialogue script id) should play now: true the
+ * first time it's reached, and always in Admin mode (so story can be re-checked
+ * by jumping around). Mirrors the tutorial gate.
+ */
+export function shouldPlayStory(id: string): boolean {
+  return state.admin || !state.seenStory.includes(id);
+}
+
+/** True once a story beat has been shown at least once (ignores Admin). */
+export function hasSeenStory(id: string): boolean {
+  return state.seenStory.includes(id);
+}
+
+/** Mark a story beat as shown (persists), so it never auto-plays again. */
+export function markStorySeen(id: string): void {
+  if (!state.seenStory.includes(id)) {
+    state.seenStory.push(id);
+    write();
+  }
 }

@@ -25,6 +25,10 @@ const en: Dict = {
   'common.next': 'NEXT',
   'common.gotIt': 'GOT IT',
 
+  // --- cutscenes / dialogue ---
+  'cutscene.theEnd': 'THE END',
+  'cutscene.continue': 'CONTINUE',
+
   // --- main menu ---
   'menu.subtitle': 'in search of the last senior',
 
@@ -188,6 +192,10 @@ const ru: Dict = {
   'common.retry': 'ЗАНОВО',
   'common.next': 'ДАЛЕЕ',
   'common.gotIt': 'ПОНЯТНО',
+
+  // --- cutscenes / dialogue ---
+  'cutscene.theEnd': 'КОНЕЦ',
+  'cutscene.continue': 'ДАЛЬШЕ',
 
   // --- main menu ---
   'menu.subtitle': 'в поисках последнего сеньора',

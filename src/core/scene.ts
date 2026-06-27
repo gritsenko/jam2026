@@ -3,7 +3,7 @@ import type { AssetLoader } from './AssetLoader';
 import type { AudioBus } from './AudioBus';
 import type { LayoutInfo } from './ResponsiveLayout';
 
-export type RouteId = 'menu' | 'worldmap' | 'battle';
+export type RouteId = 'menu' | 'worldmap' | 'battle' | 'cutscene';
 
 export type SceneParams = Record<string, unknown>;
 

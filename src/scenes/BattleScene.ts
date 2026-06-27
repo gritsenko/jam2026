@@ -62,6 +62,9 @@ import { MuteButton } from '../ui/MuteButton';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { TutorialModal } from '../ui/TutorialModal';
 import { pendingLessons } from '../config/tutorial';
+import { DialogueOverlay } from '../ui/DialogueOverlay';
+import { getDialogue, missionBriefId, victoryDialogueId } from '../config/dialogue';
+import { LEVEL_ORDER } from '../config/progression';
 import { CoreBadge } from '../ui/CoreBadge';
 import { EnemySprite } from '../ui/EnemySprite';
 import { EnergyGauge } from '../ui/EnergyGauge';
@@ -215,6 +218,8 @@ export class BattleScene extends Scene {
   private settings: SettingsPanel | null = null;
   /** Onboarding modal, alive only while pending lessons are shown (defers wave start). */
   private tutorial: TutorialModal | null = null;
+  /** Visual-novel dialogue overlay (mission brief / victory beat), when one is playing. */
+  private dialogue: DialogueOverlay | null = null;
   /** 1-based number of the wave in progress; drives the §3.В wave-capacity growth. */
   private currentWave = 1;
   /** Hand rerolls used in the current wave; resets each wave (§8.Б cost escalation). */
@@ -496,7 +501,7 @@ export class BattleScene extends Scene {
         },
         onVictory: () => {
           this.services.audio.playSfx('sfx_victory');
-          this.showBanner('victory');
+          this.handleVictory();
         },
         onDefeat: () => {
           this.services.audio.playSfx('sfx_defeat');
@@ -524,10 +529,37 @@ export class BattleScene extends Scene {
     // Reactor overlays the field but sits below the dragged card.
     this.hudLayer.addChild(this.reactor);
 
-    // Onboarding: if this level introduces anything new, walk the player through
-    // it before the waves begin. The sim only starts once the modal is closed
-    // (no separate pause flag — unstarted sim simply doesn't advance).
-    this.startBattleOrTutorial();
+    // Story → onboarding → waves. The mission brief (level chief ↔ heroes) plays
+    // over the freshly-revealed arena first; then the tutorial; then combat. The
+    // sim only starts at the end of the chain (unstarted sim simply doesn't advance).
+    this.startMissionBrief();
+  }
+
+  /**
+   * Show the level's mission-brief dialogue (config/dialogue.ts) over the arena,
+   * then chain into the tutorial. First entry only (Admin replays it); levels
+   * with no brief drop straight to the tutorial.
+   */
+  private startMissionBrief(): void {
+    const id = missionBriefId(this.levelId);
+    const script = id ? getDialogue(id) : undefined;
+    if (!id || !script || !progress.shouldPlayStory(id)) {
+      this.startBattleOrTutorial();
+      return;
+    }
+    this.dialogue = new DialogueOverlay(
+      script,
+      this.services.assets,
+      this.services.audio,
+      () => {
+        progress.markStorySeen(id);
+        this.closeDialogue();
+        this.startBattleOrTutorial();
+      },
+      { dimAlpha: 0.5 },
+    );
+    this.addChild(this.dialogue); // top-most, above the drag layer
+    this.dialogue.layout(this.services.getLayout());
   }
 
   /**
@@ -552,6 +584,11 @@ export class BattleScene extends Scene {
   private closeTutorial(): void {
     this.tutorial?.destroy({ children: true });
     this.tutorial = null;
+  }
+
+  private closeDialogue(): void {
+    this.dialogue?.destroy({ children: true });
+    this.dialogue = null;
   }
 
   private buildHud(): void {
@@ -3218,6 +3255,49 @@ export class BattleScene extends Scene {
     return next;
   }
 
+  /**
+   * Victory flow: play the level's victory dialogue (config/dialogue.ts) over the
+   * cleared board, then present the result. Clearing the *last* campaign level
+   * rolls the finale cutscene instead of the result banner. First clear only for
+   * the dialogue (Admin replays it); the finale plays on first clear or in Admin.
+   */
+  private handleVictory(): void {
+    const isFinal = LEVEL_ORDER[LEVEL_ORDER.length - 1] === this.levelId;
+    const firstClear = !progress.isCleared(this.levelId);
+    const vId = victoryDialogueId(this.levelId);
+    const vScript = vId ? getDialogue(vId) : undefined;
+
+    const proceed = (): void => {
+      if (isFinal && (firstClear || progress.isAdmin())) {
+        // Record the clear (unlock + stars) before leaving for the finale, since
+        // we bypass the banner that normally records it.
+        progress.recordClear(this.levelId, this.sim.coreHp, CORE_MAX);
+        Telemetry.track('level_end', { outcome: 'victory', endedAt: { wave: this.sim.waveNumber }, finale: true });
+        this.services.navigate('cutscene', { id: 'finale', next: { route: 'menu' } });
+        return;
+      }
+      this.showBanner('victory');
+    };
+
+    if (vId && vScript && progress.shouldPlayStory(vId)) {
+      this.dialogue = new DialogueOverlay(
+        vScript,
+        this.services.assets,
+        this.services.audio,
+        () => {
+          progress.markStorySeen(vId);
+          this.closeDialogue();
+          proceed();
+        },
+        { dimAlpha: 0.55 },
+      );
+      this.addChild(this.dialogue);
+      this.dialogue.layout(this.services.getLayout());
+      return;
+    }
+    proceed();
+  }
+
   private showBanner(kind: 'victory' | 'defeat'): void {
     if (this.banner) return;
     let opts;
@@ -3318,6 +3398,7 @@ export class BattleScene extends Scene {
     this.gearBtn.position.set(safe.x + pad + 75, topY + 64 + 12 + 32);
     this.settings?.layout(info);
     this.tutorial?.layout(info);
+    this.dialogue?.layout(info);
     this.waveBadge.position.set(safe.x + pad + 160, topY);
     this.coreBadge.position.set(safe.x + pad + 160, topY + this.waveBadge.badgeH + 8);
 
@@ -3427,6 +3508,7 @@ export class BattleScene extends Scene {
   override update(dt: number): void {
     this.gauge.tick(dt);
     this.tutorial?.tick(dt); // idle float + scripted demo animation while open
+    this.dialogue?.tick(dt); // typewriter + portrait life while a story beat plays
     for (const d of this.animatedDecor) d.advance(dt); // ambient looping props (real time)
 
     // Drive the combat simulation, then mirror it into sprites. Overload from

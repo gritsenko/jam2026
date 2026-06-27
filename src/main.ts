@@ -3,12 +3,14 @@ import type { RouteId, SceneFactory } from './core/scene';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
 import { BattleScene } from './scenes/BattleScene';
+import { CutsceneScene } from './scenes/CutsceneScene';
 import * as Telemetry from './telemetry/Telemetry';
 
 const routes: Record<RouteId, SceneFactory> = {
   menu: (s) => new MainMenuScene(s),
   worldmap: (s) => new WorldMapScene(s),
   battle: (s) => new BattleScene(s),
+  cutscene: (s) => new CutsceneScene(s),
 };
 
 async function main(): Promise<void> {

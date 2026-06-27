@@ -729,6 +729,34 @@
       "category": "prop",
       "size": 256,
       "prompt": "rugged off-road dieselpunk van, parked, three-quarter view"
+    },
+    {
+      "key": "cutscene_intro",
+      "file": "assets/sprites/cutscene_intro.png",
+      "category": "background",
+      "size": 1024,
+      "prompt": "cozy post-apocalyptic comic poster: a rugged armored van Buhanka 3000 bristling with satellite dishes and GPU racks parked in a sunset desert canyon of ruins, warm orange light, no text"
+    },
+    {
+      "key": "char_mech",
+      "file": "assets/sprites/char_mech.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a friendly steampunk tinkerer with brass goggles, leather tool vest and a wrench, holding a small glowing device, confident smile"
+    },
+    {
+      "key": "char_coder",
+      "file": "assets/sprites/char_coder.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a tech operator in a red dieselpunk coat with brass reactor armor, holding a glowing holographic tablet, glasses, calm clever look"
+    },
+    {
+      "key": "char_matriarch",
+      "file": "assets/sprites/char_matriarch.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a wise matriarch leader, strawberry-blonde hair, green turtleneck under a brass-geared leather coat, holding a staff topped with green flame"
     }
   ]
 }

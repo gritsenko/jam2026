@@ -877,6 +877,38 @@ export const ASSETS: AssetSpec[] = [
     prompt: 'KloDouglas, a steampunk tech engineer advisor, full-body character holding a glowing schematic tablet, brown leather coat with brass fittings, friendly confident pose (cut from docs/visual_refs/visual_sources/advisors/tech.png)',
     placeholder: { shape: 'rect', tint: COLORS.brass, label: 'KLO' },
   },
+
+  // ---- Story: cutscene backdrops + dialogue character portraits ------------
+  // Full-screen cutscene paintings (see config/cutscenes.ts) and the cut-out
+  // figures shown in the visual-novel DialogueOverlay (config/dialogue.ts).
+  {
+    key: 'cutscene_intro',
+    category: 'background',
+    size: 1024,
+    prompt: 'cozy post-apocalyptic comic poster: a rugged armored van "Buhanka 3000" bristling with satellite dishes and GPU racks parked in a sunset desert canyon of ruins, warm orange light, no text',
+    placeholder: { shape: 'rect', tint: COLORS.bgCanyon, label: '' },
+  },
+  {
+    key: 'char_mech',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a friendly steampunk tinkerer with brass goggles, leather tool vest and a wrench, holding a small glowing device, confident smile',
+    placeholder: { shape: 'rect', tint: COLORS.brass, label: 'MECH' },
+  },
+  {
+    key: 'char_coder',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a tech operator in a red dieselpunk coat with brass reactor armor, holding a glowing holographic tablet, glasses, calm clever look',
+    placeholder: { shape: 'rect', tint: ELEMENTS.Fire.base, label: 'CODER' },
+  },
+  {
+    key: 'char_matriarch',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a wise matriarch leader, strawberry-blonde hair, green turtleneck under a brass-geared leather coat, holding a staff topped with green flame',
+    placeholder: { shape: 'rect', tint: ELEMENTS.Energy.base, label: 'MATRIARCH' },
+  },
 ];
 
 export const ASSET_BY_KEY: Record<string, AssetSpec> = Object.fromEntries(
