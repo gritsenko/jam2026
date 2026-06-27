@@ -239,7 +239,7 @@ export class TutorialModal extends Container {
     if (art.kind === 'demo') {
       const factory = TUTORIAL_DEMOS[art.demoId];
       if (factory) {
-        this.currentDemo = factory(ILLU * 0.92);
+        this.currentDemo = factory(ILLU * 0.92, this.assets);
         this.illu.addChild(this.currentDemo.view);
         return;
       }

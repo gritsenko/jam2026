@@ -1,8 +1,9 @@
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Sprite } from 'pixi.js';
 import { COLORS, ELEMENTS } from '../theme';
+import type { AssetLoader } from '../core/AssetLoader';
 import type { TutorialDemoId } from '../config/tutorial';
 import { gradeLabel } from '../core/i18n';
-import { makeText } from './helpers';
+import { fitSprite, glowCircle, makeText } from './helpers';
 
 /**
  * Tiny looping in-engine illustrations for the "process" lessons
@@ -19,7 +20,7 @@ export interface TutorialDemo {
   destroy(): void;
 }
 
-export type DemoFactory = (box: number) => TutorialDemo;
+export type DemoFactory = (box: number, assets: AssetLoader) => TutorialDemo;
 
 /** Smooth 0..1..0 triangle-ish pulse from a looping phase. */
 function pingPong(t: number): number {
@@ -92,50 +93,73 @@ function makeSynergyDemo(box: number): TutorialDemo {
   };
 }
 
-/** Merge: two identical mini-cards slide together and snap into one larger "Lv2" card. */
-function makeMergeDemo(box: number): TutorialDemo {
+/**
+ * Merge: two identical towers of the SAME type slide together and snap into one
+ * higher-grade tower (II). Uses real tower art (storm_coil ×2 → storm_coil_g2)
+ * so the lesson reads as "two of a kind → upgrade" — distinct from Fusion, which
+ * combines two *different* cards into a hybrid (that demo would show two cards).
+ */
+function makeMergeDemo(box: number, assets: AssetLoader): TutorialDemo {
   const view = new Container();
-  const g = new Graphics();
-  const label = makeText(gradeLabel(2), 'value', { fontSize: Math.round(box * 0.14) });
-  label.anchor.set(0.5);
-  label.visible = false;
-  view.addChild(g, label);
 
-  const cw = box * 0.26;
-  const ch = box * 0.4;
-  const spread = box * 0.26;
+  const BASE = 'storm_coil';
+  const GRADED = assets.has('storm_coil_g2') ? 'storm_coil_g2' : BASE;
+  const accent = ELEMENTS.Electricity;
+
+  // Burst behind the merged tower at the moment of the snap.
+  const flash = glowCircle(box * 0.34, accent.glow, 0.55);
+  flash.visible = false;
+
+  const towerSize = box * 0.46;
+  const left = new Sprite(assets.get(BASE));
+  const right = new Sprite(assets.get(BASE));
+  fitSprite(left, towerSize, towerSize);
+  fitSprite(right, towerSize, towerSize);
+
+  const merged = new Sprite(assets.get(GRADED));
+  fitSprite(merged, towerSize * 1.2, towerSize * 1.2);
+  const mergedScale = merged.scale.x; // base scale, captured for the snap pop
+  merged.visible = false;
+
+  // Grade-up badge under the merged tower.
+  const label = makeText(gradeLabel(2), 'value', { fontSize: Math.round(box * 0.13) });
+  label.anchor.set(0.5);
+  label.position.set(0, box * 0.34);
+  label.visible = false;
+
+  view.addChild(flash, left, right, merged, label);
+
+  const spread = box * 0.28;
   let phase = 0;
   const T = 2.6; // loop seconds
 
-  const card = (cx: number, cy: number, w: number, h: number, color: number, alpha = 1) => {
-    g.roundRect(cx - w / 2, cy - h / 2, w, h, 10).fill({ color: COLORS.metalMid, alpha });
-    g.roundRect(cx - w / 2 + 6, cy - h / 2 + 6, w - 12, h * 0.5, 8).fill({ color, alpha: alpha * 0.85 });
-    g.roundRect(cx - w / 2, cy - h / 2, w, h, 10).stroke({ width: 3, color: COLORS.brass, alpha });
-  };
-
   const draw = () => {
-    g.clear();
     const p = phase / T;
     if (p < 0.55) {
-      // Approach: the two cards close the gap.
+      // Approach: the two identical towers close the gap.
       const k = 1 - p / 0.55;
       const off = spread * k;
-      card(-off, 0, cw, ch, ELEMENTS.Electricity.base);
-      card(off, 0, cw, ch, ELEMENTS.Electricity.base);
-      label.visible = false;
+      left.visible = right.visible = true;
+      left.alpha = right.alpha = 1;
+      left.position.set(-off, 0);
+      right.position.set(off, 0);
+      merged.visible = label.visible = flash.visible = false;
     } else if (p < 0.85) {
-      // Snap: one larger merged card with the grade-up label.
+      // Snap: one higher-grade tower with a flash + grade-up badge.
       const k = (p - 0.55) / 0.3;
-      const grow = 1 + 0.18 * pingPong(Math.min(1, k) * 0.5);
-      card(0, 0, cw * 1.15 * grow, ch * 1.1 * grow, ELEMENTS.Electricity.glow);
-      label.visible = true;
+      left.visible = right.visible = false;
+      merged.visible = label.visible = flash.visible = true;
+      merged.alpha = 1;
+      merged.scale.set(mergedScale * (1 + 0.16 * pingPong(Math.min(1, k) * 0.5)));
+      flash.alpha = 0.7 * (1 - k);
       label.alpha = Math.min(1, k * 2);
     } else {
       // Fade-out before the loop restarts.
       const k = (p - 0.85) / 0.15;
-      card(0, 0, cw * 1.15, ch * 1.1, ELEMENTS.Electricity.glow, 1 - k);
-      label.visible = true;
-      label.alpha = 1 - k;
+      left.visible = right.visible = flash.visible = false;
+      merged.visible = label.visible = true;
+      merged.scale.set(mergedScale);
+      merged.alpha = label.alpha = 1 - k;
     }
   };
 
