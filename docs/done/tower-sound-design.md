@@ -1,13 +1,14 @@
 # Звуковой дизайн башен (пер-башенные SFX) — спека
 
 > **Статус: done (роутинг в коде).** Ключи зарегистрированы в
-> [audioManifest.ts](../../src/config/audioManifest.ts), а маршрутизация подключена в
-> [BattleScene.ts](../../src/scenes/BattleScene.ts): вылет роутится по `cardId`
-> (`TOWER_SHOOT_SFX`), попадание — по стихии источника (`ELEMENT_HIT_SFX`; колбэк
-> `onEnemyDamaged` расширен полем `element`). Сами PNG-сэмплы (`assets/audio/<key>.mp3`)
-> можно добавлять постепенно — без файла ключ молчит и падает на общие
-> `sfx_shoot`/`sfx_hit`. §2 (звуки на замену) остаётся как лист задач на ручной поиск
-> сэмплов.
+> [audioManifest.ts](../../src/config/audioManifest.ts), маршрутизация — в
+> [BattleScene.ts](../../src/scenes/BattleScene.ts): вылет по `cardId`
+> (`TOWER_SHOOT_SFX`), попадание — по `cardId` (`TOWER_HIT_SFX` → фоллбек
+> `ELEMENT_HIT_SFX` → `sfx_hit`) в `onProjectileHit` / `onBeam`; сим несёт `towerId`
+> на снаряде и в луче ([BattleSim.ts](../../src/game/BattleSim.ts)). Крит — `sfx_crit`
+> в `onEnemyDamaged`. MP3 (`assets/audio/<key>.mp3`) без файла → тихий no-op и фоллбек.
+> §2 (звуки на замену) — лист на ручную замену сэмплов; `sfx_hit_storm` пока копия
+> `sfx_hit_cryo` (нужен уникальный chain-lightning клип).
 
 Источники истины по аудио: [src/config/audioManifest.ts](../../src/config/audioManifest.ts)
 (единый реестр ключей + англ. промпты для text-to-audio), [assets/audio/README.md](../../assets/audio/README.md)
@@ -75,19 +76,18 @@
 
 ### 1.5 Гибриды фьюжна (v2 §6.5)
 
-Отдельные ключи вылета по `cardId` (см. `TOWER_SHOOT_SFX` в BattleScene). Попадание по
-умолчанию — через `ELEMENT_HIT_SFX` (стихия гибрида). Уникальные hit-клипы — стретч.
+Отдельные пары shoot/hit по `cardId` (`TOWER_SHOOT_SFX` / `TOWER_HIT_SFX` в BattleScene).
 
-| Гибрид | Вылет | Попадание (default) |
+| Гибрид | Вылет | Попадание |
 | --- | --- | --- |
-| Паровая Пушка (`steam_cannon`) | `sfx_shoot_steam` | Water / `sfx_hit_steam` |
-| Криоразряд (`cryo_discharge`) | `sfx_shoot_cryo` | Electricity |
-| Ионный Залп (`ion_volley`) | `sfx_shoot_ion` | Fire |
-| Термокопьё (`thermo_spear`) | `sfx_shoot_thermo` | Fire / `sfx_hit_thermo` |
-| Ледобой (`icebreaker`) | `sfx_shoot_icebreaker` | Water |
-| Гаусс-Катушка (`gauss_coil`) | `sfx_shoot_gauss` | Electricity |
+| Паровая Пушка (`steam_cannon`) | `sfx_shoot_steam` | `sfx_hit_steam` |
+| Криоразряд (`cryo_discharge`) | `sfx_shoot_cryo` | `sfx_hit_cryo` |
+| Ионный Залп (`ion_volley`) | `sfx_shoot_ion` | `sfx_hit_ion` |
+| Термокопьё (`thermo_spear`) | `sfx_shoot_thermo` | `sfx_hit_thermo` |
+| Ледобой (`icebreaker`) | `sfx_shoot_icebreaker` | `sfx_hit_icebreaker` |
+| Гаусс-Катушка (`gauss_coil`) | `sfx_shoot_gauss` | `sfx_hit_gauss` |
 
-Playbook генерации: [fusion-hybrid-assets.md](../planned/fusion-hybrid-assets.md).
+Playbook генерации: [fusion-hybrid-assets.md](fusion-hybrid-assets.md).
 
 ## 2. Звуки на замену и недостающие (ищу готовые вручную)
 
@@ -205,17 +205,16 @@ Playbook генерации: [fusion-hybrid-assets.md](../planned/fusion-hybrid-
 
 Реализовано (см. статус-баннер сверху):
 
-1. Ключи `sfx_shoot_*` / `sfx_hit_*` добавлены в `AUDIO[]`
+1. Ключи `sfx_shoot_*` / `sfx_hit_*` (10 атакующих башен) в `AUDIO[]`
    ([audioManifest.ts](../../src/config/audioManifest.ts), kind `'sfx'`).
-2. Маппинги `TOWER_SHOOT_SFX` (по `cardId`) и `ELEMENT_HIT_SFX` (по стихии) —
-   модульные константы в [BattleScene.ts](../../src/scenes/BattleScene.ts), оба с
-   фоллбеком на общие `sfx_shoot`/`sfx_hit`.
-3. Вылет играется в `onTowerFired` → `BattleScene.onTowerFired(slotIndex)` по `cardId`
-   слота. Попадание — в колбэке `onEnemyDamaged`, который теперь несёт `element`
-   источника (расширена сигнатура `SimCallbacks.onEnemyDamaged` и `applyHit` в
-   [BattleSim.ts](../../src/game/BattleSim.ts)); крит по-прежнему перебивает на `sfx_crit`.
-4. Осталось положить сэмплы в `assets/audio/<key>.mp3` и перезапустить dev-сервер
-   (glob резолвится на старте). До этого башни звучат общими звуками.
+2. Маппинги `TOWER_SHOOT_SFX`, `TOWER_HIT_SFX` и фоллбек `ELEMENT_HIT_SFX` —
+   константы в [BattleScene.ts](../../src/scenes/BattleScene.ts); общие `sfx_shoot`/`sfx_hit`
+   — последний фоллбек.
+3. Вылет — `onTowerFired` → `onTowerFired(slotIndex)` по `cardId` слота. Попадание —
+   `onProjectileHit` / `onBeam` (снаряд и луч); `towerId` на `SimProjectile` и в колбэках
+   ([BattleSim.ts](../../src/game/BattleSim.ts)). Крит — `sfx_crit` в `onEnemyDamaged`.
+4. MP3 лежат в `assets/audio/<key>.mp3`; после добавления — перезапуск dev-сервера (glob
+   на старте). Нет файла → no-op / фоллбек.
 
 > Реализовано → спека перенесена в `docs/done/` и отражена в
 > [docs/working/current-state.md](../working/current-state.md) (правило синхронизации,

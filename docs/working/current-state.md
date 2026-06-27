@@ -355,8 +355,8 @@ Kingdom Rush) + тёмный дизельпанк-металл, якорь `docs
 `COMPOSED_AIM_SHEETS`, и он автоматически получит неподвижную базу.
 
 Остальные башни (Ледяная `frost_pulse`, Тесла `storm_coil`, Щит, Стабилизатор)
-**статичны** (без `_dirs`); гибриды — собственные `iconKey` (`steam_cannon`, …) с
-фоллбеком на родителя до PNG ([fusion-hybrid-assets.md](../planned/fusion-hybrid-assets.md)).
+**статичны** (без `_dirs`); гибриды — собственные `iconKey` (`steam_cannon`, …), PNG и
+per-card SFX на диске ([fusion-hybrid-assets.md](../done/fusion-hybrid-assets.md)).
 `<iconKey>.png` — арт для карточки в руке. Пайплайн доработки: положить новые 3×3-шиты
 `assets/sprites/<iconKey>_dirs_lvl{1,2,3}.png` (фон прозрачный) → перезапуск dev-сервера.
 Будущие состояния (idle/attack/loading) — отдельными шитами `<iconKey>_*`.
@@ -572,11 +572,12 @@ text-to-audio промпты — [audioManifest.ts](../../src/config/audioManife
 по-прежнему на `sfx_burn`.
 
 **Пер-башенные звуки.** Каждая атакующая башня играет свою пару SFX вместо общих:
-вылет роутится по `cardId` (`TOWER_SHOOT_SFX` в [BattleScene.ts](../../src/scenes/BattleScene.ts)),
-попадание — по стихии источника (`ELEMENT_HIT_SFX`; колбэк `onEnemyDamaged` несёт
-`element`). Ключи: `sfx_shoot_*`/`sfx_hit_*` для `plasma`/`frost`/`storm`/`railgun`
+вылет — по `cardId` (`TOWER_SHOOT_SFX`), попадание — по `cardId` с фоллбеком на стихию
+(`TOWER_HIT_SFX` → `ELEMENT_HIT_SFX` → `sfx_hit`) в колбэках `onProjectileHit` и
+`onBeam` (сим несёт `towerId` на снаряде и в луче); крит по-прежнему `sfx_crit` в
+`onEnemyDamaged`. Ключи: `sfx_shoot_*`/`sfx_hit_*` для всех 10 атакующих башен
 ([audioManifest.ts](../../src/config/audioManifest.ts)). Поддержка снарядов не пускает
-(Щит → `sfx_barrier`); если PNG-сэмпла нет — фоллбек на общие `sfx_shoot`/`sfx_hit`.
+(Щит → `sfx_barrier`); если mp3 нет — фоллбек на общие `sfx_shoot`/`sfx_hit`.
 Спека — [done/tower-sound-design.md](../done/tower-sound-design.md).
 
 **Глобальный mute** — кнопка-динамик ([MuteButton.ts](../../src/ui/MuteButton.ts)) в
