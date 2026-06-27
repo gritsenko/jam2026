@@ -1,0 +1,56 @@
+{
+  "levelUnlocks": {
+    "lvl_1": {
+      "towers": [
+        "storm_coil"
+      ],
+      "mechanics": [
+        "reroll",
+        "crystals",
+        "overload"
+      ]
+    },
+    "lvl_2": {
+      "towers": [],
+      "mechanics": [
+        "resonance",
+        "mod_cards"
+      ]
+    },
+    "lvl_3": {
+      "towers": [
+        "railgun",
+        "grid_stabilizer"
+      ],
+      "mechanics": []
+    },
+    "lvl_4": {
+      "towers": [
+        "shield_generator"
+      ],
+      "mechanics": [
+        "interrupt"
+      ]
+    },
+    "lvl_5": {
+      "towers": [],
+      "mechanics": [
+        "fusion"
+      ]
+    },
+    "lvl_6": {
+      "towers": [],
+      "mechanics": [
+        "fusion_recipes"
+      ]
+    },
+    "lvl_7": {
+      "towers": [],
+      "mechanics": []
+    }
+  },
+  "startingTowers": [
+    "plasma_shutter",
+    "frost_pulse"
+  ]
+}

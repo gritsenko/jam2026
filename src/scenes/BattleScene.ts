@@ -6,6 +6,7 @@ import { Scene, type SceneParams } from '../core/scene';
 import { tween, Easings, type TweenHandle } from '../core/tween';
 import { cardShortName, elementLabel, gradeLabel, t } from '../core/i18n';
 import { gameSpeedScale } from '../core/gameSpeed';
+import { getEnemySpeed } from '../core/settings';
 import { createBattleState } from '../config/battleState';
 import {
   HAND_RESPAWN_SEC,
@@ -3522,6 +3523,9 @@ export class BattleScene extends Scene {
     // enemy movement, projectile flight, turret rotation, fire cooldowns and every
     // buff/debuff duration all advance off this `g`. UI chrome below keeps raw `dt`.
     const g = dt * gameSpeedScale();
+    // Enemy-only difficulty dial (main menu) — scales enemy march on top of `g`,
+    // leaving tower fire/cooldowns on the plain game-speed tempo.
+    this.sim.enemySpeedMult = getEnemySpeed();
     this.sim.update(g);
     this.syncEnemies(g);
     this.syncProjectiles();

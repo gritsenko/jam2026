@@ -310,6 +310,14 @@ export class BattleSim {
    */
   overload = 0;
 
+  /**
+   * Enemy-only move-speed multiplier (1 = base), set by the scene each frame from
+   * the menu's enemy-speed dial. Scales every enemy's march on top of per-enemy
+   * slow / haste — and on top of the global game-speed time-scale applied to `dt`.
+   * A difficulty knob (towers are NOT affected), unlike the whole-sim game-speed.
+   */
+  enemySpeedMult = 1;
+
   /** Monotonic sim clock (seconds) — status deadlines are measured against this. */
   private clock = 0;
 
@@ -589,7 +597,7 @@ export class BattleSim {
       // Held (barrier / stun) → no advance this frame.
       if (e.stunUntil > this.clock) continue;
       const slow = e.slowUntil > this.clock ? e.slowFactor : 1;
-      e.t += e.def.speed * slow * e.hasteMult * dt;
+      e.t += e.def.speed * slow * e.hasteMult * this.enemySpeedMult * dt;
       if (e.t >= 1) {
         const end = this.path.pointAt(1);
         e.x = end.x;

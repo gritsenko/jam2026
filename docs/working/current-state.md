@@ -27,7 +27,13 @@
   `src/data/game_configs/<name>/`; переключение — `?game_config=`, Admin HUD, `GAME_CONFIG`
   (бот/сим). Помимо `default` / `bot_tune` / `bot_tune_hard` есть **`campaign_tight`**:
   пустая доска на ур. 1–3 (`emptyStart`), плотнее волны и выше `hpScale` на туториале,
-  пересобран финал ур. 7 (боссы не в лиде волны, саппорты в escort-паках). Валидация —
+  пересобран финал ур. 7 (боссы не в лиде волны, саппорты в escort-паках). Есть и
+  **`campaign_x2`** (то же ×2 по сложности, боссы на ур. 7–12; генератор
+  `npm run generate:campaign-x2`) и **`campaign_v3`** — плавный онбординг по фидбеку
+  игроков: **7 уровней**, доска пред-засеяна с урезанным ростером на ур. 1–3, сложность
+  ур. 4–7 между `default` и `campaign_x2`, по одной новой механике на уровень.
+  Общие card/rule-файлы `campaign_x2`/`campaign_v3` повторяют `default` (отличаются
+  только levels/levelCombat/progression/enemies/battleSeed). Валидация —
   [validate.ts](../../src/data/validate.ts).
 - **Направление входа — пер-левел.** Враги заходят с **разной стороны** в зависимости
   от уровня: шаблоны путей `ENEMY_PATHS` (`bottom`/`top`/`left`/`right`) в

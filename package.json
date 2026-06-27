@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && node scripts/verify-game-configs.mjs && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "verify:configs": "node scripts/verify-game-configs.mjs"
+    "verify:configs": "node scripts/verify-game-configs.mjs",
+    "generate:campaign-x2": "node scripts/generate-campaign-x2.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.19.0"

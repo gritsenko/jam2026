@@ -1,0 +1,29 @@
+[
+  {
+    "id": "steam",
+    "elements": [
+      "Fire",
+      "Water"
+    ],
+    "name": "STEAM BURST",
+    "blurb": "Steam cloud: enemies slowed -15% + 12 dmg/s"
+  },
+  {
+    "id": "superconductivity",
+    "elements": [
+      "Water",
+      "Electricity"
+    ],
+    "name": "SUPERCONDUCT",
+    "blurb": "Attack speed +50%; 20% chance to stun 0.5s"
+  },
+  {
+    "id": "shrapnel",
+    "elements": [
+      "Fire",
+      "Physical"
+    ],
+    "name": "SHRAPNEL",
+    "blurb": "Blast radius +40%; shots explode in an area"
+  }
+]
