@@ -165,8 +165,13 @@ export interface HandCard {
  * which is what finally gives the Shield's +DEF / interrupt-immunity a purpose.
  * A `support` mob (docs/done/support-enemies.md) has no direct attack and
  * instead buffs/protects nearby *allied* enemies — the "enemies synergize" mirror.
+ * A `boss` is a level's slow, high-HP super-unit (docs/done/level-bosses.md) that
+ * arrives as a dedicated finale wave: it lumbers down the road and, like a beefier
+ * Disruptor, jams *every* nearby tower at once (the same interrupt fields drive it,
+ * but it hits all towers in reach rather than the single nearest). The arena dims
+ * while one is alive.
  */
-export type EnemyArchetype = 'standard' | 'disruptor' | 'support';
+export type EnemyArchetype = 'standard' | 'disruptor' | 'support' | 'boss';
 
 export interface EnemyDef {
   readonly id: string;
@@ -183,11 +188,11 @@ export interface EnemyDef {
   readonly coreDamage: number;
   /** Combat archetype (defaults to `standard`). */
   readonly archetype?: EnemyArchetype;
-  /** Disruptor only: seconds between interrupt attempts while it skirts the platform. */
+  /** Disruptor/boss: seconds between interrupt attempts while it skirts the platform. */
   readonly interruptInterval?: number;
-  /** Disruptor only: base chance an interrupt lands on a non-immune tower (0..1, v3 §2.Г). */
+  /** Disruptor/boss: base chance an interrupt lands on a non-immune tower (0..1, v3 §2.Г). */
   readonly interruptChance?: number;
-  /** Disruptor only: chance a landed interrupt crits into a short stun rather than a glitch. */
+  /** Disruptor/boss: chance a landed interrupt crits into a short stun rather than a glitch. */
   readonly interruptCrit?: number;
   /**
    * Elite drop (v3 §8.В): crystals awarded on kill, *on top of* gold — the second

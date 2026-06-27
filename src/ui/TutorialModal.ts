@@ -7,7 +7,7 @@ import { tween, Easings, type TweenHandle } from '../core/tween';
 import type { TutorialLesson } from '../config/tutorial';
 import { t, tutorialBody, tutorialTitle } from '../core/i18n';
 import { Button } from './Button';
-import { CloseButton } from './CloseButton';
+import { SkipButton } from './SkipButton';
 import { drawPanel, makeText, fitSprite, glowCircle } from './helpers';
 import { TUTORIAL_DEMOS, type TutorialDemo } from './TutorialDemos';
 
@@ -22,6 +22,7 @@ const PAD = 60;
 const ILLU = 360;
 const TITLE_FONT = 60;
 const BUTTON_H = 100;
+const NEXT_BTN_W = 320;
 // Body font auto-fits its region: big by default, shrinking only when a long
 // lesson would overflow (so every lesson reads as large as it can).
 const BODY_FONT_MAX = 46;
@@ -50,8 +51,8 @@ export class TutorialModal extends Container {
   private content = new Container();
   private dots = new Graphics();
   private nextBtn: Button;
-  /** Round ✕ in the top-right corner: skips the remaining lessons. */
-  private closeBtn: CloseButton;
+  /** "Skip" pill in the top-right corner: skips the remaining lessons. */
+  private closeBtn: SkipButton;
 
   /** Illustration holder (floats for idle life); rebuilt per page. */
   private illu = new Container();
@@ -99,7 +100,7 @@ export class TutorialModal extends Container {
 
     this.nextBtn = new Button({
       label: t('common.next'),
-      width: 320,
+      width: NEXT_BTN_W,
       height: BUTTON_H,
       primary: true,
       onClick: () => this.advance(),
@@ -110,8 +111,10 @@ export class TutorialModal extends Container {
     this.advisorLayer.eventMode = 'none';
     this.card.addChild(this.advisorLayer);
 
-    // Skip control: a round ✕ in the top-right corner, topmost so it always taps.
-    this.closeBtn = new CloseButton(64, () => this.skip());
+    // Skip control: a "skip" pill beside the primary button, topmost so it always
+    // taps. Pointless on a single-lesson level (one "GOT IT" already dismisses it).
+    this.closeBtn = new SkipButton(() => this.skip());
+    this.closeBtn.visible = this.lessons.length >= 2;
     this.card.addChild(this.closeBtn);
 
     this.addChild(this.scrim, this.card);
@@ -162,9 +165,17 @@ export class TutorialModal extends Container {
     if (!lesson) return;
 
     this.drawCardBg();
-    this.nextBtn.position.set(0, this.cardH / 2 - 70);
-    // Top-right corner, inset clear of the panel's rounded corner.
-    this.closeBtn.position.set(this.cardW / 2 - 52, -this.cardH / 2 + 52);
+    // Bottom action row: primary "next / got it" with the skip pill right beside
+    // it, the pair centered. Single-lesson levels hide skip → "got it" is centered.
+    const rowY = this.cardH / 2 - 70;
+    if (this.closeBtn.visible) {
+      const gap = 24;
+      const left = -(NEXT_BTN_W + gap + this.closeBtn.btnW) / 2;
+      this.nextBtn.position.set(left + NEXT_BTN_W / 2, rowY);
+      this.closeBtn.position.set(left + NEXT_BTN_W + gap + this.closeBtn.btnW / 2, rowY);
+    } else {
+      this.nextBtn.position.set(0, rowY);
+    }
 
     // Tear down the previous page's content + demo.
     this.currentDemo?.destroy();
@@ -185,8 +196,8 @@ export class TutorialModal extends Container {
     });
     title.anchor.set(0.5, 0);
     const maxTitleW = this.cardW - PAD * 2;
-    // The title is centered, but reserve room on both sides so a long one never
-    // slides under the top-right ✕ (the body/illustration keep the full width).
+    // Centered title; a small symmetric reserve keeps a long one off the corners
+    // (skip now lives on the bottom row, so the top edge is free again).
     const titleMaxW = maxTitleW - 60;
     if (title.width > titleMaxW) title.scale.set(titleMaxW / title.width);
     const titleY = -this.cardH / 2 + 54;

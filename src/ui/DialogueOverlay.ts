@@ -7,19 +7,37 @@ import { tween, Easings, type TweenHandle } from '../core/tween';
 import type { DialogueScript } from '../config/dialogue';
 import { lineText } from '../config/dialogue';
 import { characterName, getStoryCharacter, type Side } from '../config/storyCharacters';
-import { CloseButton } from './CloseButton';
+import { SkipButton } from './SkipButton';
 import { drawPanel, makeText } from './helpers';
 
-const CHARS_PER_SEC = 42; // typewriter speed
-const BOX_H_FRAC = 0.24; // dialogue box height as a fraction of the safe height
-const BOX_MIN_H = 230;
+const CHARS_PER_SEC = 75; // typewriter speed
+const BOX_H_FRAC = 0.26; // dialogue box height as a fraction of the safe height
+const BOX_MIN_H = 250;
 const NAME_H = 56;
 const PAD = 40;
+
+/** Y of the dialogue box's top edge for a layout (shared with CutsceneScene). */
+export function dialogueBoxTopY(info: LayoutInfo): number {
+  const { safe } = info;
+  const boxH = Math.max(BOX_MIN_H, safe.height * BOX_H_FRAC);
+  return safe.y + safe.height - boxH - 24;
+}
+
+/**
+ * Center point for a "skip" button so it rides the dialogue box's top-right edge,
+ * mirroring the name plate on the top-left — i.e. right next to the box (the
+ * tap-to-advance affordance). Shared by {@link DialogueOverlay} and CutsceneScene.
+ */
+export function dialogueSkipPos(info: LayoutInfo, btnW: number, btnH: number): { x: number; y: number } {
+  const { safe } = info;
+  const boxRight = safe.x + safe.width - PAD;
+  return { x: boxRight - 18 - btnW / 2, y: dialogueBoxTopY(info) - btnH / 2 + 6 };
+}
 
 export interface DialogueOverlayOptions {
   /** Darken the scene behind the dialogue (0..1). Default 0.45. */
   readonly dimAlpha?: number;
-  /** Show the built-in ✕ skip button (skips the whole script). Default true. */
+  /** Show the built-in "skip" button (skips the whole script). Default true. */
   readonly showSkip?: boolean;
 }
 
@@ -40,8 +58,8 @@ interface SlotOccupant {
  * Self-contained, like {@link import('./TutorialModal').TutorialModal}: add it to
  * a scene's top layer, call `layout(info)` from the scene's layout hook and
  * `tick(dt)` from update. A tap reveals the rest of the current line, then
- * advances; the ✕ skips the whole script. It calls `onDone` once the last line is
- * acknowledged (or on skip).
+ * advances; the SKIP button skips the whole script. It calls `onDone` once the
+ * last line is acknowledged (or on skip).
  */
 export class DialogueOverlay extends Container {
   private readonly scrim = new Graphics();
@@ -52,10 +70,12 @@ export class DialogueOverlay extends Container {
   private readonly nameText: Text;
   private readonly chevron: Text;
   private bodyText: Text;
-  private readonly skipBtn: CloseButton | null;
+  private readonly skipBtn: SkipButton | null;
 
   private readonly slots: Record<Side, SlotOccupant | null> = { left: null, center: null, right: null };
   private readonly lastSide = new Map<string, Side>();
+  /** Speaker of the previous line, so a voice bark fires only on speaker change. */
+  private lastSpokenId: string | null = null;
 
   private index = -1;
   private fullText = '';
@@ -91,7 +111,7 @@ export class DialogueOverlay extends Container {
     this.box.eventMode = 'static';
     this.box.on('pointertap', () => this.onTap());
 
-    this.nameText = makeText('', 'label', { fontSize: 30, fill: hex(COLORS.textBright) });
+    this.nameText = makeText('', 'label', { fontSize: 34, fill: hex(COLORS.textBright) });
     this.nameText.anchor.set(0, 0.5);
     this.bodyText = makeText('', 'small', { fontSize: 36, fill: hex(COLORS.textBright) });
     this.bodyText.anchor.set(0, 0);
@@ -101,7 +121,7 @@ export class DialogueOverlay extends Container {
 
     this.box.addChild(this.boxBg, this.namePlate, this.nameText, this.bodyText, this.chevron);
 
-    this.skipBtn = (opts.showSkip ?? true) ? new CloseButton(60, () => this.skip()) : null;
+    this.skipBtn = (opts.showSkip ?? true) ? new SkipButton(() => this.skip()) : null;
 
     this.addChild(this.scrim, this.portraitLayer, this.box);
     if (this.skipBtn) this.addChild(this.skipBtn);
@@ -154,6 +174,13 @@ export class DialogueOverlay extends Container {
       this.placeSpeaker(char.id, side);
     }
     this.setActive(char.narrator ? null : char.id);
+
+    // Systemic voice bark: play the speaker's clip once when the baton passes to a
+    // new speaker (so several consecutive lines from one character bark just once).
+    if (char.voiceKey && line.speaker !== this.lastSpokenId) {
+      this.audio.playSfx(char.voiceKey);
+    }
+    this.lastSpokenId = line.speaker;
 
     this.fullText = lineText(this.script.id, this.index, line.text);
     this.revealed = 0;
@@ -273,9 +300,7 @@ export class DialogueOverlay extends Container {
   // --- dialogue box --------------------------------------------------------
 
   private boxTopY(info: LayoutInfo): number {
-    const { safe } = info;
-    const boxH = Math.max(BOX_MIN_H, safe.height * BOX_H_FRAC);
-    return safe.y + safe.height - boxH - 24;
+    return dialogueBoxTopY(info);
   }
 
   /** Draw the box panel + name plate at the current layout, then re-flow the body. */
@@ -335,13 +360,14 @@ export class DialogueOverlay extends Container {
     this.box.removeChild(this.bodyText);
     this.bodyText.destroy();
     const narrator = !!char?.narrator;
+    const bodySize = narrator ? 40 : 44;
     this.bodyText = makeText('', 'small', {
-      fontSize: narrator ? 34 : 36,
+      fontSize: bodySize,
       fill: hex(narrator ? COLORS.textDim : COLORS.textBright),
       fontStyle: narrator ? 'italic' : 'normal',
       wordWrap: true,
       wordWrapWidth: wrapW,
-      lineHeight: Math.round((narrator ? 34 : 36) * 1.32),
+      lineHeight: Math.round(bodySize * 1.3),
       align: narrator ? 'center' : 'left',
     });
     this.bodyText.anchor.set(0, 0);
@@ -374,7 +400,7 @@ export class DialogueOverlay extends Container {
 
   layout(info: LayoutInfo): void {
     this.lastInfo = info;
-    const { full, safe } = info;
+    const { full } = info;
     this.scrim.clear();
     this.scrim.rect(full.x, full.y, full.width, full.height).fill({ color: COLORS.black, alpha: this.dimAlpha });
     // A deeper gradient band behind the box so text always reads over busy art.
@@ -388,7 +414,10 @@ export class DialogueOverlay extends Container {
       if (occ) this.positionPortrait(s, occ);
     }
     this.renderBox();
-    if (this.skipBtn) this.skipBtn.position.set(safe.x + safe.width - 52, safe.y + 52);
+    if (this.skipBtn) {
+      const p = dialogueSkipPos(info, this.skipBtn.btnW, this.skipBtn.btnH);
+      this.skipBtn.position.set(p.x, p.y);
+    }
   }
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {

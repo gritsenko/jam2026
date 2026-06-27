@@ -14,9 +14,10 @@ import {
 } from '../config/cutscenes';
 import { getDialogue } from '../config/dialogue';
 import { Button } from '../ui/Button';
-import { CloseButton } from '../ui/CloseButton';
-import { DialogueOverlay } from '../ui/DialogueOverlay';
+import { SkipButton } from '../ui/SkipButton';
+import { DialogueOverlay, dialogueSkipPos } from '../ui/DialogueOverlay';
 import { makeText, glowCircle } from '../ui/helpers';
+import { hideConfigPicker } from '../ui/adminTools';
 import * as progress from '../game/progress';
 import * as Telemetry from '../telemetry/Telemetry';
 
@@ -43,13 +44,16 @@ export class CutsceneScene extends Scene {
   private readonly cam = new Container(); // holds the image; we scale/move it
   private readonly image = new Sprite();
   private readonly overlayLayer = new Container(); // dialogue + UI above the image
-  private skipBtn!: CloseButton;
+  private skipBtn!: SkipButton;
 
   private def: CutsceneDef | null = null;
   private nextOverride: { route: RouteId; params?: SceneParams } | null = null;
   private shotIndex = -1;
   private curKf: CameraKeyframe = { scale: 1, fx: 0.5, fy: 0.5 };
   private dialogue: DialogueOverlay | null = null;
+  /** Intro Easter egg: the Lead-admin's "are you sure you want to leave the call?" gag. */
+  private skipPrompt: DialogueOverlay | null = null;
+  private skipConfirmShown = false;
   private endCard: Container | null = null;
   private navigated = false;
   private lastInfo: LayoutInfo | null = null;
@@ -64,6 +68,7 @@ export class CutsceneScene extends Scene {
   }
 
   override onEnter(params?: SceneParams): void {
+    hideConfigPicker(); // admin config switcher is world-map only
     const id = typeof params?.id === 'string' ? params.id : 'intro';
     this.def = getCutscene(id) ?? null;
     const next = (params?.next as { route: RouteId; params?: SceneParams } | undefined) ?? null;
@@ -75,8 +80,9 @@ export class CutsceneScene extends Scene {
     this.cam.addChild(this.image);
     this.addChild(this.bg, this.cam, this.overlayLayer);
 
-    // Cutscene-level skip: jumps straight to the end (and `next`).
-    this.skipBtn = new CloseButton(60, () => this.skipAll());
+    // Cutscene-level skip: jumps straight to the end (and `next`). On the intro it
+    // first triggers the Lead-admin "leave the call?" Easter egg (see onSkip).
+    this.skipBtn = new SkipButton(() => this.onSkip());
     this.overlayLayer.addChild(this.skipBtn);
 
     // First time through, this beat is now "seen" (so it won't auto-play again);
@@ -93,6 +99,8 @@ export class CutsceneScene extends Scene {
   override onExit(): void {
     this.tweens.forEach((tw) => tw.stop());
     this.tweens = [];
+    this.skipPrompt?.destroy({ children: true });
+    this.skipPrompt = null;
   }
 
   // --- shot sequencing -----------------------------------------------------
@@ -178,6 +186,49 @@ export class CutsceneScene extends Scene {
       return;
     }
     this.navigateNext();
+  }
+
+  /**
+   * Skip pressed. On the intro the first press is intercepted by the Lead-admin
+   * Easter egg (he guilt-trips you about leaving the "call" + AdsAdvisor analytics);
+   * tapping through it then really skips. Every other cutscene skips immediately.
+   */
+  private onSkip(): void {
+    if (this.def?.id === 'intro' && !this.skipConfirmShown) {
+      this.skipConfirmShown = true;
+      this.showSkipPrompt();
+      return;
+    }
+    this.skipAll();
+  }
+
+  private showSkipPrompt(): void {
+    this.services.audio.playSfx('sfx_click');
+    const dlg = getDialogue('intro_skip_confirm');
+    if (!dlg) {
+      this.skipAll();
+      return;
+    }
+    // Freeze the shot (camera + its dialogue) and use the painting as a backdrop;
+    // hide the skip button so the gag must be tapped through, then really skip.
+    this.stopShotTweens();
+    this.disposeDialogue();
+    this.skipBtn.visible = false;
+    this.skipPrompt = new DialogueOverlay(
+      dlg,
+      this.services.assets,
+      this.services.audio,
+      () => this.finishSkipPrompt(),
+      { dimAlpha: 0.6, showSkip: false },
+    );
+    this.overlayLayer.addChild(this.skipPrompt);
+    if (this.lastInfo) this.skipPrompt.layout(this.lastInfo);
+  }
+
+  private finishSkipPrompt(): void {
+    this.skipPrompt?.destroy({ children: true });
+    this.skipPrompt = null;
+    this.skipAll();
   }
 
   private skipAll(): void {
@@ -279,12 +330,16 @@ export class CutsceneScene extends Scene {
     this.bg.rect(f.x, f.y, f.width, f.height).fill({ color: COLORS.black });
     this.applyCamera();
     this.dialogue?.layout(info);
+    this.skipPrompt?.layout(info);
     this.layoutEndCard();
-    const { safe } = info;
-    this.skipBtn.position.set(safe.x + safe.width - 52, safe.y + 52);
+    // Skip sits right next to the dialogue (its top-right edge), matching the
+    // standalone DialogueOverlay; on a wordless camera shot it floats there too.
+    const p = dialogueSkipPos(info, this.skipBtn.btnW, this.skipBtn.btnH);
+    this.skipBtn.position.set(p.x, p.y);
   }
 
   override update(dt: number): void {
     this.dialogue?.tick(dt);
+    this.skipPrompt?.tick(dt);
   }
 }

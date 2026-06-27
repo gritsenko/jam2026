@@ -5,6 +5,22 @@ import { fitSprite } from './helpers';
 /** Icy-cyan tint of the Aegis-Beacon ally-shield bubble (docs/done/support-enemies.md). */
 const SHIELD_COLOR = 0x9fe8ff;
 
+// --- Status-FX tuning (tweak these by hand) --------------------------------
+/** Burn flames: blend mode of the fire overlay ('add' = additive glow). */
+const FIRE_FX_BLEND = 'add' as const;
+/** Burn flames: base opacity of the additive fire overlay (0.1 = 10%). */
+const FIRE_FX_ALPHA = 0.4;
+/** Burn flames: seconds each of the 4 flame frames holds before advancing. */
+const FIRE_FX_FRAME_SEC = 0.09;
+/** Burn flames: flame height as a fraction of the enemy token (width follows the frame aspect). */
+const FIRE_FX_HEIGHT = 2.1;
+/** Chill/frozen: multiply-tint that turns the whole enemy clearly blue. */
+const CHILL_TINT = 0x5aa0ff;
+/** Wet: cooler blue body wash (kept distinct from the stronger chill blue). */
+const WET_TINT = 0x8fb8ff;
+/** Chill snowflake badge stroke color. */
+const FROST_ICON_COLOR = 0xeaf7ff;
+
 /** Support-mob aura ring (the "enemies synergize" telegraph): its element glow + true reach. */
 export interface AuraView {
   /** Tint of the emanating ring (element glow color). */
@@ -23,10 +39,10 @@ export interface AuraView {
  * soft pulsing ring; any enemy carrying an Aegis-Beacon shield shows a bubble
  * (driven by {@link setShield}).
  */
-/** Shared status-overlay textures (fire/frost), passed in so EnemySprite stays Pixi-only. */
+/** Shared status-FX textures, passed in so EnemySprite stays Pixi-only. */
 export interface StatusFx {
-  readonly burn?: Texture;
-  readonly frost?: Texture;
+  /** Burn animation frames (fx_flame_0..3); cycled additively while burning. */
+  readonly flames?: readonly Texture[];
 }
 
 export class EnemySprite extends Container {
@@ -47,11 +63,14 @@ export class EnemySprite extends Container {
   private baseScaleX = 1;
   /** Element-wash tint applied between hit flashes (Wet/chill); white = none. */
   private statusTint = 0xffffff;
-  /** Lazy status overlays (created on first use) + their source textures. */
-  private readonly fxBurnTex?: Texture;
-  private readonly fxFrostTex?: Texture;
+  /** Burn animation: source frames + the lazily-created additive flame sprite. */
+  private readonly flameTextures: readonly Texture[];
   private fireFx?: Sprite;
-  private frostFx?: Sprite;
+  /** Frame cursor + per-frame timer for the flame animation. */
+  private fireFrame = 0;
+  private fireFrameT = 0;
+  /** Corner snowflake badge shown while chilled/frozen (drawn once, then toggled). */
+  private frostIcon?: Graphics;
 
   constructor(texture: Texture, size: number, phase = 0, aura?: AuraView, fx: StatusFx = {}) {
     super();
@@ -60,8 +79,7 @@ export class EnemySprite extends Container {
     this.bobAmp = size * 0.04;
     this.auraColor = aura?.color ?? 0;
     this.auraRadius = aura?.radiusPx ?? 0;
-    this.fxBurnTex = fx.burn;
-    this.fxFrostTex = fx.frost;
+    this.flameTextures = fx.flames ?? [];
 
     // Aura ring sits lowest so the mob (and everyone in its reach) draws over it.
     if (aura) {
@@ -137,38 +155,71 @@ export class EnemySprite extends Container {
   }
 
   /**
-   * Reflect active statuses (driven each frame from the sim's deadlines): a flame
-   * overlay while burning (DoT), a frost overlay while chilled/frozen, and a cool
-   * body wash for Wet/chill. See docs/done/projectiles-vfx-and-enemy-polish.md.
+   * Reflect active statuses (driven each frame from the sim's deadlines): an
+   * animated flame while burning (DoT), and — only when NOT burning — a blue body
+   * tint + corner snowflake while chilled/frozen, or a cooler wash while Wet.
+   *
+   * Fire wins over the cold visuals: the Steam resonance (Fire+Water) applies a
+   * slow *and* a DoT on the same hit, which would otherwise paint a burning enemy
+   * with a contradictory snowflake. So burning suppresses the chill/Wet tint and
+   * the snowflake — a scalded enemy reads purely as on-fire.
    */
   setStatus(s: { burning: boolean; wet: boolean; chilled: boolean }): void {
     if (this.fireFx) this.fireFx.visible = s.burning;
     else if (s.burning) this.ensureFire();
 
-    if (this.frostFx) this.frostFx.visible = s.chilled;
-    else if (s.chilled) this.ensureFrost();
+    // Chill = the whole enemy turns blue + a small snowflake badge in the top-right
+    // corner (no big overlay). Suppressed while burning (fire wins, no fire+ice mix).
+    const showChill = s.chilled && !s.burning;
+    if (this.frostIcon) this.frostIcon.visible = showChill;
+    else if (showChill) this.ensureFrostIcon();
 
-    // Wet wins the body wash (it's the synergy linchpin); else a chill tint; else none.
-    this.statusTint = s.wet ? 0x8fb8ff : s.chilled ? 0xc2ecff : 0xffffff;
+    // Chill wins the body wash (clearly blue); else a cooler Wet wash; none while burning.
+    this.statusTint = showChill ? CHILL_TINT : s.wet && !s.burning ? WET_TINT : 0xffffff;
   }
 
   private ensureFire(): void {
-    if (this.fireFx || !this.fxBurnTex) return;
-    const f = new Sprite(this.fxBurnTex);
-    fitSprite(f, this.size * 0.8, this.size * 0.8);
-    f.anchor.set(0.5, 0.9); // flames rise from around the feet
+    if (this.fireFx || this.flameTextures.length === 0) return;
+    const f = new Sprite(this.flameTextures[0]);
+    // Tall flame fitted to the token height (width follows the frame aspect), rising
+    // from the feet. Additive + low alpha so it glows over the enemy without hiding it.
+    fitSprite(f, this.size * FIRE_FX_HEIGHT, this.size * FIRE_FX_HEIGHT);
+    f.anchor.set(0.5, 0.9);
+    f.blendMode = FIRE_FX_BLEND;
+    f.alpha = FIRE_FX_ALPHA;
+    this.fireFrame = 0;
+    this.fireFrameT = 0;
     this.fireFx = f;
-    this.addChild(f); // above the body, below the HP bar would be ideal — but HP bar is added first; this draws over it briefly which is fine
+    // Above the body, below the HP bar so the bar stays readable.
+    this.addChildAt(f, this.getChildIndex(this.sprite) + 1);
   }
 
-  private ensureFrost(): void {
-    if (this.frostFx || !this.fxFrostTex) return;
-    const f = new Sprite(this.fxFrostTex);
-    fitSprite(f, this.size * 0.78, this.size * 0.78);
-    f.anchor.set(0.5, 0.5);
-    f.alpha = 0.85;
-    this.frostFx = f;
-    this.addChildAt(f, this.getChildIndex(this.sprite) + 1); // just over the body
+  /** Draw the corner snowflake badge once (then `setStatus` just toggles visibility). */
+  private ensureFrostIcon(): void {
+    if (this.frostIcon) return;
+    const g = new Graphics();
+    const r = this.size * 0.15;
+    const cx = this.size * 0.34;
+    const cy = -this.size * 0.34;
+    // Dark disc backing so the snowflake reads on any enemy color.
+    g.circle(cx, cy, r * 1.25).fill({ color: 0x0a1a30, alpha: 0.6 });
+    g.circle(cx, cy, r * 1.25).stroke({ width: Math.max(1.5, r * 0.12), color: FROST_ICON_COLOR, alpha: 0.7 });
+    // 6-arm snowflake with small side branches.
+    const arms = 6;
+    for (let k = 0; k < arms; k++) {
+      const a = (k / arms) * Math.PI * 2;
+      g.moveTo(cx, cy).lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      for (const fr of [0.5, 0.74]) {
+        const bx = cx + Math.cos(a) * r * fr;
+        const by = cy + Math.sin(a) * r * fr;
+        const bl = r * 0.3;
+        g.moveTo(bx, by).lineTo(bx + Math.cos(a + 0.7) * bl, by + Math.sin(a + 0.7) * bl);
+        g.moveTo(bx, by).lineTo(bx + Math.cos(a - 0.7) * bl, by + Math.sin(a - 0.7) * bl);
+      }
+    }
+    g.stroke({ width: Math.max(2, r * 0.16), color: FROST_ICON_COLOR });
+    this.frostIcon = g;
+    this.addChild(g); // top-most corner badge
   }
 
   tick(dt: number): void {
@@ -198,14 +249,18 @@ export class EnemySprite extends Container {
         .stroke({ width: 2 + 1.5 * p, color: SHIELD_COLOR, alpha: (0.35 + 0.25 * p) * this.shieldFrac });
     }
 
-    // Fire overlay rides the bob and flickers; frost overlay rides the bob.
-    if (this.fireFx?.visible) {
+    // Burn: cycle the flame frames, ride the bob, and flicker the additive alpha.
+    if (this.fireFx?.visible && this.flameTextures.length > 0) {
+      this.fireFrameT += dt;
+      if (this.fireFrameT >= FIRE_FX_FRAME_SEC) {
+        this.fireFrameT -= FIRE_FX_FRAME_SEC;
+        this.fireFrame = (this.fireFrame + 1) % this.flameTextures.length;
+        this.fireFx.texture = this.flameTextures[this.fireFrame]!;
+      }
       this.fireFx.y = bob + this.size * 0.18;
-      const flick = 0.78 + 0.22 * Math.sin(this.phase * 7.3);
-      this.fireFx.alpha = flick;
-      this.fireFx.scale.y = this.fireFx.scale.x * (0.92 + 0.12 * (0.5 + 0.5 * Math.sin(this.phase * 5.1)));
+      const flick = 0.75 + 0.5 * (0.5 + 0.5 * Math.sin(this.phase * 7.3));
+      this.fireFx.alpha = FIRE_FX_ALPHA * flick;
     }
-    if (this.frostFx?.visible) this.frostFx.y = bob;
 
     // Hit flash wins briefly; otherwise the body carries its status wash (or none).
     if (this.hitFlash > 0) {

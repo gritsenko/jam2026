@@ -268,6 +268,12 @@ export interface BattleSimOptions {
   hpScale?: number;
   /** Per-level reward tier: every spawned enemy's bounty is multiplied by this (default 1). */
   bountyScale?: number;
+  /**
+   * Optional level boss (docs/done/level-bosses.md): the id of an `archetype: 'boss'`
+   * enemy. When set, the sim appends one **boss-only finale wave** after {@link waves}
+   * (so {@link totalWaves} = `waves.length + 1`) and victory is gated on clearing it.
+   */
+  bossId?: string;
   callbacks?: SimCallbacks;
   /**
    * Optional seeded PRNG. When set, stun/interrupt rolls use a per-enemy sub-stream
@@ -332,6 +338,11 @@ export class BattleSim {
 
   private readonly path: ArenaPath;
   private readonly waves: WaveDef[];
+  /**
+   * Resolved level-boss def (or null). When set, one boss-only wave is fought
+   * after the scripted {@link waves} (see {@link startNextWave}). docs/done/level-bosses.md.
+   */
+  private readonly bossDef: EnemyDef | null;
   /** Per-level difficulty/reward tiers, applied per-instance at spawn (default 1). */
   private readonly hpScale: number;
   private readonly bountyScale: number;
@@ -358,6 +369,7 @@ export class BattleSim {
   constructor(opts: BattleSimOptions) {
     this.path = opts.path;
     this.waves = opts.waves;
+    this.bossDef = opts.bossId ? getEnemy(opts.bossId) : null;
     this.hpScale = opts.hpScale ?? 1;
     this.bountyScale = opts.bountyScale ?? 1;
     this.coreMax = opts.coreMax;
@@ -372,18 +384,27 @@ export class BattleSim {
     this.rng = opts.rng;
   }
 
+  /**
+   * Total waves including the appended boss-only finale wave (if {@link bossDef}).
+   * The HUD, win condition and wave numbering all count off this, so a level with
+   * a boss simply shows one more wave than its scripted {@link waves}.
+   */
+  private get effectiveWaveCount(): number {
+    return this.waves.length + (this.bossDef ? 1 : 0);
+  }
+
   /** 1-based number of the current/next wave for the HUD. */
   get waveNumber(): number {
-    return Math.min(this.waveIndex + 1, this.waves.length);
+    return Math.min(this.waveIndex + 1, this.effectiveWaveCount);
   }
 
   get totalWaves(): number {
-    return this.waves.length;
+    return this.effectiveWaveCount;
   }
 
   /** 1-based number of the wave that the current countdown will start next. */
   get nextWaveNumber(): number {
-    return Math.min(this.waveIndex + 2, this.waves.length);
+    return Math.min(this.waveIndex + 2, this.effectiveWaveCount);
   }
 
   /** Begin the battle (first wave after the opening countdown). */
@@ -524,12 +545,18 @@ export class BattleSim {
     this.waveIndex++;
     this.waveLeaked = false;
     const wave = this.waves[this.waveIndex];
-    if (!wave) {
+    if (wave) {
+      this.spawnQueue = buildSpawnQueue(wave, getEnemy);
+    } else if (this.bossDef && this.waveIndex === this.waves.length) {
+      // Dedicated finale wave (docs/done/level-bosses.md): just the lone level boss.
+      // The pre-wave intermission already gave a pause; the 0.5s lead-in below times
+      // the entrance so the arena-dim and telegraph land before it walks on.
+      this.spawnQueue = [{ def: this.bossDef, gap: 0.5 }];
+    } else {
       // No more waves queued — nothing to spawn (victory is handled on clear).
       this.wavePhase = 'active';
       return;
     }
-    this.spawnQueue = buildSpawnQueue(wave, getEnemy);
     this.cb.onWaveStart?.(this.waveNumber);
     if (this.spawnQueue.length === 0) {
       // Degenerate wave (no groups / all zero-count): nothing to spawn — treat it
@@ -550,7 +577,7 @@ export class BattleSim {
     const clearedNumber = this.waveIndex + 1;
     this.cb.onWaveCleared?.(clearedNumber, !this.waveLeaked);
 
-    if (this.waveIndex >= this.waves.length - 1) {
+    if (this.waveIndex >= this.effectiveWaveCount - 1) {
       this.status = 'victory';
       this.cb.onVictory?.();
       return;
@@ -783,42 +810,56 @@ export class BattleSim {
   }
 
   /**
-   * Disruptor interrupts (v3 §2.Г): a saboteur skirting the platform jams the
-   * nearest non-immune turret on a timer — glitching its current shot, or (on a
-   * crit) stunning it for a beat. Central and Shield-buffed towers are immune.
+   * Disruptor + boss interrupts (v3 §2.Г / docs/done/level-bosses.md): a saboteur
+   * skirting the platform jams the *nearest* non-immune turret on a timer; a boss
+   * is a wider menace and slams *every* tower in reach at once. Both glitch the
+   * current shot, or (on a crit) stun it for a beat. Central / Shield-buffed towers
+   * are immune; a partial Shield `defense` softens the jam.
    */
   private tickInterrupts(dt: number): void {
     if (this.towers.length === 0) return;
     for (const e of this.enemies) {
-      if (!e.alive || e.def.archetype !== 'disruptor') continue;
-      // Only while it is actually on the road skirting the platform (not the
-      // off-screen approach or the instant it breaches).
+      if (!e.alive) continue;
+      const isBoss = e.def.archetype === 'boss';
+      if (e.def.archetype !== 'disruptor' && !isBoss) continue;
+      // Only while it is actually on the road near the platform (not the off-screen
+      // approach or the instant it breaches).
       if (e.t < 0.05 || e.t > 0.97) continue;
       e.interruptCd -= dt;
       if (e.interruptCd > 0) continue;
       e.interruptCd = e.def.interruptInterval ?? 1.6;
 
-      const tower = this.nearestJammableTower(e.x, e.y);
-      if (!tower) continue;
-      // Two-layer interrupt (v3 §2.Г): a tower's Shield-fed `defense` first grants a
-      // graduated chance to ignore the jam outright (full defense ≥ 1 was already
-      // filtered out as interrupt-immune), and additionally softens the crit — so a
-      // half-defended tower takes interrupts at ~half rate and stuns less often.
-      const resist = 1 - Math.min(1, Math.max(0, tower.defense));
-      if (!this.roll((e.def.interruptChance ?? 0.6) * resist, e)) continue; // tower shrugged it off
-
-      if (this.roll((e.def.interruptCrit ?? 0.25) * resist, e)) {
-        // Crit → short stun (and reset the in-progress shot).
-        tower.disabledUntil = Math.max(tower.disabledUntil, this.clock + INTERRUPT_STUN_SEC);
-        tower.cdLeft = tower.cooldown;
-        tower.cdMax = tower.cooldown;
-        this.cb.onTowerInterrupted?.(tower.slotIndex, 'stun', tower.x, tower.y);
+      if (isBoss) {
+        // Boss slam: jam all non-immune towers in range simultaneously.
+        for (const t of this.towers) {
+          if (t.interruptImmune || t.disabledUntil > this.clock) continue;
+          if (this.dist2(e.x, e.y, t.x, t.y) <= this.jamRange * this.jamRange) this.jamTower(t, e);
+        }
       } else {
-        // Glitch → the current shot is scrubbed and recharges.
-        tower.cdLeft = tower.cooldown;
-        tower.cdMax = tower.cooldown;
-        this.cb.onTowerInterrupted?.(tower.slotIndex, 'glitch', tower.x, tower.y);
+        const tower = this.nearestJammableTower(e.x, e.y);
+        if (tower) this.jamTower(tower, e);
       }
+    }
+  }
+
+  /**
+   * Apply one interrupt roll from `e` onto `tower`. Two-layer (v3 §2.Г): the
+   * tower's Shield-fed `defense` first grants a graduated chance to ignore the jam
+   * outright (full defense ≥ 1 was already filtered out as interrupt-immune), and
+   * additionally softens the crit — so a half-defended tower takes interrupts at
+   * ~half rate and stuns less often. A landed jam scrubs the in-progress shot
+   * (recharge); a crit additionally stuns the tower for {@link INTERRUPT_STUN_SEC}.
+   */
+  private jamTower(tower: SimTower, e: SimEnemy): void {
+    const resist = 1 - Math.min(1, Math.max(0, tower.defense));
+    if (!this.roll((e.def.interruptChance ?? 0.6) * resist, e)) return; // tower shrugged it off
+    tower.cdLeft = tower.cooldown;
+    tower.cdMax = tower.cooldown;
+    if (this.roll((e.def.interruptCrit ?? 0.25) * resist, e)) {
+      tower.disabledUntil = Math.max(tower.disabledUntil, this.clock + INTERRUPT_STUN_SEC);
+      this.cb.onTowerInterrupted?.(tower.slotIndex, 'stun', tower.x, tower.y);
+    } else {
+      this.cb.onTowerInterrupted?.(tower.slotIndex, 'glitch', tower.x, tower.y);
     }
   }
 

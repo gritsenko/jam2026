@@ -625,6 +625,67 @@ export const ASSETS: AssetSpec[] = [
     placeholder: { shape: 'disc', tint: F, label: 'TITAN' },
   },
 
+  // ---- Per-level bosses (docs/done/level-bosses.md) ------------------------
+  // Each level's slow super-unit finale; the same cut-out doubles as the
+  // division-head portrait in that level's mission/victory dialogue (these are
+  // hand-authored — the prompts below only document intent / drive placeholders).
+  {
+    key: 'enemy_boss_main',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'towering main-server boss creature, riveted steel server-rack body with glowing status lights, slow heavy menacing stance, dieselpunk tower-defense boss silhouette',
+    placeholder: { shape: 'disc', tint: P, label: 'MAIN' },
+  },
+  {
+    key: 'enemy_boss_duck',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'hulking debug-duck boss creature, oversized armored rubber-duck idol leaking glitch water, slow lumbering boss pose, dieselpunk metal plating',
+    placeholder: { shape: 'disc', tint: W, label: 'DUCK' },
+  },
+  {
+    key: 'enemy_boss_olivia',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'imposing community-moderator boss creature, crackling electric broadcast antennae and chat-storm aura, commanding stance, dieselpunk metal frame',
+    placeholder: { shape: 'disc', tint: E, label: 'OLIVIA' },
+  },
+  {
+    key: 'enemy_boss_fijin',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'massive netcode-warden boss creature, humming server-tower torso wreathed in energy packet streams, steady looming pose, dieselpunk plating',
+    placeholder: { shape: 'disc', tint: N, label: 'FIJIN' },
+  },
+  {
+    key: 'enemy_boss_tacticool',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'heavily armored tacticool boss creature, riveted gun-metal exo-armor with glowing orange targeting optics, slow heavy assault stance, dieselpunk boss silhouette',
+    placeholder: { shape: 'disc', tint: F, label: 'TACTI' },
+  },
+  {
+    key: 'enemy_boss_hotel',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'towering datacenter-hotel boss creature, stacked humming rack floors leaking coolant mist, slow ponderous stance, dieselpunk steel architecture',
+    placeholder: { shape: 'disc', tint: W, label: 'HOTEL' },
+  },
+  {
+    key: 'enemy_boss_rr',
+    category: 'enemy',
+    size: 512,
+    prompt:
+      'colossal release-rollback boss creature, brutal piston-armed deploy machine with rollback-clock crown, enormous slow final-boss silhouette, dieselpunk metal limbs',
+    placeholder: { shape: 'disc', tint: P, label: 'RR' },
+  },
+
   // ---- World map -----------------------------------------------------------
   {
     key: 'map_node',
@@ -744,6 +805,36 @@ export const ASSETS: AssetSpec[] = [
     size: 256,
     prompt: 'frost ice debuff effect, pale cyan jagged ice crystals and frosty mist',
     placeholder: { shape: 'disc', tint: W, label: '' },
+  },
+  // Animated burn flames (4 frames cycled by EnemySprite, additive + low alpha) —
+  // sourced from the external Game Effects Pack, not gen_sprite. See EnemySprite.ensureFire.
+  {
+    key: 'fx_flame_0',
+    category: 'prop',
+    size: 256,
+    prompt: 'burning fire flame frame, orange-yellow flames licking upward, transparent cut-out',
+    placeholder: { shape: 'disc', tint: F, label: '' },
+  },
+  {
+    key: 'fx_flame_1',
+    category: 'prop',
+    size: 256,
+    prompt: 'burning fire flame frame, orange-yellow flames licking upward, transparent cut-out',
+    placeholder: { shape: 'disc', tint: F, label: '' },
+  },
+  {
+    key: 'fx_flame_2',
+    category: 'prop',
+    size: 256,
+    prompt: 'burning fire flame frame, orange-yellow flames licking upward, transparent cut-out',
+    placeholder: { shape: 'disc', tint: F, label: '' },
+  },
+  {
+    key: 'fx_flame_3',
+    category: 'prop',
+    size: 256,
+    prompt: 'burning fire flame frame, orange-yellow flames licking upward, transparent cut-out',
+    placeholder: { shape: 'disc', tint: F, label: '' },
   },
   // Per-tower muzzle flashes (additive bloom at the gun tip on fire), keyed by the
   // source tower's element — see muzzleFlashKey() in src/config/projectiles.ts and
@@ -908,6 +999,100 @@ export const ASSETS: AssetSpec[] = [
     size: 512,
     prompt: 'full-body cut-out character: a wise matriarch leader, strawberry-blonde hair, green turtleneck under a brass-geared leather coat, holding a staff topped with green flame',
     placeholder: { shape: 'rect', tint: ELEMENTS.Energy.base, label: 'MATRIARCH' },
+  },
+  {
+    key: 'char_support',
+    category: 'prop',
+    size: 512,
+    prompt: 'cut-out portrait bust: a bald bearded dieselpunk lead-admin / tech-support guy, camo field jacket with brass gears and a "Lead Admin" patch, sunglasses on head, calm smug look (cut from docs/visual_refs/visual_sources/intro/support.png)',
+    placeholder: { shape: 'rect', tint: COLORS.brass, label: 'SUPPORT' },
+  },
+
+  // ---- Per-level division heads (positive NPCs who brief + thank the heroes) -
+  // The friendly chiefs the heroes help each level. Cut from the painted
+  // visual_sources portraits (see config/storyCharacters.ts → MISSION_CHARACTERS).
+  // Distinct from the level *bosses* (enemy_boss_*), who are the villains.
+  {
+    key: 'char_teodor',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a friendly young steampunk engineer with tousled blond hair, patched canvas shirt and a brass tool harness with vacuum tubes and gears, warm smile (cut from docs/visual_refs/visual_sources/mission_characters/TeodorLegenda.png)',
+    placeholder: { shape: 'rect', tint: P, label: 'TEODOR' },
+  },
+  {
+    // lvl_1 briefer: the vibecoder who caused the whole mess (sheepish, upbeat).
+    key: 'char_klevak',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a grinning wasteland vibecoder giving a thumbs-up, patched canvas vest over an olive shirt, a "Nuka" cap with two soda cans and a drinking tube, welding goggles round his neck, holding a tin mug (cut from docs/visual_refs/visual_sources/mission_characters/klevak.png)',
+    placeholder: { shape: 'rect', tint: F, label: 'KLEVAK' },
+  },
+  {
+    // lvl_2 briefer: the Treasurer guarding the world's last hand-balanced ledger.
+    key: 'char_finance',
+    category: 'prop',
+    size: 512,
+    prompt: 'cut-out portrait: a composed auburn-haired treasurer in a brass-buttoned tartan blazer with gear epaulettes, holding a glowing "Economy Overview" tablet showing credit charts (cut from docs/visual_refs/visual_sources/mission_characters/finace.png)',
+    placeholder: { shape: 'rect', tint: N, label: 'TREASURER' },
+  },
+  {
+    // The Last Senior — lvl_7 boss talking head + finale epilogue (the human who
+    // codes by hand). Battle uses the enemy_boss_main sprite; this is his portrait.
+    key: 'char_senior',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a stern shaven-headed man in a blue plaid flannel shirt with riveted brass pauldrons and gear patches, holding a small dieselpunk radio, a brass water-pump lever in the other hand (cut from docs/visual_refs/visual_sources/last_senior.png)',
+    placeholder: { shape: 'rect', tint: W, label: 'SENIOR' },
+  },
+  {
+    key: 'char_science',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a cheerful steampunk lab scientist in goggles and a leather vest, holding a small glowing tesla-coil device, tool belt with vials (cut from docs/visual_refs/visual_sources/advisors/science.png)',
+    placeholder: { shape: 'rect', tint: W, label: 'SCI' },
+  },
+  {
+    key: 'char_strateg',
+    category: 'prop',
+    size: 512,
+    prompt: 'cut-out portrait: a confident blonde woman strategist in a dark brass-trimmed officer coat, holding a tablet and a rolled "Strategy" scroll (cut from docs/visual_refs/visual_sources/mission_characters/strategy.png)',
+    placeholder: { shape: 'rect', tint: E, label: 'STRAT' },
+  },
+  {
+    key: 'char_voevoda',
+    category: 'prop',
+    size: 512,
+    prompt: 'cut-out portrait: a battle-hardened commander in heavy riveted brass-and-steel power armor with copper pipes and a glowing purple core, stern determined look (cut from docs/visual_refs/visual_sources/mission_characters/war.png)',
+    placeholder: { shape: 'rect', tint: N, label: 'VOEV' },
+  },
+  {
+    key: 'char_khatenkov',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a friendly tactical-range leader in a green plate carrier vest and headset with glasses, holding a stylized rifle, "Tacticool Leader" patch, easy grin (cut from docs/visual_refs/visual_sources/mission_characters/khatenkoff.png)',
+    placeholder: { shape: 'rect', tint: F, label: 'TAC' },
+  },
+  {
+    key: 'char_vadim',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a friendly steampunk navigator/scout in a patched vest, brass goggles, holding a glowing schematic, wrench and map satchel, confident smile (cut from docs/visual_refs/visual_sources/mission_characters/vadim.png)',
+    placeholder: { shape: 'rect', tint: W, label: 'VADIM' },
+  },
+  {
+    key: 'char_president',
+    category: 'prop',
+    size: 512,
+    prompt: 'cut-out portrait: a stern dieselpunk director in a tailored three-piece suit and tie, leaning on a brass water-pump cane, holding a small radio, calm authoritative look (cut from docs/visual_refs/visual_sources/advisors/president.png)',
+    placeholder: { shape: 'rect', tint: P, label: 'PREZ' },
+  },
+  {
+    // Defeat-screen Easter egg: a deadpan quote-author who consoles you on a loss.
+    key: 'char_jason',
+    category: 'prop',
+    size: 512,
+    prompt: 'cut-out portrait: a calm bald bearded man in a sharp dark grey three-piece suit with a maroon tie, hands in pockets, deadpan confident look (cut from docs/visual_refs/visual_sources/JasonMaksyutin.png)',
+    placeholder: { shape: 'rect', tint: COLORS.metalDark, label: 'JASON' },
   },
 ];
 

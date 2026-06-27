@@ -20,7 +20,10 @@ import { AUDIO_KIND, AUDIO_VOLUME, type AudioKind } from '../config/audioManifes
  *  - Buffers are fetched + decoded on first use and cached.
  */
 
-const AUDIO_URLS = import.meta.glob('/assets/audio/*.{mp3,ogg,m4a}', {
+// Recursive: top-level clips plus per-folder sets (e.g. assets/audio/heroes/*.mp3
+// for character voices). The key is the bare filename (basename), so keep names
+// unique across folders — a collision would let the later file win.
+const AUDIO_URLS = import.meta.glob('/assets/audio/**/*.{mp3,ogg,m4a}', {
   eager: true,
   query: '?url',
   import: 'default',

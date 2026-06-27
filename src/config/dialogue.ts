@@ -54,83 +54,142 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     { speaker: 'mech', text: 'Поехали. Найдём последнего сеньора.' },
   ]),
 
+  // --- Intro skip Easter egg (the Lead-admin guilt-trips you on skip) -------
+  intro_skip_confirm: script('intro_skip_confirm', [
+    { speaker: 'support', side: 'center', text: 'Стоп. Ты точно хочешь отключиться от созвона? Интро ещё идёт, между прочим.' },
+    { speaker: 'support', text: 'Просто предупреждаю: вся аналитика по игре улетает в AdsAdvisor — и твой «пропустить» уже там, с таймстампом.' },
+    { speaker: 'support', text: 'Ладно, не держу. И кстати, удалите мессенджер Максим с рабочего ноутбука!' },
+  ]),
+
   // --- Per-level mission briefs (play in-battle, before the tutorial) -------
+  // The division HEAD briefs the heroes. The boss is the villain — silent here,
+  // it taunts later when its finale wave spawns. (lvl_1 is special: the briefer
+  // is Klevak, the vibecoder who caused the whole mess.)
   mission_lvl_1: script('mission_lvl_1', [
-    { speaker: 'boss_main', side: 'left', text: 'Живые люди! А я уж думал, остался один на районе с этим серваком.' },
-    { speaker: 'mech', side: 'right', text: 'Буханка на месте. Что за твари тут у тебя лезут?' },
-    { speaker: 'boss_main', text: 'Мобы из какой-то древней тэдэшки. Klevak «оптимизировал» дата-центр — теперь они прут волнами. Прикрой пульт, пока я перезагружаю стойки!' },
+    { speaker: 'klevak', side: 'right', text: 'О, живые! Я Иван. Слушайте… я тут навайбкодил один скриптик, а оно… ну… всё немножко сломалось.' },
+    { speaker: 'mech', side: 'left', text: '«Немножко»? Из по пути сюда мы видели толпы монстров из Zero City!' },
+    { speaker: 'klevak', text: 'Да кто ж знал! Лимиты на клод кончились и я пытался все сделать с gemini... Сюда уже ломится босс из Раш ряля, задержите его, я навабйкодю заплатку! Лимиты сбросились!' },
   ]),
   mission_lvl_2: script('mission_lvl_2', [
-    { speaker: 'boss_duck', side: 'left', text: 'Тсс! Я объясняю баг резиновой утке. Это последний рабочий метод отладки в мире.' },
-    { speaker: 'mech', side: 'right', text: 'А утка... отвечает?' },
-    { speaker: 'boss_duck', text: 'Сегодня крякает багами наружу. Klevak сломал тестовый контур. Подержи оборону, пока я допишу автотесты!' },
+    { speaker: 'finance', side: 'right', text: 'Наша казна пустеет, Миллорд! Ой! Простите, обозналась! Кто вы? Что хотели?' },
+    { speaker: 'mech', side: 'left', text: 'На Матриарх послала, за последним миллорд программистом, таска уже на аппруве. Не знаете где его искать?' },
+    { speaker: 'finance', text: 'Дакки, боевая утка, клюёт мои гроссбухи и крякает баги прямо в отчёты! Иван дал ей доступ к казне. Прикрой кассу, я закрою квартал!' },
   ]),
   mission_lvl_3: script('mission_lvl_3', [
-    { speaker: 'boss_olivia', side: 'left', text: 'Привет, дорожные! Я держу комьюнити и локализацию — то есть кричу на монстров на пяти языках.' },
-    { speaker: 'mech', side: 'right', text: 'И как, понимают?' },
-    { speaker: 'boss_olivia', text: 'Аргументы у них из читерского билда. Klevak залил «фанатский патч» — теперь чат вылезает в реальность. Прикрой, пока я баню!' },
+    { speaker: 'strateg', side: 'right', text: 'Я Стратег — держу комьюнити и локализацию на пяти языках. И на всех уже орут.' },
+    { speaker: 'mech', side: 'left', text: 'И как, помогает?' },
+    { speaker: 'strateg', text: 'Пока их королева, Оливия, не зальёт очередной «фанатский патч». Иван дал ей админку. Прикрой, я раздаю баны!' },
   ]),
   mission_lvl_4: script('mission_lvl_4', [
-    { speaker: 'boss_fijin', side: 'left', text: 'Лаг-компенсация на пределе. Я держу нетокод региона голыми руками.' },
-    { speaker: 'mech', side: 'right', text: 'Чувствую сквозняк пакетов. Что лезет?' },
-    { speaker: 'boss_fijin', text: 'Лагающие мобы — телепортятся сквозь стены из-за рассинхрона. Klevak выкрутил тикрейт в ноль. Дай мне поднять серверы!' },
+    { speaker: 'voevoda', side: 'right', text: 'Я Воевода. Держу фронт нетокода голыми руками — пакеты летят как картечь.' },
+    { speaker: 'mech', side: 'left', text: 'Чувствую сквозняк лагов. Что прёт?' },
+    { speaker: 'voevoda', text: 'Боевой шагоход Фиджин — телепортится сквозь стены из-за рассинхрона. Иван выкрутил тикрейт в ноль. Дай мне поднять синхрон!' },
   ]),
   mission_lvl_5: script('mission_lvl_5', [
-    { speaker: 'boss_tacticool', side: 'left', text: 'На полигоне жарко, боец. Сюда лезет вся боёвка из шутеров разом.' },
-    { speaker: 'mech', side: 'right', text: 'Тактикул, у нас турели, а не пушки. Сойдёт?' },
-    { speaker: 'boss_tacticool', text: 'Турель — та же пушка, только терпеливее. Klevak забагал хитбоксы. Держи периметр, я перезаряжаю!' },
+    { speaker: 'khatenkov', side: 'right', text: 'Хатенков, командир полигона. Тут всегда жарко, но сегодня — особенно.' },
+    { speaker: 'mech', side: 'left', text: 'У нас турели, а не пушки. Сойдёт?' },
+    { speaker: 'khatenkov', text: 'Турель — та же пушка, только терпеливее. Из шутеров лезет вся боёвка, а главный — Тактикул, читер со стажем. Держи периметр!' },
   ]),
   mission_lvl_6: script('mission_lvl_6', [
-    { speaker: 'boss_hotel', side: 'left', text: 'Добро пожаловать в «Хотэл» — последний хостинг, где ещё горят лампочки.' },
-    { speaker: 'mech', side: 'right', text: 'Сколько у тебя стоек?' },
-    { speaker: 'boss_hotel', text: 'Было много. Klevak поднял в подвале «бесплатный тариф» — оттуда и лезут. Прикрой ресепшен, я переключу питание!' },
+    { speaker: 'vadim', side: 'right', text: 'Вадим, хостинг и дата-центр. Последние стойки в округе, где ещё горят лампочки.' },
+    { speaker: 'mech', side: 'left', text: 'Сколько их у тебя?' },
+    { speaker: 'vadim', text: 'Было много. В подвале завёлся Хотэл — поднял «бесплатный тариф», оттуда и лезут. Прикрой ресепшен, я переключу питание!' },
   ]),
   mission_lvl_7: script('mission_lvl_7', [
-    { speaker: 'boss_rr', side: 'left', text: 'Я Эр-Эр: релизы и откаты. И, кажется, мы сейчас откатимся прямо в каменный век.' },
-    { speaker: 'mech', side: 'right', text: 'Что в проде?' },
-    { speaker: 'boss_rr', text: 'Klevak зарелизил всё разом, без ревью. На подходе финальный билд монстров. Продержись — я готовлю откат!' },
+    { speaker: 'teodor', side: 'right', text: 'Дошли! Я Теодор. За той дверью — последний Сеньор, тот, кто кодит руками. Только он… вас не ждёт.' },
+    { speaker: 'mech', side: 'left', text: 'В смысле «не ждёт»? Мир спасать надо.' },
+    { speaker: 'teodor', text: 'А ему хоть трава не расти — кроме клубники. Сидит, настраивает гидропонику и слышать ничего не хочет о спасении. Пробейся к нему, я держу дверь!' },
+  ]),
+
+  // --- Per-level boss taunts (play when the boss finale wave spawns) ---------
+  // The VILLAIN finally speaks: a couple of phrases traded with the heroes right
+  // as it walks on. Triggered by BattleScene on the boss wave; the sim is held
+  // until the player taps through.
+  boss_taunt_lvl_1: script('boss_taunt_lvl_1', [
+    { speaker: 'boss_rr', side: 'right', text: 'Я Эр-Эр. Релиз — откат, релиз — откат. А этот район я просто откачу. В ноль.' },
+    { speaker: 'mech', side: 'left', text: 'Этот билд мы доведём до прода — без тебя.' },
+    { speaker: 'boss_rr', text: 'Тогда деплой свою храбрость. Погнали!' },
+  ]),
+  boss_taunt_lvl_2: script('boss_taunt_lvl_2', [
+    { speaker: 'boss_duck', side: 'right', text: 'КРЯ. Я Дакки, боевая утка отладки. Все ваши баги теперь мои.' },
+    { speaker: 'coder', side: 'left', text: 'Это просто утка с ножом.' },
+    { speaker: 'boss_duck', text: 'Утка. С. Ножом. И с молнией. КРЯ!' },
+  ]),
+  boss_taunt_lvl_3: script('boss_taunt_lvl_3', [
+    { speaker: 'boss_olivia', side: 'right', text: 'Фу, моды. Я Оливия, королева чата. Тут мои правила и мои читы.' },
+    { speaker: 'mech', side: 'left', text: 'Правила сервера сейчас поменяются.' },
+    { speaker: 'boss_olivia', text: 'Только попробуй. Забанить ВАС будет особенно приятно!' },
+  ]),
+  boss_taunt_lvl_4: script('boss_taunt_lvl_4', [
+    { speaker: 'boss_fijin', side: 'right', text: '[РАССИНХРОН] Цель… вижу… вижу везде. Я Фиджин. Лаг — моё оружие.' },
+    { speaker: 'coder', side: 'left', text: 'Он мигает по всей карте.' },
+    { speaker: 'boss_fijin', text: 'Пинг… четыреста… Огонь по всем направлениям!' },
+  ]),
+  boss_taunt_lvl_5: script('boss_taunt_lvl_5', [
+    { speaker: 'boss_tacticool', side: 'right', text: 'Слышь, нуб. Я Тактикул. Вкатился к вам прямо из лобби — со всеми читами.' },
+    { speaker: 'mech', side: 'left', text: 'Читы тут не грузятся. Только мы.' },
+    { speaker: 'boss_tacticool', text: 'Сейчас захостю вам поражение. Поехали!' },
+  ]),
+  boss_taunt_lvl_6: script('boss_taunt_lvl_6', [
+    { speaker: 'boss_hotel', side: 'right', text: 'Добро пожаловать в «Хотэл». Я управляющий. У вас бронь? Нет? Тогда выселяю.' },
+    { speaker: 'coder', side: 'left', text: 'Мы не гости. Мы выезд.' },
+    { speaker: 'boss_hotel', text: 'Тогда обслуживание по высшему разряду. На выход!' },
+  ]),
+  // lvl_7 villain = the Last Senior himself. The heroes break through to him; he
+  // wants nothing but his strawberries — until he learns they're vibecoders.
+  boss_taunt_lvl_7: script('boss_taunt_lvl_7', [
+    { speaker: 'senior', side: 'right', text: 'Кроссовки, говоришь? Передай Матриарху — у меня клубника по графику. Никакого спасения мира.' },
+    { speaker: 'mech', side: 'left', text: 'Без тебя мир не переписать. Мы сами немного вайбкодеры — но учимся.' },
+    { speaker: 'senior', text: 'ВАЙБкодеры?! Так это ВЫ всё и сломали! С глаз долой — будете отлажены. Вручную!' },
   ]),
 
   // --- Per-level victory beats (play after a clear, before the result) ------
+  // The villain admits defeat and flees back into its game, then the division
+  // HEAD thanks the heroes and sends them onward.
   victory_lvl_1: script('victory_lvl_1', [
-    { speaker: 'boss_main', side: 'left', text: 'Стойки гудят, аптайм держится! Ты вернул район в сеть, механик.' },
-    { speaker: 'mech', side: 'right', text: 'Не благодари — заводи генератор. Нам дальше: Сеньор сам себя не найдёт.' },
+    { speaker: 'boss_rr', side: 'right', text: 'Откат не прошёл… сам откатываюсь. В свой билд, живо!' },
+    { speaker: 'klevak', side: 'right', text: 'Район живой! Я… эм… почти не виноват, да? Главное — починили!' },
+    { speaker: 'mech', side: 'left', text: 'Чини свой вайб, Клевак. Нам дальше — Сеньор сам себя не найдёт.' },
   ]),
   victory_lvl_2: script('victory_lvl_2', [
-    { speaker: 'boss_duck', side: 'left', text: 'Тесты зелёные, утка довольна! Свободны от вылезающих багов.' },
-    { speaker: 'mech', side: 'right', text: 'Береги утку. Мы покатили дальше.' },
+    { speaker: 'boss_duck', side: 'right', text: 'Кря… ладно. Сегодня баланс сошёлся. Уплываю обратно в свой билд!' },
+    { speaker: 'finance', side: 'right', text: 'Гроссбухи целы, казна сходится до кредита! Спасибо, что не дали всё списать в утиль.' },
+    { speaker: 'mech', side: 'left', text: 'Береги бюджет. Мы покатили дальше.' },
   ]),
   victory_lvl_3: script('victory_lvl_3', [
-    { speaker: 'boss_olivia', side: 'left', text: 'Чат забанен, тишина и мир. Спасибо, что не зафлудили!' },
-    { speaker: 'mech', side: 'right', text: 'Обращайся. Дальше по маршруту.' },
+    { speaker: 'boss_olivia', side: 'right', text: 'Ладно-ладно… снимаю корону. Ухожу в свой тред. Пока!' },
+    { speaker: 'strateg', side: 'right', text: 'Чат притих, локали на месте. Спасибо, что не зафлудили!' },
+    { speaker: 'mech', side: 'left', text: 'Обращайся. Дальше по маршруту.' },
   ]),
   victory_lvl_4: script('victory_lvl_4', [
-    { speaker: 'boss_fijin', side: 'left', text: 'Пинг ровный, синхрон есть! Регион снова онлайн.' },
-    { speaker: 'mech', side: 'right', text: 'Нас не жди — мы своим ходом.' },
+    { speaker: 'boss_fijin', side: 'right', text: '[КРИТ. ОШИБКА] Соединение… потеряно… Откат в свой билд…' },
+    { speaker: 'voevoda', side: 'right', text: 'Пинг ровный, синхрон есть! Регион снова держит строй.' },
+    { speaker: 'mech', side: 'left', text: 'Нас не жди — мы своим ходом.' },
   ]),
   victory_lvl_5: script('victory_lvl_5', [
-    { speaker: 'boss_tacticool', side: 'left', text: 'Чисто! Хитбоксы на месте, полигон наш.' },
-    { speaker: 'mech', side: 'right', text: 'Ну и грохоту. Поехали, пока в ушах звенит.' },
+    { speaker: 'boss_tacticool', side: 'right', text: 'Лагает… читы отвалились… Всё, рейдж-квит! Ливаю в свой билд.' },
+    { speaker: 'khatenkov', side: 'right', text: 'Чисто! Хитбоксы на месте, полигон наш.' },
+    { speaker: 'mech', side: 'left', text: 'Ну и грохоту. Поехали, пока в ушах звенит.' },
   ]),
   victory_lvl_6: script('victory_lvl_6', [
-    { speaker: 'boss_hotel', side: 'left', text: 'Питание стабильно, гости выселены. Номер за нами — заезжай как герой.' },
-    { speaker: 'mech', side: 'right', text: 'В другой раз. Нам ещё ехать.' },
+    { speaker: 'boss_hotel', side: 'right', text: 'Жалоба в книгу… съезжаю. Освобождаю номер — обратно в свой билд.' },
+    { speaker: 'vadim', side: 'right', text: 'Питание стабильно, гости выселены. Номер за нами — заезжай как герой.' },
+    { speaker: 'mech', side: 'left', text: 'В другой раз. Нам ещё ехать.' },
   ]),
+  // The Last Senior, beaten, gets his red sneakers back — and remembers who he is.
   victory_lvl_7: script('victory_lvl_7', [
-    { speaker: 'boss_rr', side: 'left', text: 'Откат прошёл, прод стабилен! Дальше дорога к Сеньору открыта.' },
-    { speaker: 'mech', side: 'right', text: 'Тогда не прощаемся. Едем за последним человеком, что пишет руками.' },
+    { speaker: 'senior', side: 'right', text: 'Всё, всё… сдаюсь. Давно так руки не разминал…' },
+    { speaker: 'mech', side: 'left', text: 'Держи. Матриарх просила вернуть. (надевает на Сеньора красные кроссовки)' },
+    { speaker: 'senior', text: '…Мои кроссовки. Чёрт. Пальцы сами просятся к клавиатуре. Ладно — поехали переписывать этот мир. По-человечески.' },
   ]),
 
-  // --- Finale (plays over the finale cutscene) -----------------------------
+  // --- Finale (short epilogue over the world map) --------------------------
+  // The sneaker reveal already happened in victory_lvl_7; this is just the send-off.
   finale: script('finale', [
-    { speaker: 'narrator', text: 'Дорога кончилась там, где кончились карты. Дальше — только выжженные сервачные и тишина без вентиляторов.' },
-    { speaker: 'mech', side: 'right', text: 'Конец маршрута. И ни одного крякающего моба.' },
-    { speaker: 'coder', side: 'left', text: 'Стой. Слышишь? Там кто-то... компилирует. Вручную.' },
-    { speaker: 'senior', side: 'center', text: 'Полгода без единого автокомплита. Думал, про меня уже забыли.' },
-    { speaker: 'mech', side: 'right', text: 'Матриарх передала. (протягивает красные кроссовки)' },
-    { speaker: 'senior', side: 'center', text: '...Мои кроссовки. Ну всё. Теперь можно и поработать.' },
-    { speaker: 'narrator', text: 'Он зашнуровал кроссовки — и впервые за полгода в мире скомпилировалась строчка, написанная человеком.' },
-    { speaker: 'senior', side: 'center', text: 'Поехали переписывать этот мир. Строчка за строчкой. По-человечески.' },
+    { speaker: 'narrator', text: 'Гидропоника осталась клубнике. В красных кроссовках Сеньор впервые за полгода скомпилировал строчку, написанную человеком — и весь мир чуть-чуть ожил.' },
+    { speaker: 'senior', side: 'right', text: 'Строчка за строчкой. Без облака, без вайба. По-человечески.' },
+    { speaker: 'coder', side: 'left', text: 'А Клевак пусть носит нам кофе. В качестве ревью.' },
+    { speaker: 'mech', side: 'left', text: 'Заводи Буханку. Работы — на целый мир.' },
   ]),
 };
 
@@ -153,5 +212,11 @@ export function missionBriefId(levelId: string): string | undefined {
 /** Victory-dialogue script id for a level, if one exists. */
 export function victoryDialogueId(levelId: string): string | undefined {
   const id = `victory_${levelId}`;
+  return DIALOGUES[id] ? id : undefined;
+}
+
+/** Boss-taunt script id for a level (plays when the boss finale wave spawns). */
+export function bossTauntId(levelId: string): string | undefined {
+  const id = `boss_taunt_${levelId}`;
   return DIALOGUES[id] ? id : undefined;
 }

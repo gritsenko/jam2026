@@ -202,3 +202,17 @@ export function markStorySeen(id: string): void {
     write();
   }
 }
+
+/**
+ * Wipe campaign progress so the player can start over from scratch: clears cleared
+ * levels, stars, seen tutorials and seen story beats. Clearing `seenStory` re-arms
+ * the intro cutscene, so the next START plays it again. Admin/debug test toggles
+ * are left untouched — they are developer switches, not campaign state.
+ */
+export function reset(): void {
+  state.cleared = [];
+  state.stars = {};
+  state.seenTutorials = [];
+  state.seenStory = [];
+  write();
+}

@@ -24,6 +24,7 @@ const en: Dict = {
   'common.retry': 'RETRY',
   'common.next': 'NEXT',
   'common.gotIt': 'GOT IT',
+  'common.skip': 'SKIP',
 
   // --- cutscenes / dialogue ---
   'cutscene.theEnd': 'THE END',
@@ -31,6 +32,9 @@ const en: Dict = {
 
   // --- main menu ---
   'menu.subtitle': 'in search of the last senior',
+  'menu.resetProgress': 'RESET PROGRESS',
+  'menu.resetConfirm': 'TAP AGAIN TO CONFIRM',
+  'menu.watchIntro': 'WATCH INTRO',
 
   // --- world map ---
   'worldmap.title': 'CHOOSE YOUR STAND',
@@ -193,6 +197,7 @@ const ru: Dict = {
   'common.retry': 'ЗАНОВО',
   'common.next': 'ДАЛЕЕ',
   'common.gotIt': 'ПОНЯТНО',
+  'common.skip': 'ПРОПУСТИТЬ',
 
   // --- cutscenes / dialogue ---
   'cutscene.theEnd': 'КОНЕЦ',
@@ -200,6 +205,9 @@ const ru: Dict = {
 
   // --- main menu ---
   'menu.subtitle': 'в поисках последнего сеньора',
+  'menu.resetProgress': 'СБРОСИТЬ ПРОГРЕСС',
+  'menu.resetConfirm': 'НАЖМИ ЕЩЁ РАЗ',
+  'menu.watchIntro': 'СМОТРЕТЬ ИНТРО',
 
   // --- world map ---
   'worldmap.title': 'ВЫБЕРИ РУБЕЖ',

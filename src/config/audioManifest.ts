@@ -362,6 +362,54 @@ export const AUDIO: AudioSpec[] = [
     prompt:
       'UI card shuffle, light quick digital riffle with a soft airy sweep, clean, 0.5 seconds',
   },
+
+  // ---- Character voices (assets/audio/heroes/<key>.mp3) ---------------------
+  // A short voice bark played when a character "opens" in a dialogue (first line
+  // of a speaker turn). Wired per-character via StoryCharacter.voiceKey
+  // (config/storyCharacters.ts). The key is the bare filename: heroes/support.mp3
+  // → 'support'. Routed on the sfx bus. Add a row here when a new voice lands.
+  {
+    key: 'support',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short dieselpunk lead-admin voice bark / radio greeting (player-authored clip)',
+  },
+  {
+    key: 'war',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short gruff combat-division voice bark (player-authored clip)',
+  },
+  {
+    key: 'TeodorLegenda',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short friendly steampunk-engineer voice bark / greeting (player-authored clip)',
+  },
+  {
+    key: 'klevak',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short upbeat wasteland vibecoder voice bark / sheepish greeting (player-authored clip)',
+  },
+  {
+    key: 'vadim',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short steampunk data-center navigator voice bark / greeting (player-authored clip)',
+  },
+  {
+    key: 'khatenkoff',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short tactical-range leader voice bark / greeting (player-authored clip)',
+  },
+  {
+    key: 'olivia',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short haughty chat-queen villain voice bark / taunt (player-authored clip)',
+  },
 ];
 
 /** Per-clip volume by key (1 if unknown). */

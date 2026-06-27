@@ -474,6 +474,55 @@
       "prompt": "colossal overload titan boss creature, molten reactor core chest with venting orange plasma and crackling energy crown, enormous slow lumbering final-boss silhouette, dieselpunk metal limbs"
     },
     {
+      "key": "enemy_boss_main",
+      "file": "assets/sprites/enemy_boss_main.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "towering main-server boss creature, riveted steel server-rack body with glowing status lights, slow heavy menacing stance, dieselpunk tower-defense boss silhouette"
+    },
+    {
+      "key": "enemy_boss_duck",
+      "file": "assets/sprites/enemy_boss_duck.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "hulking debug-duck boss creature, oversized armored rubber-duck idol leaking glitch water, slow lumbering boss pose, dieselpunk metal plating"
+    },
+    {
+      "key": "enemy_boss_olivia",
+      "file": "assets/sprites/enemy_boss_olivia.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "imposing community-moderator boss creature, crackling electric broadcast antennae and chat-storm aura, commanding stance, dieselpunk metal frame"
+    },
+    {
+      "key": "enemy_boss_fijin",
+      "file": "assets/sprites/enemy_boss_fijin.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "massive netcode-warden boss creature, humming server-tower torso wreathed in energy packet streams, steady looming pose, dieselpunk plating"
+    },
+    {
+      "key": "enemy_boss_tacticool",
+      "file": "assets/sprites/enemy_boss_tacticool.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "heavily armored tacticool boss creature, riveted gun-metal exo-armor with glowing orange targeting optics, slow heavy assault stance, dieselpunk boss silhouette"
+    },
+    {
+      "key": "enemy_boss_hotel",
+      "file": "assets/sprites/enemy_boss_hotel.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "towering datacenter-hotel boss creature, stacked humming rack floors leaking coolant mist, slow ponderous stance, dieselpunk steel architecture"
+    },
+    {
+      "key": "enemy_boss_rr",
+      "file": "assets/sprites/enemy_boss_rr.png",
+      "category": "enemy",
+      "size": 512,
+      "prompt": "colossal release-rollback boss creature, brutal piston-armed deploy machine with rollback-clock crown, enormous slow final-boss silhouette, dieselpunk metal limbs"
+    },
+    {
       "key": "map_node",
       "file": "assets/sprites/map_node.png",
       "category": "icon",
@@ -590,6 +639,37 @@
       "category": "fx",
       "size": 256,
       "prompt": "frost ice debuff effect, pale cyan jagged ice crystals and frosty mist"
+    },
+    {
+      "_comment": "Animated burn flames (4 frames cycled by EnemySprite, additive + low alpha). Imported from the external Game Effects Pack, not gen_sprite."
+    },
+    {
+      "key": "fx_flame_0",
+      "file": "assets/sprites/fx_flame_0.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "burning fire flame frame, orange-yellow flames licking upward, transparent cut-out"
+    },
+    {
+      "key": "fx_flame_1",
+      "file": "assets/sprites/fx_flame_1.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "burning fire flame frame, orange-yellow flames licking upward, transparent cut-out"
+    },
+    {
+      "key": "fx_flame_2",
+      "file": "assets/sprites/fx_flame_2.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "burning fire flame frame, orange-yellow flames licking upward, transparent cut-out"
+    },
+    {
+      "key": "fx_flame_3",
+      "file": "assets/sprites/fx_flame_3.png",
+      "category": "fx",
+      "size": 256,
+      "prompt": "burning fire flame frame, orange-yellow flames licking upward, transparent cut-out"
     },
     {
       "_comment": "Per-tower muzzle flashes (additive bloom at the gun tip on fire), keyed by the source tower's element — see muzzleFlashKey() in src/config/projectiles.ts. Art imported from an external FX pack; prompts are descriptive only."
@@ -757,6 +837,90 @@
       "category": "prop",
       "size": 512,
       "prompt": "full-body cut-out character: a wise matriarch leader, strawberry-blonde hair, green turtleneck under a brass-geared leather coat, holding a staff topped with green flame"
+    },
+    {
+      "key": "char_support",
+      "file": "assets/sprites/char_support.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "cut-out portrait bust: a bald bearded dieselpunk lead-admin / tech-support guy, camo field jacket with brass gears and a 'Lead Admin' patch, sunglasses on head, calm smug look (cut from docs/visual_refs/visual_sources/intro/support.png)"
+    },
+    {
+      "key": "char_teodor",
+      "file": "assets/sprites/char_teodor.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a friendly young steampunk engineer with tousled blond hair, patched canvas shirt and a brass tool harness with vacuum tubes and gears, warm smile (cut from docs/visual_refs/visual_sources/mission_characters/TeodorLegenda.png)"
+    },
+    {
+      "key": "char_klevak",
+      "file": "assets/sprites/char_klevak.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a grinning wasteland vibecoder giving a thumbs-up, patched canvas vest over an olive shirt, a 'Nuka' cap with two soda cans and a drinking tube, welding goggles round his neck, holding a tin mug (cut from docs/visual_refs/visual_sources/mission_characters/klevak.png)"
+    },
+    {
+      "key": "char_finance",
+      "file": "assets/sprites/char_finance.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "cut-out portrait: a composed auburn-haired treasurer in a brass-buttoned tartan blazer with gear epaulettes, holding a glowing 'Economy Overview' tablet showing credit charts (cut from docs/visual_refs/visual_sources/mission_characters/finace.png)"
+    },
+    {
+      "key": "char_senior",
+      "file": "assets/sprites/char_senior.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a stern shaven-headed man in a blue plaid flannel shirt with riveted brass pauldrons and gear patches, holding a small dieselpunk radio, a brass water-pump lever in the other hand (cut from docs/visual_refs/visual_sources/last_senior.png)"
+    },
+    {
+      "key": "char_science",
+      "file": "assets/sprites/char_science.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a cheerful steampunk lab scientist in goggles and a leather vest, holding a small glowing tesla-coil device, tool belt with vials (cut from docs/visual_refs/visual_sources/advisors/science.png)"
+    },
+    {
+      "key": "char_strateg",
+      "file": "assets/sprites/char_strateg.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "cut-out portrait: a confident blonde woman strategist in a dark brass-trimmed officer coat, holding a tablet and a rolled Strategy scroll (cut from docs/visual_refs/visual_sources/mission_characters/strategy.png)"
+    },
+    {
+      "key": "char_voevoda",
+      "file": "assets/sprites/char_voevoda.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "cut-out portrait: a battle-hardened commander in heavy riveted brass-and-steel power armor with copper pipes and a glowing purple core, stern determined look (cut from docs/visual_refs/visual_sources/mission_characters/war.png)"
+    },
+    {
+      "key": "char_khatenkov",
+      "file": "assets/sprites/char_khatenkov.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a friendly tactical-range leader in a green plate carrier vest and headset with glasses, holding a stylized rifle, Tacticool Leader patch, easy grin (cut from docs/visual_refs/visual_sources/mission_characters/khatenkoff.png)"
+    },
+    {
+      "key": "char_vadim",
+      "file": "assets/sprites/char_vadim.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a friendly steampunk navigator scout in a patched vest, brass goggles, holding a glowing schematic, wrench and map satchel, confident smile (cut from docs/visual_refs/visual_sources/mission_characters/vadim.png)"
+    },
+    {
+      "key": "char_president",
+      "file": "assets/sprites/char_president.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "cut-out portrait: a stern dieselpunk director in a tailored three-piece suit and tie, leaning on a brass water-pump cane, holding a small radio, calm authoritative look (cut from docs/visual_refs/visual_sources/advisors/president.png)"
+    },
+    {
+      "key": "char_jason",
+      "file": "assets/sprites/char_jason.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "cut-out portrait: a calm bald bearded man in a sharp dark grey three-piece suit with a maroon tie, hands in pockets, deadpan confident look (cut from docs/visual_refs/visual_sources/JasonMaksyutin.png)"
     }
   ]
 }

@@ -44,6 +44,10 @@ export function collectGameConfigIssues(set: GameConfig): string[] {
   checkWaves(set.waves, 'waves');
   for (const [lvl, lc] of Object.entries(set.levelCombat)) {
     checkWaves(lc.waves, `levelCombat ${lvl}`);
+    // The optional level boss (docs/done/level-bosses.md) must be a real enemy.
+    if (lc.bossId && !enemyIds.has(lc.bossId)) {
+      issues.push(`levelCombat ${lvl}: unknown bossId "${lc.bossId}"`);
+    }
   }
 
   // Fusion results must be real cards.

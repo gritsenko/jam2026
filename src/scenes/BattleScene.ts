@@ -64,7 +64,8 @@ import { SettingsPanel } from '../ui/SettingsPanel';
 import { TutorialModal } from '../ui/TutorialModal';
 import { pendingLessons } from '../config/tutorial';
 import { DialogueOverlay } from '../ui/DialogueOverlay';
-import { getDialogue, missionBriefId, victoryDialogueId } from '../config/dialogue';
+import { getDialogue, missionBriefId, victoryDialogueId, bossTauntId, type DialogueScript } from '../config/dialogue';
+import { randomDefeatQuote } from '../config/quotes';
 import { LEVEL_ORDER } from '../config/progression';
 import { CoreBadge } from '../ui/CoreBadge';
 import { EnemySprite } from '../ui/EnemySprite';
@@ -114,6 +115,13 @@ const DRAG_THRESHOLD_SQ = 12 * 12;
 /** Muzzle flash (per-tower FX sprite): seconds held at full alpha, then fade duration. */
 const MUZZLE_HOLD = 0.1;
 const MUZZLE_FADE = 0.2;
+
+/** Level boss (docs/done/level-bosses.md): the arena dims to this overlay alpha while one lives. */
+const BOSS_DARKEN_ALPHA = 0.34;
+/** Speed (per second) the boss-darken overlay eases toward its target alpha. */
+const BOSS_DARKEN_RATE = 1.5;
+/** The boss token renders this much larger than a regular enemy. */
+const BOSS_SPRITE_SCALE = 1.85;
 
 /**
  * Per-tower fire SFX by card id (see docs/planned/tower-sound-design.md). Towers
@@ -177,6 +185,10 @@ export class BattleScene extends Scene {
   private telegraphWaveShown = -2; // upcoming-wave index whose enemy icon is currently in the badge
   private enemyLayer = new Container();
   private fxLayer = new Container(); // projectiles + impact/muzzle bursts, above enemies
+  /** Mood dim over the whole arena while a level boss is alive (docs/done/level-bosses.md). */
+  private bossOverlay = new Graphics();
+  /** Current eased alpha of {@link bossOverlay} (lerps toward 0 / BOSS_DARKEN_ALPHA). */
+  private bossDarken = 0;
   private hudLayer = new Container();
   private handLayer = new Container();
   /** Coins / crystals streaming to the HUD + the wave-clear plaque (screen space, above the HUD). */
@@ -211,7 +223,7 @@ export class BattleScene extends Scene {
   /** Rolling counter so stacked floating damage numbers fan out instead of overlapping. */
   private dmgSeq = 0;
   private avatar!: HeroAvatar;
-  private avatarR = 72;
+  private avatarR = 84;
   private backBtn!: Button;
   private rerollBtn!: Button;
   private gearBtn!: GearButton;
@@ -269,6 +281,8 @@ export class BattleScene extends Scene {
     grav: number;
   }[] = [];
   private enemySize = 1;
+  /** Burn-status flame frames (fx_flame_0..3), resolved once in onEnter. */
+  private flameFrames: Texture[] = [];
   private banner?: BattleBanner;
   /** Range footprint shown under the dragged card before it is placed. */
   private rangePreview = new Graphics();
@@ -382,6 +396,16 @@ export class BattleScene extends Scene {
     arena.eventMode = 'static';
     arena.on('pointertap', () => { if (!this.dragging) this.clearInspect(); });
     this.field.addChild(arena);
+    // Boss mood-dim (docs/done/level-bosses.md): a dark sheet over ONLY the level
+    // map texture — inserted right above the arena art and below the road / grid /
+    // enemies / fx, so when a boss is alive the ground darkens while the towers,
+    // boss and every other object stay at full brightness. Non-interactive.
+    this.bossOverlay.clear();
+    this.bossOverlay.rect(0, 0, this.arenaW, this.arenaH).fill({ color: COLORS.black });
+    this.bossOverlay.eventMode = 'none';
+    this.bossOverlay.alpha = 0;
+    this.bossDarken = 0;
+    this.field.addChild(this.bossOverlay);
     // The active march route, drawn over the arena art from the path polyline so
     // it always matches where enemies actually walk (per-level direction).
     this.field.addChild(this.roadLayer);
@@ -415,6 +439,10 @@ export class BattleScene extends Scene {
     this.modOverlay.position.set(this.arenaW * 0.5, this.arenaH * 0.5);
 
     this.enemySize = this.arenaW * 0.12;
+    // Burn-status animation frames (additive, low-alpha flame cycled by EnemySprite).
+    this.flameFrames = ['fx_flame_0', 'fx_flame_1', 'fx_flame_2', 'fx_flame_3']
+      .filter((k) => assets.has(k))
+      .map((k) => assets.get(k));
     this.rangePreview.visible = false;
     this.inspectRange.visible = false;
     // Y-sort enemies by their board Y each frame (zIndex set in syncEnemies).
@@ -464,6 +492,7 @@ export class BattleScene extends Scene {
       waves: this.levelCombat.waves,
       hpScale: this.levelCombat.hpScale,
       bountyScale: this.levelCombat.bountyScale,
+      bossId: this.levelCombat.bossId, // appends a boss-only finale wave (docs/done/level-bosses.md)
       arenaWidth: this.arenaW,
       coreMax: CORE_MAX,
       callbacks: {
@@ -506,7 +535,7 @@ export class BattleScene extends Scene {
         },
         onDefeat: () => {
           this.services.audio.playSfx('sfx_defeat');
-          this.showBanner('defeat');
+          this.playDefeatQuote();
         },
       },
     });
@@ -596,7 +625,12 @@ export class BattleScene extends Scene {
     const { assets } = this.services;
     const s = this.state;
 
-    this.waveBadge = new WaveBadge(1, this.levelCombat.waves.length);
+    // Wave total includes the injected boss finale wave so the badge reads right
+    // from the opening countdown (docs/done/level-bosses.md).
+    this.waveBadge = new WaveBadge(
+      1,
+      this.levelCombat.waves.length + (this.levelCombat.bossId ? 1 : 0),
+    );
     this.coreBadge = new CoreBadge(CORE_MAX, CORE_MAX);
     this.goldChip = new ResourceChip(assets.get('icon_gold'), s.gold, COLORS.gold);
     this.crystalChip = new ResourceChip(assets.get('icon_crystal'), s.crystals, COLORS.crystal);
@@ -2200,6 +2234,58 @@ export class BattleScene extends Scene {
     }
     this.refreshEnergy(); // capacity rose by CAPACITY_PER_WAVE this wave
     this.refreshRerollButton();
+
+    // Boss finale wave: the villain finally speaks (config/dialogue.ts). Opening a
+    // dialogue pauses the sim (see update), so the boss holds behind its taunt and
+    // walks on only once the player taps through. First clear only (Admin replays).
+    if (this.levelCombat.bossId && n === this.sim.totalWaves) this.playBossTaunt();
+  }
+
+  /**
+   * Boss-taunt beat: the level villain trades a couple of phrases with the heroes
+   * as its finale wave arrives. The open dialogue gates the sim, freezing the boss
+   * at the edge until acknowledged. No-op if already seen (Admin mode replays it).
+   */
+  private playBossTaunt(): void {
+    const id = bossTauntId(this.levelId);
+    const script = id ? getDialogue(id) : undefined;
+    if (!id || !script || !progress.shouldPlayStory(id)) return;
+    this.dialogue = new DialogueOverlay(
+      script,
+      this.services.assets,
+      this.services.audio,
+      () => {
+        progress.markStorySeen(id);
+        this.closeDialogue(); // releases the sim pause — the boss now walks on
+      },
+      { dimAlpha: 0.5 },
+    );
+    this.addChild(this.dialogue); // top-most, above the drag layer
+    this.dialogue.layout(this.services.getLayout());
+  }
+
+  /**
+   * Defeat Easter egg: «Джейсон Максютин» drops one (cleaned) absurd quote over
+   * the loss, then the defeat banner follows. Always plays — it's the joke. The
+   * quote text is literal (no i18n catalog entry); see config/quotes.ts.
+   */
+  private playDefeatQuote(): void {
+    const script: DialogueScript = {
+      id: 'defeat_quote',
+      lines: [{ speaker: 'jason', side: 'center', text: randomDefeatQuote() }],
+    };
+    this.dialogue = new DialogueOverlay(
+      script,
+      this.services.assets,
+      this.services.audio,
+      () => {
+        this.closeDialogue();
+        this.showBanner('defeat');
+      },
+      { dimAlpha: 0.72 },
+    );
+    this.addChild(this.dialogue);
+    this.dialogue.layout(this.services.getLayout());
   }
 
   /**
@@ -2241,6 +2327,8 @@ export class BattleScene extends Scene {
     const budget: Record<string, number> = {};
     if (wave) {
       for (const g of wave.groups) budget[g.enemyId] = (budget[g.enemyId] ?? 0) + g.count;
+    } else if (this.levelCombat.bossId && n - 1 === this.levelCombat.waves.length) {
+      budget[this.levelCombat.bossId] = 1; // injected boss finale wave
     }
     return budget;
   }
@@ -2424,11 +2512,12 @@ export class BattleScene extends Scene {
           e.def.archetype === 'support' && e.def.auraRadiusFrac
             ? { color: ELEMENTS[e.def.element].glow, radiusPx: e.def.auraRadiusFrac * this.arenaW }
             : undefined;
-        const fx = {
-          burn: assets.has('fx_burn') ? assets.get('fx_burn') : undefined,
-          frost: assets.has('fx_frost') ? assets.get('fx_frost') : undefined,
-        };
-        view = new EnemySprite(assets.get(e.def.iconKey), this.enemySize, e.id * 0.7, aura, fx);
+        // Burn FX = the 4-frame additive flame animation (fx_flame_0..3); chill is
+        // now a body-tint + corner snowflake drawn by EnemySprite (no big overlay).
+        const fx = { flames: this.flameFrames };
+        // The level boss is a hulking super-unit — render its token markedly larger.
+        const size = e.def.archetype === 'boss' ? this.enemySize * BOSS_SPRITE_SCALE : this.enemySize;
+        view = new EnemySprite(assets.get(e.def.iconKey), size, e.id * 0.7, aura, fx);
         this.enemyViews.set(e.id, view);
         this.enemyHpSeen.set(e.id, e.hp);
         this.enemyLayer.addChild(view);
@@ -2460,6 +2549,24 @@ export class BattleScene extends Scene {
       view.setShield(e.shield, e.shieldMax);
       view.tick(dt);
     }
+  }
+
+  /**
+   * Ease the arena mood-dim toward its target: full {@link BOSS_DARKEN_ALPHA}
+   * while any boss is alive on the field, back to clear once it dies/leaks
+   * (docs/done/level-bosses.md). Uses unscaled `dt` so the fade speed is constant
+   * regardless of the game-speed setting.
+   */
+  private updateBossDarken(dt: number): void {
+    const bossAlive = this.sim.enemies.some((e) => e.alive && e.def.archetype === 'boss');
+    const target = bossAlive ? BOSS_DARKEN_ALPHA : 0;
+    if (this.bossDarken === target) return;
+    const step = BOSS_DARKEN_RATE * dt;
+    this.bossDarken =
+      this.bossDarken < target
+        ? Math.min(target, this.bossDarken + step)
+        : Math.max(target, this.bossDarken - step);
+    this.bossOverlay.alpha = this.bossDarken;
   }
 
   /** Create/update a bolt per live projectile; drop the view once it is gone.
@@ -2637,7 +2744,11 @@ export class BattleScene extends Scene {
 
   /** Texture of the lead enemy of wave `idx` (0-based), or null if none/out of range. */
   private upcomingLeadEnemyTexture(idx: number): Texture | null {
-    const enemyId = this.levelCombat.waves[idx]?.groups[0]?.enemyId;
+    // The boss arrives as an injected finale wave (index === waves.length), so it
+    // isn't in `levelCombat.waves` — telegraph it from `bossId` (docs/done/level-bosses.md).
+    const enemyId =
+      this.levelCombat.waves[idx]?.groups[0]?.enemyId ??
+      (idx === this.levelCombat.waves.length ? this.levelCombat.bossId : undefined);
     if (!enemyId) return null;
     try {
       return this.services.assets.get(getEnemy(enemyId).iconKey);
@@ -3395,23 +3506,26 @@ export class BattleScene extends Scene {
     // --- Top bar: MAP + WAVE (left); gold + crystals + avatar (right) -------
     const topY = safe.y + pad;
     this.backBtn.position.set(safe.x + pad + 75, topY + 32);
-    // Gear sits just under the MAP button, left column.
-    this.gearBtn.position.set(safe.x + pad + 75, topY + 64 + 12 + 32);
+    // Gear + mute sit side by side just under the MAP button, left column.
+    const ctrlD = 64;
+    const ctrlGap = 8;
+    const ctrlY = topY + 64 + 12 + 32;
+    const ctrlCX = safe.x + pad + 75; // centered under the MAP button
+    this.gearBtn.position.set(ctrlCX - (ctrlD + ctrlGap) / 2, ctrlY);
+    this.muteBtn.position.set(ctrlCX + (ctrlD + ctrlGap) / 2, ctrlY);
     this.settings?.layout(info);
     this.tutorial?.layout(info);
     this.dialogue?.layout(info);
     this.waveBadge.position.set(safe.x + pad + 160, topY);
     this.coreBadge.position.set(safe.x + pad + 160, topY + this.waveBadge.badgeH + 8);
 
-    // Global mute toggle sits in the top-right corner, above the avatar — mirrors
-    // the MAP→gear stack on the left. The avatar drops below it to make room.
-    const muteD = 64;
+    // Avatar + gold/crystal chips ride the vertical center of the header (the
+    // height of the wave+core badge stack on the left), right-aligned to the edge.
+    const headerCY = topY + (this.waveBadge.badgeH + 8 + this.coreBadge.badgeH) / 2;
     const avatarCX = safe.x + safe.width - pad - this.avatarR;
-    this.muteBtn.position.set(avatarCX, topY + muteD / 2);
-    const avatarCY = topY + muteD + 10 + this.avatarR;
-    this.avatar.position.set(avatarCX, avatarCY);
+    this.avatar.position.set(avatarCX, headerCY);
 
-    const chipY = avatarCY - this.goldChip.chipH / 2;
+    const chipY = headerCY - this.goldChip.chipH / 2;
     const rowRight = avatarCX - this.avatarR - 16;
     this.crystalChip.position.set(rowRight - this.crystalChip.chipW, chipY);
     this.goldChip.position.set(rowRight - this.crystalChip.chipW - 12 - this.goldChip.chipW, chipY);
@@ -3444,7 +3558,7 @@ export class BattleScene extends Scene {
     //     (the rocky frame baked into the image is cropped off), centered
     //     horizontally. Arena + platform + enemies scale as one locked unit. --
     const leftStackBottom = topY + this.waveBadge.badgeH + 8 + this.coreBadge.badgeH;
-    const fieldTop = Math.max(leftStackBottom, avatarCY + this.avatarR) + 14;
+    const fieldTop = Math.max(leftStackBottom, headerCY + this.avatarR) + 14;
     const fieldBottom = gaugeY - 14;
     this.waveToast.position.set(cx, fieldTop + 60);
 
@@ -3515,7 +3629,10 @@ export class BattleScene extends Scene {
     // Drive the combat simulation, then mirror it into sprites. Overload from
     // too much energy load slows each tower's fire rate in proportion to its own
     // load (Overdrive lifts the capacity that feeds this).
-    if (this.sim.status === 'running') {
+    // A story dialogue (boss taunt, mission brief, victory/defeat beat) pauses the
+    // simulation: the boss holds behind its taunt and the battle clock doesn't run.
+    const storyPaused = this.dialogue !== null;
+    if (this.sim.status === 'running' && !storyPaused) {
       this.sim.overload = overloadAmount(this.state.energyLoad, this.effectiveCapacity);
       this.battleElapsed += dt; // telemetry durationSec (real wall-clock, unscaled)
     }
@@ -3526,8 +3643,9 @@ export class BattleScene extends Scene {
     // Enemy-only difficulty dial (main menu) — scales enemy march on top of `g`,
     // leaving tower fire/cooldowns on the plain game-speed tempo.
     this.sim.enemySpeedMult = getEnemySpeed();
-    this.sim.update(g);
+    if (!storyPaused) this.sim.update(g);
     this.syncEnemies(g);
+    this.updateBossDarken(dt);
     this.syncProjectiles();
     this.tickParticles(g);
     this.syncCooldowns(g);

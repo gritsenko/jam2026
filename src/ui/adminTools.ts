@@ -50,6 +50,17 @@ export function layoutConfigPickerAt(info: LayoutInfo, logicalX: number, logical
   p.clampToViewport(screenW, screenH, safeBoundsInScreenPx(safe, scale, offsetX, offsetY));
 }
 
+/**
+ * World-map placement for the config picker: top-right corner, just below the
+ * mute button. {@link layoutConfigPickerAt} clamps to the safe area, so pushing
+ * the origin past the right edge right-aligns the block — i.e. higher and to the
+ * right of the admin checkbox column.
+ */
+export function layoutWorldMapConfigPicker(info: LayoutInfo): void {
+  const { safe } = info;
+  layoutConfigPickerAt(info, safe.x + safe.width, safe.y + 96);
+}
+
 function safeBoundsInScreenPx(
   safe: Rect,
   scale: number,

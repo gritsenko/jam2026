@@ -7,7 +7,8 @@ import {
   ADMIN_EDGE,
   ADMIN_ROW_H,
   getConfigPicker,
-  layoutConfigPickerAt,
+  hideConfigPicker,
+  layoutWorldMapConfigPicker,
   worldMapAdminColumnX,
 } from './adminTools';
 
@@ -68,25 +69,25 @@ export class AdminHud extends Container {
     const { safe } = info;
 
     if (this.screen === 'menu') {
-      this.layoutColumn(info, safe.x + ADMIN_EDGE + 8, safe.y + 88);
+      this.layoutColumn(safe.x + ADMIN_EDGE + 8, safe.y + 88);
+      // The config switcher lives only on the world map.
+      hideConfigPicker();
       return;
     }
 
-    const colX = worldMapAdminColumnX(safe);
-    const colY = safe.y + 100;
-    this.layoutColumn(info, colX, colY);
+    this.layoutColumn(worldMapAdminColumnX(safe), safe.y + 100);
+    // Config switcher floats separately, top-right (higher + right of the column).
+    layoutWorldMapConfigPicker(info);
   }
 
-  /** Top → bottom: ADMIN, Sell Towers, Burn Towers, Debug mode, CONFIG. */
-  private layoutColumn(info: LayoutInfo, colX: number, adminY: number): void {
+  /** Top → bottom: ADMIN, Sell Towers, Burn Towers, Debug mode. */
+  private layoutColumn(colX: number, adminY: number): void {
     const sellY = adminY + ADMIN_ROW_H;
     const burnY = sellY + ADMIN_ROW_H;
     const debugY = burnY + ADMIN_ROW_H;
-    const configY = debugY + ADMIN_ROW_H;
     this.adminToggle.position.set(colX, adminY);
     this.sellToggle.position.set(colX, sellY);
     this.burnToggle.position.set(colX, burnY);
     this.debugToggle.position.set(colX, debugY);
-    layoutConfigPickerAt(info, colX, configY);
   }
 }

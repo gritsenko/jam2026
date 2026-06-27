@@ -21,6 +21,14 @@ export interface LevelCombat {
    * rotate the direction so a static layout no longer covers everything.
    */
   readonly pathId?: PathId;
+  /**
+   * Optional level boss (docs/done/level-bosses.md): the enemy id (archetype
+   * `boss`) of the slow super-unit that arrives as a dedicated **finale wave**
+   * after the scripted {@link waves}. Set → the sim appends one boss-only wave (so
+   * the HUD wave total is `waves.length + 1`) and the arena dims while it lives.
+   * Omitted → the level ends on its last scripted wave as before.
+   */
+  readonly bossId?: string;
 }
 
 /**
