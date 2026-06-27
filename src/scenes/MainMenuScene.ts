@@ -5,11 +5,27 @@ import { Scene } from '../core/scene';
 import { t } from '../core/i18n';
 import { Button } from '../ui/Button';
 import { LangSwitch } from '../ui/LangSwitch';
+import { SpeedStepper, type StepperModel } from '../ui/SpeedStepper';
 import { AdminHud } from '../ui/AdminHud';
 import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
 import { glowCircle, makeText } from '../ui/helpers';
+import {
+  getEnemySpeed,
+  stepEnemySpeed,
+  ENEMY_SPEED_MIN,
+  ENEMY_SPEED_MAX,
+} from '../core/settings';
 import * as Telemetry from '../telemetry/Telemetry';
+
+/** Enemy-speed dial model for the shared {@link SpeedStepper} (difficulty knob). */
+const ENEMY_SPEED_MODEL: StepperModel = {
+  captionKey: 'settings.enemySpeed',
+  get: getEnemySpeed,
+  step: stepEnemySpeed,
+  min: ENEMY_SPEED_MIN,
+  max: ENEMY_SPEED_MAX,
+};
 
 /** Title screen: themed backdrop, title cluster, and a Start CTA. */
 export class MainMenuScene extends Scene {
@@ -19,6 +35,7 @@ export class MainMenuScene extends Scene {
   private muteBtn!: MuteButton;
   private adminHud!: AdminHud;
   private langSwitch!: LangSwitch;
+  private enemySpeed!: SpeedStepper;
   private t = 0;
 
   override onEnter(): void {
@@ -80,16 +97,28 @@ export class MainMenuScene extends Scene {
     // available in the in-battle settings panel. Switching persists + reloads.
     this.langSwitch = new LangSwitch(420, true);
     this.addChild(this.langSwitch);
+
+    // Enemy-speed difficulty dial (separate from the in-battle game-speed tempo):
+    // same stepper widget, defaults to 1.0×, persists and applies live in battle.
+    this.enemySpeed = new SpeedStepper(
+      420,
+      (v) => Telemetry.track('enemy_speed_change', { value: v }),
+      ENEMY_SPEED_MODEL,
+    );
+    this.addChild(this.enemySpeed);
   }
 
   override layout(info: LayoutInfo): void {
     this.bg.fit(info);
     const { safe } = info;
     const cx = safe.x + safe.width / 2;
-    this.logo.position.set(cx, safe.y + safe.height * 0.4);
-    this.startBtn.position.set(cx, safe.y + safe.height * 0.82);
+    this.logo.position.set(cx, safe.y + safe.height * 0.38);
+    this.startBtn.position.set(cx, safe.y + safe.height * 0.72);
     this.muteBtn.position.set(safe.x + safe.width - 18 - 32, safe.y + 18 + 32);
-    this.langSwitch.position.set(cx - 210, safe.y + safe.height - this.langSwitch.contentHeight - 28);
+    const langY = safe.y + safe.height - this.langSwitch.contentHeight - 28;
+    this.langSwitch.position.set(cx - 210, langY);
+    // Enemy-speed stepper stacked just above the language picker.
+    this.enemySpeed.position.set(cx - 210, langY - this.enemySpeed.contentHeight - 28);
     this.adminHud.layout(info);
   }
 
