@@ -291,6 +291,12 @@ export class BattleScene extends Scene {
   // Drag state.
   private dragging: BattleCard | null = null;
   private dragOffset: PointData = { x: 0, y: 0 };
+  /** Latest pointer position in drag-layer space, so the lift tween can keep the
+   *  card glued to a stationary finger while the grab offset animates. */
+  private dragPointerLocal: PointData = { x: 0, y: 0 };
+  /** Quick pickup interpolation: shrinks the card + slides it so the center of its
+   *  bottom third settles under the pointer. Stopped/replaced on each new lift. */
+  private dragLiftTween?: TweenHandle;
   /**
    * When the dragged card is a tower lifted *off the platform* (field-to-field
    * merge, v2 §1.5), the slot index it came from; null for a normal hand-card drag.
@@ -932,6 +938,60 @@ export class BattleScene extends Scene {
 
   // --- Drag & drop ---------------------------------------------------------
 
+  /**
+   * Target on-screen scale for a lifted card: shrink it to roughly one platform
+   * cell wide (≈1.5× smaller than in hand) so it stops covering the slot it is
+   * about to drop on — the player can read the cell + build-preview underneath.
+   * The card lives in the (unscaled) drag layer, while the cell's on-screen size
+   * is the grid cell scaled by the field zoom, so divide by the card's own width.
+   */
+  private pickupScale(card: BattleCard): number {
+    const cellOnScreen = this.grid.cellWorldSize * this.field.scale.x;
+    if (!(cellOnScreen > 0)) return 0.7; // pre-layout fallback
+    return Math.min(0.9, Math.max(0.5, cellOnScreen / card.cardW));
+  }
+
+  /**
+   * Move a just-grabbed card onto the drag layer and play the pickup lift: a quick
+   * interpolation that shrinks it to ≈one cell ({@link pickupScale}) and slides it
+   * so its **center** settles under the pointer — slot snapping is resolved from the
+   * pointer position ({@link onDragMove} → `slotAtGlobal`), so centering the card on
+   * the finger keeps the held card aligned with the slot it will drop on. The tween
+   * drives `card.position` itself (from the last pointer sample) so the card tracks
+   * even a stationary finger; {@link onDragMove} takes over the instant it moves.
+   */
+  private liftCard(card: BattleCard, grabGlobal: PointData, e: FederatedPointerEvent): void {
+    const local = this.dragLayer.toLocal(grabGlobal);
+    this.dragLayer.addChild(card);
+    card.position.copyFrom(local);
+
+    const toScale = this.pickupScale(card);
+    const pointerLocal = this.dragLayer.toLocal(e.global);
+    this.dragPointerLocal = { x: pointerLocal.x, y: pointerLocal.y };
+    // Start at the scaled grab point (the spot the player pressed), animate to a
+    // zero offset so the card center lands exactly under the pointer.
+    const startOff = { x: (local.x - pointerLocal.x) * toScale, y: (local.y - pointerLocal.y) * toScale };
+    const targetOff = { x: 0, y: 0 };
+    this.dragOffset = { x: startOff.x, y: startOff.y };
+
+    const fromScale = card.scale.x;
+    this.dragLiftTween?.stop();
+    this.dragLiftTween = this.track(
+      tween({
+        duration: 0.12,
+        easing: Easings.outCubic,
+        onUpdate: (t) => {
+          if (card.destroyed) return;
+          card.scale.set(fromScale + (toScale - fromScale) * t);
+          this.dragOffset.x = startOff.x + (targetOff.x - startOff.x) * t;
+          this.dragOffset.y = startOff.y + (targetOff.y - startOff.y) * t;
+          card.position.set(this.dragPointerLocal.x + this.dragOffset.x, this.dragPointerLocal.y + this.dragOffset.y);
+        },
+      }),
+    );
+    card.alpha = 0.97;
+  }
+
   /** Gold price of the next Reactor burn this battle (base + step per burn, §3.Г). */
   private burnCost(): number {
     return overdriveCost(this.burnsThisBattle);
@@ -977,16 +1037,7 @@ export class BattleScene extends Scene {
     this.dragging = card;
     card.cursor = 'grabbing';
 
-    const gp = card.getGlobalPosition();
-    this.dragLayer.addChild(card);
-    const local = this.dragLayer.toLocal(gp);
-    card.position.copyFrom(local);
-
-    const pointerLocal = this.dragLayer.toLocal(e.global);
-    this.dragOffset = { x: local.x - pointerLocal.x, y: local.y - pointerLocal.y };
-
-    this.track(tween({ duration: 0.12, onUpdate: (t) => { if (!card.destroyed) card.scale.set(1 + 0.14 * t); } }));
-    card.alpha = 0.97;
+    this.liftCard(card, card.getGlobalPosition(), e);
     this.previewSlot = null;
     this.cardGhosted = false;
 
@@ -1023,15 +1074,7 @@ export class BattleScene extends Scene {
     this.dragging = avatar;
     this.fieldDragFrom = slot.index;
 
-    const gp = slot.getGlobalPosition();
-    this.dragLayer.addChild(avatar);
-    const local = this.dragLayer.toLocal(gp);
-    avatar.position.copyFrom(local);
-    const pointerLocal = this.dragLayer.toLocal(e.global);
-    this.dragOffset = { x: local.x - pointerLocal.x, y: local.y - pointerLocal.y };
-
-    this.track(tween({ duration: 0.12, onUpdate: (t) => { if (!avatar.destroyed) avatar.scale.set(1 + 0.14 * t); } }));
-    avatar.alpha = 0.97;
+    this.liftCard(avatar, slot.getGlobalPosition(), e);
     this.previewSlot = null;
     this.cardGhosted = false;
 
@@ -1047,6 +1090,9 @@ export class BattleScene extends Scene {
     const card = this.dragging;
     if (!card) return;
     const p = this.dragLayer.toLocal(e.global);
+    // Keep the latest pointer for the lift tween (which drives position while the
+    // grab offset is still animating to the bottom-third anchor).
+    this.dragPointerLocal = { x: p.x, y: p.y };
     card.position.set(p.x + this.dragOffset.x, p.y + this.dragOffset.y);
 
     // Modernization cards have their own (platform-wide) drag feedback.
@@ -1236,8 +1282,10 @@ export class BattleScene extends Scene {
     const card = this.dragging;
     if (!card) return;
     const from = card.alpha;
-    // Fully fade the card out over a slot so only the clean build-preview shows.
-    const to = on ? 0 : 0.97;
+    // Fade the card down to 30% over a slot (not fully out) so the build-preview
+    // reads while the lifted card stays visible — no jarring disappear/reappear
+    // flicker as the pointer snaps between slots.
+    const to = on ? 0.3 : 0.97;
     this.cardFadeTween?.stop();
     this.cardFadeTween = this.track(
       tween({ duration: 0.1, onUpdate: (t) => { if (!card.destroyed) card.alpha = from + (to - from) * t; } }),
@@ -1260,6 +1308,7 @@ export class BattleScene extends Scene {
     card.cursor = 'grab';
 
     // Tear down the drag-time visuals shared by every outcome.
+    this.dragLiftTween?.stop(); // stop the pickup lift before place/return takes over
     this.cardFadeTween?.stop();
     this.previewSlot?.clearGhost();
     this.previewSlot = null;
@@ -1570,6 +1619,7 @@ export class BattleScene extends Scene {
   private endModDrag(card: BattleCard, e: FederatedPointerEvent): void {
     this.dragging = null;
     card.cursor = 'grab';
+    this.dragLiftTween?.stop(); // stop the pickup lift before return/apply takes over
     // Hit-test while the overlay is still live, then tear it down.
     const el = card.def.mod === 'focus' ? this.modOverlay.elementAtGlobal(e.global) : null;
     const overPlatform = this.grid.containsGlobal(e.global) || this.modOverlay.containsGlobal(e.global);
@@ -1749,12 +1799,12 @@ export class BattleScene extends Scene {
     ];
   }
 
-  /** Toggle the bright ring on the hand card currently under the dragged card. */
+  /** Toggle the bold "ready to combine" frame on the hand card under the dragged card. */
   private setFusionTarget(target: BattleCard | null): void {
     if (this.fusionTarget === target) return;
-    if (this.fusionTarget && !this.fusionTarget.destroyed) this.fusionTarget.setSelected(false);
+    if (this.fusionTarget && !this.fusionTarget.destroyed) this.fusionTarget.setMergeReady(false);
     this.fusionTarget = target;
-    if (target && !target.destroyed) target.setSelected(true);
+    if (target && !target.destroyed) target.setMergeReady(true);
   }
 
   /**

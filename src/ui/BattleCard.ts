@@ -49,6 +49,10 @@ export class BattleCard extends Container {
   // Bright element-colored ring drawn while the card is tapped/selected.
   private selectGlow = new Graphics();
 
+  // Bold gold "ready to combine" frame drawn while another card is hovered over
+  // this one and a hand merge/fusion is possible (louder than the select ring).
+  private mergeGlow = new Graphics();
+
   // Element-symbol textures (sym_<element>) for the body badge + dot fallback.
   private symbols?: Partial<Record<ElementId, Texture>>;
   // Pre-baked off/on influence-dot symbols sliced from the element-symbol sheet.
@@ -136,8 +140,10 @@ export class BattleCard extends Container {
     // gold/crystal chip for modernization cards, which add no load).
     this.buildCostRow(opts.energyIcon, opts.goldIcon, opts.crystalIcon);
     this.buildLockOverlay();
-    // Selection ring sits on top so a tapped card reads even over the lock veil.
+    // Selection / merge rings sit on top so they read even over the lock veil;
+    // the merge frame is added last so it wins over the tap-select ring.
     this.addChild(this.selectGlow);
+    this.addChild(this.mergeGlow);
   }
 
   /**
@@ -157,6 +163,32 @@ export class BattleCard extends Container {
         .stroke({ width: 5, color: glow, alpha: 0.16 });
     }
     this.selectGlow.roundRect(-W / 2, -H / 2, W, H, 20).stroke({ width: 4, color: glow, alpha: 0.95 });
+  }
+
+  /**
+   * Toggle the "ready to combine" highlight — a bold, bright gold frame, much
+   * thicker and louder than the tap-select ring, drawn while another card is
+   * dragged over this one and a hand merge / fusion is possible. Matches the gold
+   * merge color used on the board so "drop here to combine" reads at a glance.
+   */
+  setMergeReady(on: boolean): void {
+    this.mergeGlow.clear();
+    if (!on) return;
+    const W = this.cardW;
+    const H = this.cardH;
+    const color = COLORS.energyOverdrive;
+    // Wide outer halo so the frame pops out of the hand row.
+    for (let i = 4; i >= 1; i--) {
+      const grow = i * 6;
+      this.mergeGlow
+        .roundRect(-W / 2 - grow, -H / 2 - grow, W + grow * 2, H + grow * 2, 20 + grow)
+        .stroke({ width: 7, color, alpha: 0.18 });
+    }
+    // Bold double frame: a thick gold core ring + a crisp white inner accent.
+    this.mergeGlow.roundRect(-W / 2, -H / 2, W, H, 20).stroke({ width: 9, color, alpha: 0.98 });
+    this.mergeGlow
+      .roundRect(-W / 2 + 6, -H / 2 + 6, W - 12, H - 12, 16)
+      .stroke({ width: 3, color: COLORS.white, alpha: 0.85 });
   }
 
   /**
