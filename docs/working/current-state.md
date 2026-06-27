@@ -482,11 +482,12 @@ text-to-audio промпты — [audioManifest.ts](../../src/config/audioManife
 по-прежнему на `sfx_burn`.
 
 **Пер-башенные звуки.** Каждая атакующая башня играет свою пару SFX вместо общих:
-вылет роутится по `cardId` (`TOWER_SHOOT_SFX` в [BattleScene.ts](../../src/scenes/BattleScene.ts)),
-попадание — по стихии источника (`ELEMENT_HIT_SFX`; колбэк `onEnemyDamaged` несёт
-`element`). Ключи: `sfx_shoot_*`/`sfx_hit_*` для `plasma`/`frost`/`storm`/`railgun`
+вылет — по `cardId` (`TOWER_SHOOT_SFX`), попадание — по `cardId` с фоллбеком на стихию
+(`TOWER_HIT_SFX` → `ELEMENT_HIT_SFX` → `sfx_hit`) в колбэках `onProjectileHit` и
+`onBeam` (сим несёт `towerId` на снаряде и в луче); крит по-прежнему `sfx_crit` в
+`onEnemyDamaged`. Ключи: `sfx_shoot_*`/`sfx_hit_*` для всех 10 атакующих башен
 ([audioManifest.ts](../../src/config/audioManifest.ts)). Поддержка снарядов не пускает
-(Щит → `sfx_barrier`); если PNG-сэмпла нет — фоллбек на общие `sfx_shoot`/`sfx_hit`.
+(Щит → `sfx_barrier`); если mp3 нет — фоллбек на общие `sfx_shoot`/`sfx_hit`.
 Спека — [done/tower-sound-design.md](../done/tower-sound-design.md).
 
 **Глобальный mute** — кнопка-динамик ([MuteButton.ts](../../src/ui/MuteButton.ts)) в

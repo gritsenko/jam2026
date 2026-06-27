@@ -91,6 +91,8 @@ export interface SimEnemy {
 
 /** On-hit payload a tower stamps onto its shots / strikes. */
 export interface HitEffects {
+  /** Card id of the firing tower — routes per-tower hit SFX in the scene. */
+  readonly towerId: string;
   aoeRadius: number; // px (0 = single target)
   splashFrac: number;
   /** Frost freeze radius in px (v3 §5): slow/Wet land on everyone within this of the impact (0 = struck target only). */
@@ -240,16 +242,16 @@ export type WavePhase = 'countdown' | 'spawning' | 'active';
 export interface SimCallbacks {
   onEnemyKilled?(enemy: SimEnemy): void;
   onEnemyLeaked?(enemy: SimEnemy): void;
-  /** An enemy took a discrete hit — `amount` already folds in the Wet bonus; `crit` = a Wet x2 strike; `element` = the source tower's element (for per-tower hit SFX). */
+  /** An enemy took a discrete hit — `amount` already folds in the Wet bonus; `crit` = a Wet x2 strike. */
   onEnemyDamaged?(enemy: SimEnemy, amount: number, crit: boolean, element: ElementId): void;
   /** A Disruptor jammed a tower (v3 §2.Г): `stun` = locked for a beat, else a glitched shot. */
   onTowerInterrupted?(slotIndex: number, kind: 'glitch' | 'stun', x: number, y: number): void;
   /** A tower fired; `originX/originY` is the muzzle (gun tip) the shot left from. */
   onTowerFired?(slotIndex: number, target: SimEnemy, originX: number, originY: number): void;
   /** A projectile actually connected (vs. fizzling on an already-dead target). */
-  onProjectileHit?(x: number, y: number, element: ElementId): void;
-  /** A chain-lightning hop / pierce beam — draw a line (+ tracer slug) between two points. `iconKey` = source tower, for the tracer sprite. */
-  onBeam?(x1: number, y1: number, x2: number, y2: number, element: ElementId, iconKey?: string): void;
+  onProjectileHit?(x: number, y: number, element: ElementId, towerId: string): void;
+  /** A chain-lightning hop / pierce beam — draw a line (+ tracer slug) between two points. */
+  onBeam?(x1: number, y1: number, x2: number, y2: number, element: ElementId, towerId: string): void;
   /** A Shield barrier engaged on the road at (x,y). */
   onBarrier?(x: number, y: number): void;
   onWaveStart?(waveNumber: number): void;
@@ -765,7 +767,7 @@ export class BattleSim {
     }
     // Draw the tracer from the barrel tip (muzzle), not the turret center.
     const muzzle = this.muzzleOrigin(tower, lead.x, lead.y);
-    this.cb.onBeam?.(muzzle.x, muzzle.y, tower.x + dx * len, tower.y + dy * len, tower.element, tower.iconKey);
+    this.cb.onBeam?.(muzzle.x, muzzle.y, tower.x + dx * len, tower.y + dy * len, tower.element, tower.towerId);
     if (tower.chainAfterPierce > 0) {
       const hit = new Set<SimEnemy>(pierced);
       let from = lead;
@@ -775,7 +777,7 @@ export class BattleSim {
         if (!next) break;
         dmg *= CHAIN_FALLOFF;
         this.applyHit(next, dmg, tower);
-        this.cb.onBeam?.(from.x, from.y, next.x, next.y, tower.element, tower.iconKey);
+        this.cb.onBeam?.(from.x, from.y, next.x, next.y, tower.element, tower.towerId);
         hit.add(next);
         from = next;
       }
@@ -896,6 +898,7 @@ export class BattleSim {
       originX: origin.x,
       originY: origin.y,
       sourceIcon: tower.iconKey,
+      towerId: tower.towerId,
       damage: tower.damage,
       element: tower.element,
       alive: true,
@@ -941,7 +944,7 @@ export class BattleSim {
         p.x = dest.x;
         p.y = dest.y;
         p.alive = false;
-        this.cb.onProjectileHit?.(p.x, p.y, p.element);
+        this.cb.onProjectileHit?.(p.x, p.y, p.element, p.towerId);
         this.resolveProjectileHit(p);
       } else {
         p.x += (dx / d) * step;
@@ -979,7 +982,7 @@ export class BattleSim {
         if (!next) break;
         dmg *= CHAIN_FALLOFF;
         this.applyHit(next, dmg, p);
-        this.cb.onBeam?.(from.x, from.y, next.x, next.y, p.element, p.sourceIcon);
+        this.cb.onBeam?.(from.x, from.y, next.x, next.y, p.element, p.towerId);
         hit.add(next);
         from = next;
       }
@@ -1250,6 +1253,7 @@ export function buildTowerSpec(
   return {
     slotIndex: -1, // set by the caller
     element: def.element,
+    towerId: def.id,
     iconKey: def.iconKey,
     x: pos.x,
     y: pos.y,

@@ -239,11 +239,25 @@ export const AUDIO: AudioSpec[] = [
       'cryo lightning discharge, crisp electric zap layered with a glassy ice crackle, snappy and cool, 0.3 seconds',
   },
   {
+    key: 'sfx_hit_cryo',
+    kind: 'sfx',
+    volume: 0.5,
+    prompt:
+      'cryo lightning impact, tight electric crackle with a glassy ice shatter chime, cool and snappy, 0.3 seconds',
+  },
+  {
     key: 'sfx_shoot_ion',
     kind: 'sfx',
     volume: 0.5,
     prompt:
       'rapid ion volley burst, fast tight plasma pops with a bright electric snap, energetic and clean, 0.25 seconds',
+  },
+  {
+    key: 'sfx_hit_ion',
+    kind: 'sfx',
+    volume: 0.5,
+    prompt:
+      'ion bolt impact, bright rapid plasma pop with a crisp electric tail, snappy and energetic, 0.25 seconds',
   },
   {
     key: 'sfx_shoot_thermo',
@@ -267,11 +281,25 @@ export const AUDIO: AudioSpec[] = [
       'icebreaker rail shot, heavy kinetic launch with a cold frosty whoosh and deep metal thunk, 0.5 seconds',
   },
   {
+    key: 'sfx_hit_icebreaker',
+    kind: 'sfx',
+    volume: 0.55,
+    prompt:
+      'icebreaker pierce impact, heavy kinetic thud with a cold frosty crackle and metallic ring, weighty and cool, 0.35 seconds',
+  },
+  {
     key: 'sfx_shoot_gauss',
     kind: 'sfx',
     volume: 0.55,
     prompt:
       'gauss coil discharge, swelling magnetic hum into a bright electric arc crack along the rail, powerful and clean, 0.55 seconds',
+  },
+  {
+    key: 'sfx_hit_gauss',
+    kind: 'sfx',
+    volume: 0.55,
+    prompt:
+      'gauss rail impact, deep magnetic thump with a bright electric arc crackle tail, powerful and clean, 0.35 seconds',
   },
 
   {

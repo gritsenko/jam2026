@@ -132,9 +132,23 @@ const TOWER_SHOOT_SFX: Record<string, string> = {
   gauss_coil: 'sfx_shoot_gauss',
 };
 
+/** Per-tower impact SFX by card id; falls back to {@link ELEMENT_HIT_SFX} then `sfx_hit`. */
+const TOWER_HIT_SFX: Record<string, string> = {
+  plasma_shutter: 'sfx_hit_plasma',
+  frost_pulse: 'sfx_hit_frost',
+  storm_coil: 'sfx_hit_storm',
+  railgun: 'sfx_hit_railgun',
+  steam_cannon: 'sfx_hit_steam',
+  cryo_discharge: 'sfx_hit_cryo',
+  ion_volley: 'sfx_hit_ion',
+  thermo_spear: 'sfx_hit_thermo',
+  icebreaker: 'sfx_hit_icebreaker',
+  gauss_coil: 'sfx_hit_gauss',
+};
+
 /**
- * Per-tower impact SFX keyed by the source tower's element (each attacking
- * element maps to exactly one tower). Falls back to the generic `sfx_hit`.
+ * Per-element impact fallback when a tower has no dedicated hit clip. Used only
+ * after {@link TOWER_HIT_SFX} misses (support / unknown).
  */
 const ELEMENT_HIT_SFX: Partial<Record<ElementId, string>> = {
   Fire: 'sfx_hit_plasma',
@@ -476,7 +490,7 @@ export class BattleScene extends Scene {
           this.onEnemyLeaked(e);
         },
         onEnemyDamaged: (e, amount, crit, element) => {
-          this.services.audio.playSfx(crit ? 'sfx_crit' : (ELEMENT_HIT_SFX[element] ?? 'sfx_hit'));
+          if (crit) this.services.audio.playSfx('sfx_crit');
           this.waveDmgByElement[element] = (this.waveDmgByElement[element] ?? 0) + amount;
           this.floatDamage(e.x, e.y, amount, crit);
         },
@@ -486,8 +500,8 @@ export class BattleScene extends Scene {
         },
         onTowerFired: (slotIndex, _target, originX, originY) =>
           this.onTowerFired(slotIndex, originX, originY),
-        onProjectileHit: (x, y, element) => this.impact(x, y, element),
-        onBeam: (x1, y1, x2, y2, element, iconKey) => this.beam(x1, y1, x2, y2, element, iconKey),
+        onProjectileHit: (x, y, element, towerId) => this.impact(x, y, element, towerId),
+        onBeam: (x1, y1, x2, y2, element, towerId) => this.beam(x1, y1, x2, y2, element, towerId),
         onBarrier: (x, y) => {
           this.services.audio.playSfx('sfx_barrier');
           this.burst(x, y, COLORS.brassLight, this.arenaW * 0.05);
@@ -2323,7 +2337,8 @@ export class BattleScene extends Scene {
   }
 
   /** A brief line FX for chain-lightning hops and Railgun pierce beams. */
-  private beam(x1: number, y1: number, x2: number, y2: number, element: ElementId, iconKey?: string): void {
+  private beam(x1: number, y1: number, x2: number, y2: number, element: ElementId, towerId: string): void {
+    this.services.audio.playSfx(TOWER_HIT_SFX[towerId] ?? ELEMENT_HIT_SFX[element] ?? 'sfx_hit');
     const color = ELEMENTS[element].glow;
     const g = new Graphics();
     g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: this.arenaW * 0.011, color, alpha: 0.9 });
@@ -2339,7 +2354,7 @@ export class BattleScene extends Scene {
     );
     // A fast tracer slug shoots from the muzzle to the far end, leaving a fading
     // trail — the "projectile" of an instant pierce/chain beam (Railgun et al.).
-    const style = shotStyle(iconKey ?? '', element);
+    const style = shotStyle(towerId, element);
     const tex = this.services.assets.has(style.shot) ? this.services.assets.get(style.shot) : null;
     if (tex) {
       const slug = new ProjectileView(tex, element, this.arenaW * 0.014, {
@@ -2669,7 +2684,8 @@ export class BattleScene extends Scene {
    * Impact VFX (onProjectileHit): an element-colored glow bloom, a fx_impact flash
    * sprite, and a radial spray of shrapnel shards that arc out under gravity.
    */
-  private impact(x: number, y: number, element: ElementId): void {
+  private impact(x: number, y: number, element: ElementId, towerId: string): void {
+    this.services.audio.playSfx(TOWER_HIT_SFX[towerId] ?? ELEMENT_HIT_SFX[element] ?? 'sfx_hit');
     const color = ELEMENTS[element].glow;
     this.burst(x, y, color, this.arenaW * 0.03);
     this.spawnFxSprite('fx_impact', x, y, color, this.arenaW * 0.09, 0.3);
