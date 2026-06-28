@@ -53,7 +53,10 @@ export const STORY_CHARACTERS: Record<string, StoryCharacter> = {
   narrator: { id: 'narrator', name: '', homeSide: 'center', narrator: true },
   mech: { id: 'mech', name: 'Механик', assetKey: 'char_mech', homeSide: 'left', accent: 'Physical' },
   coder: { id: 'coder', name: 'Кодер', assetKey: 'char_coder', homeSide: 'left', accent: 'Fire' },
-  matriarch: { id: 'matriarch', name: 'Матриарх', assetKey: 'char_matriarch', homeSide: 'left', accent: 'Energy' },
+  // Anton — boss of the IT garage (the heroes' home base). Presents the fueled
+  // van in the intro (intro_fueled), surrounded by his team.
+  anton: { id: 'anton', name: 'Антон', assetKey: 'char_anton', homeSide: 'left', accent: 'Electricity' },
+  matriarch: { id: 'matriarch', name: 'Матриарх', assetKey: 'char_matriarch', homeSide: 'left', accent: 'Energy', voiceKey: 'matriarch' },
   // The Last Senior — the human who codes by hand. He IS the lvl_7 boss: this
   // talking portrait (char_senior) shows in the lvl_7 taunt/victory + the finale
   // epilogue; his battle token uses the enemy_boss_main sprite (see enemies.json).
@@ -69,6 +72,10 @@ export const STORY_CHARACTERS: Record<string, StoryCharacter> = {
   // along (victory_lvl_3); after that he closes out every level + the finale,
   // silently watching. Name stays hidden ("???") to keep the mystery.
   spy: { id: 'spy', name: '???', assetKey: 'char_spy', homeSide: 'right', accent: 'Physical' },
+  // The spy's secret employer — the head of rival studio "Pixonic". Appears only in
+  // the post-credits finale scene: he debriefs the silent spy, then vibecodes a
+  // walking robot from the stolen Buhanka 3000 blueprints. See config/dialogue.ts.
+  secret_boss: { id: 'secret_boss', name: 'Босс Pixonic', assetKey: 'char_secret_boss', homeSide: 'right', accent: 'Fire' },
 
   // --- per-level division heads / briefers -----------------------------------
   // Run the mission brief and (mostly) thank the heroes on a clear. Portraits cut
@@ -76,11 +83,11 @@ export const STORY_CHARACTERS: Record<string, StoryCharacter> = {
   // level *bosses* (the villains below). klevak is the odd one out: the vibecoder
   // who caused the whole mess — he briefs lvl_1 sheepishly, not as a helper.
   klevak: { id: 'klevak', name: 'PRO Gamedev', assetKey: 'char_klevak', homeSide: 'right', accent: 'Fire', voiceKey: 'klevak' },
-  finance: { id: 'finance', name: 'Казначей', assetKey: 'char_finance', homeSide: 'right', accent: 'Energy' },
+  finance: { id: 'finance', name: 'Казначей', assetKey: 'char_finance', homeSide: 'right', accent: 'Energy', voiceKey: 'finance' },
   teodor: { id: 'teodor', name: 'Теодор Легенда', assetKey: 'char_teodor', homeSide: 'right', accent: 'Physical', voiceKey: 'TeodorLegenda' },
   // Freed from NPC duty — Доктор Сайенс is one of OUR heroes now (hero side: left).
   science: { id: 'science', name: 'Доктор Сайенс', assetKey: 'char_science', homeSide: 'left', accent: 'Water' },
-  strateg: { id: 'strateg', name: 'Стратег', assetKey: 'char_strateg', homeSide: 'right', accent: 'Electricity' },
+  strateg: { id: 'strateg', name: 'Стратег', assetKey: 'char_strateg', homeSide: 'right', accent: 'Electricity', voiceKey: 'strateg' },
   voevoda: { id: 'voevoda', name: 'Воевода', assetKey: 'char_voevoda', homeSide: 'right', accent: 'Energy', voiceKey: 'war' },
   khatenkov: { id: 'khatenkov', name: 'Тактик', assetKey: 'char_khatenkov', homeSide: 'right', accent: 'Fire', voiceKey: 'khatenkoff' },
   vadim: { id: 'vadim', name: 'Вадим', assetKey: 'char_vadim', homeSide: 'right', accent: 'Water', voiceKey: 'vadim' },

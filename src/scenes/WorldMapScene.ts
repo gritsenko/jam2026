@@ -123,7 +123,6 @@ export class WorldMapScene extends Scene {
       height: 76,
       preset: 'label',
       onClick: () => {
-        this.services.audio.playSfx('sfx_click');
         this.services.navigate('menu');
       },
     });
@@ -161,7 +160,6 @@ export class WorldMapScene extends Scene {
 
   private goToPage(index: number): void {
     if (index < 0 || index >= this.pageCount || index === this.pageIndex) return;
-    this.services.audio.playSfx('sfx_click');
     const fromX = this.scrollLayer.x;
     const toX = -index * this.frameW;
     this.panTween?.stop();

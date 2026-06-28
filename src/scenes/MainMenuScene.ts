@@ -5,28 +5,12 @@ import { Scene } from '../core/scene';
 import { t } from '../core/i18n';
 import { Button } from '../ui/Button';
 import { LangSwitch } from '../ui/LangSwitch';
-import { SpeedStepper, type StepperModel } from '../ui/SpeedStepper';
 import { AdminHud } from '../ui/AdminHud';
 import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
 import { glowCircle, makeText } from '../ui/helpers';
-import {
-  getEnemySpeed,
-  stepEnemySpeed,
-  ENEMY_SPEED_MIN,
-  ENEMY_SPEED_MAX,
-} from '../core/settings';
 import * as progress from '../game/progress';
 import * as Telemetry from '../telemetry/Telemetry';
-
-/** Enemy-speed dial model for the shared {@link SpeedStepper} (difficulty knob). */
-const ENEMY_SPEED_MODEL: StepperModel = {
-  captionKey: 'settings.enemySpeed',
-  get: getEnemySpeed,
-  step: stepEnemySpeed,
-  min: ENEMY_SPEED_MIN,
-  max: ENEMY_SPEED_MAX,
-};
 
 /** Seconds the reset button stays "armed" before it disarms itself (two-tap guard). */
 const RESET_CONFIRM_SEC = 3;
@@ -41,7 +25,6 @@ export class MainMenuScene extends Scene {
   private muteBtn!: MuteButton;
   private adminHud!: AdminHud;
   private langSwitch!: LangSwitch;
-  private enemySpeed!: SpeedStepper;
   private t = 0;
   /** True after the first reset tap, while it waits for the confirming second tap. */
   private resetArmed = false;
@@ -88,7 +71,6 @@ export class MainMenuScene extends Scene {
       height: 110,
       labelColor: hex(COLORS.textBright),
       onClick: () => {
-        this.services.audio.playSfx('sfx_click');
         Telemetry.track('menu_play');
         // First start of the campaign rolls the intro cutscene (Buhanka briefing);
         // afterwards START goes straight to the map. Gated purely on "seen" (not
@@ -125,7 +107,6 @@ export class MainMenuScene extends Scene {
       width: 420,
       height: 64,
       onClick: () => {
-        this.services.audio.playSfx('sfx_click');
         Telemetry.track('menu_watch_intro');
         this.services.navigate('cutscene', { id: 'intro', next: { route: 'menu' } });
       },
@@ -143,15 +124,6 @@ export class MainMenuScene extends Scene {
     // available in the in-battle settings panel. Switching persists + reloads.
     this.langSwitch = new LangSwitch(420, true);
     this.addChild(this.langSwitch);
-
-    // Enemy-speed difficulty dial (separate from the in-battle game-speed tempo):
-    // same stepper widget, defaults to 1.0×, persists and applies live in battle.
-    this.enemySpeed = new SpeedStepper(
-      420,
-      (v) => Telemetry.track('enemy_speed_change', { value: v }),
-      ENEMY_SPEED_MODEL,
-    );
-    this.addChild(this.enemySpeed);
   }
 
   override layout(info: LayoutInfo): void {
@@ -160,7 +132,7 @@ export class MainMenuScene extends Scene {
     const cx = safe.x + safe.width / 2;
     this.logo.position.set(cx, safe.y + safe.height * 0.38);
     // START sits a touch above mid-lower so the two quiet secondary buttons below it
-    // (reset, watch-intro) clear the bottom language/speed controls on short screens.
+    // (reset, watch-intro) clear the bottom language picker on short screens.
     this.startBtn.position.set(cx, safe.y + safe.height * 0.66);
     // Stacked under START: reset, then watch-intro (half-START + gap + half-btn, then
     // half-btn + gap + half-btn for the next row).
@@ -169,14 +141,11 @@ export class MainMenuScene extends Scene {
     this.muteBtn.position.set(safe.x + safe.width - 18 - 32, safe.y + 18 + 32);
     const langY = safe.y + safe.height - this.langSwitch.contentHeight - 28;
     this.langSwitch.position.set(cx - 210, langY);
-    // Enemy-speed stepper stacked just above the language picker.
-    this.enemySpeed.position.set(cx - 210, langY - this.enemySpeed.contentHeight - 28);
     this.adminHud.layout(info);
   }
 
   /** First tap arms + relabels; second tap (while armed) performs the wipe. */
   private onResetTap(): void {
-    this.services.audio.playSfx('sfx_click');
     if (!this.resetArmed) {
       this.resetArmed = true;
       this.resetArmTimer = RESET_CONFIRM_SEC;

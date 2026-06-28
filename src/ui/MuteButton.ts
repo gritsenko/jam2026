@@ -63,8 +63,10 @@ export class MuteButton extends Container {
   private toggle(): void {
     this.audio.toggleMute();
     // Click is on the UI bus: muted -> master gain is 0 so it's silent (correct);
-    // unmuted -> the player hears the toggle land.
-    this.audio.playSfx('sfx_click');
+    // unmuted -> the player hears the toggle land. Played AFTER the toggle so it
+    // confirms an unmute (the global tap sound fired on pointerdown while still
+    // muted, i.e. silent); on mute this post-toggle click is itself silenced.
+    this.audio.playSfx('sfx_click_1');
     this.drawGlyph();
   }
 

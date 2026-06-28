@@ -180,7 +180,6 @@ export class SettingsPanel extends Container {
   }
 
   private close(): void {
-    this.audio.playSfx('sfx_click');
     this.onClose();
   }
 

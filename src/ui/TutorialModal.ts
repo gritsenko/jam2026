@@ -348,17 +348,17 @@ export class TutorialModal extends Container {
   }
 
   private advance(): void {
-    this.audio.playSfx('sfx_click');
     if (this.pageIndex >= this.lessons.length - 1) {
       this.onDone();
       return;
     }
+    this.audio.playSfx('sfx_nextpage');
     this.renderPage(this.pageIndex + 1);
   }
 
   /** Skip the rest of the onboarding: marks every pending lesson done (onDone). */
   private skip(): void {
-    this.audio.playSfx('sfx_click');
+    this.audio.playSfx('sfx_hut');
     this.onDone();
   }
 

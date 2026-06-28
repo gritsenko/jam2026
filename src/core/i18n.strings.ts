@@ -25,10 +25,13 @@ const en: Dict = {
   'common.next': 'NEXT',
   'common.gotIt': 'GOT IT',
   'common.skip': 'SKIP',
+  'common.paused': 'PAUSED',
+  'common.pausedHint': 'Tap to resume',
 
   // --- cutscenes / dialogue ---
   'cutscene.theEnd': 'THE END',
   'cutscene.continue': 'CONTINUE',
+  'cutscene.leaveMeeting': 'LEAVE THE MEETING',
 
   // --- main menu ---
   'menu.subtitle': 'in search of the last senior',
@@ -199,10 +202,13 @@ const ru: Dict = {
   'common.next': 'ДАЛЕЕ',
   'common.gotIt': 'ПОНЯТНО',
   'common.skip': 'ПРОПУСТИТЬ',
+  'common.paused': 'ПАУЗА',
+  'common.pausedHint': 'Нажмите, чтобы продолжить',
 
   // --- cutscenes / dialogue ---
   'cutscene.theEnd': 'КОНЕЦ',
   'cutscene.continue': 'ДАЛЬШЕ',
+  'cutscene.leaveMeeting': 'Покинуть встречу',
 
   // --- main menu ---
   'menu.subtitle': 'в поисках последнего сеньора',

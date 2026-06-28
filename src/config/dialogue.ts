@@ -32,6 +32,29 @@ export interface DialogueLine {
    * different sounds. Overrides the speaker's default `voiceKey` for this line.
    */
   readonly sound?: string;
+  /**
+   * Hide the speaker's portrait for THIS line — render only the dialogue box
+   * (name plate + text), and clear any portraits already on stage. Use when the
+   * characters are already drawn into the scene's painting (e.g. the in-car
+   * beats), so a stage portrait would double them up. Default false.
+   */
+  readonly hidePortrait?: boolean;
+  /**
+   * Floating emoji that drift up near the speaker's portrait while THIS line
+   * shows — a celebratory flourish (e.g. hearts + party round the matriarch).
+   * Rendered by {@link import('../ui/DialogueOverlay').DialogueOverlay} as a light
+   * particle trickle anchored to the active speaker's slot; skipped on narrator /
+   * `hidePortrait` lines (no portrait to anchor to).
+   */
+  readonly emote?: readonly string[];
+  /**
+   * Where the {@link emote} particles spawn, as a fraction of the full screen
+   * (`x`/`y`, 0..1). Default: anchored to the speaker's portrait. Set this to pin
+   * the flourish to a fixed screen spot instead (e.g. beside the matriarch's
+   * torch rather than over her face); it then works even on narrator /
+   * `hidePortrait` lines (no portrait needed).
+   */
+  readonly emoteAt?: { readonly x: number; readonly y: number };
 }
 
 export interface DialogueScript {
@@ -46,19 +69,31 @@ function script(id: string, lines: readonly DialogueLine[]): DialogueScript {
 
 export const DIALOGUES: Record<string, DialogueScript> = {
   // --- Campaign intro (plays over the intro cutscene) ----------------------
+  // Split across cutscene shots so each beat gets its own painting: the matriarch
+  // briefs the heroes (over the My.Games office), then `intro_fueled` (the Buhanka
+  // shown fueled) and `intro_go` (the heroes already aboard). See config/cutscenes.ts.
   intro: script('intro', [
-    { speaker: 'matriarch', side: 'center', text: 'Садитесь, дети мои. То, что я скажу, не должно выйти за стены этого гаража.' },
+    { speaker: 'matriarch', side: 'center', text: 'Садитесь, дети мои. То, что я скажу, не должно выйти за стены этого гаража.', emote: ['💖', '🎉', '💕', '🎊', '✨'], emoteAt: { x: 0.76, y: 0.58 } },
     { speaker: 'matriarch', text: 'Мир сломался тихо. Вайбкодеры пообещали, что ИИ напишет за нас всё. Потом — что починит. Теперь чинить уже некому.' },
     { speaker: 'coder', side: 'right', text: 'А монстры, что лезут из старых игр, — это тоже «фича»?' },
-    { speaker: 'matriarch', text: 'Баг. Klevak навайбкодил вирус — и теперь твари выползают прямо из непропатченных билдов.' },
+    { speaker: 'matriarch', text: 'Баг. Ваня Клевакичев навайбкодил вирус — и теперь твари выползают прямо из непропатченных билдов.' },
     { speaker: 'mech', side: 'left', text: 'И что, никто не сядет да не перепишет всё руками?' },
     { speaker: 'matriarch', text: 'Один может. Последний Сеньор — тот, кто пишет код без подсказок ИИ. Полгода назад он ушёл в саббатикал и не вернулся.' },
     { speaker: 'coder', text: 'Дай угадаю. Мы едем его искать.' },
     { speaker: 'matriarch', text: 'Вы отвезёте ему вот это. (достаёт пару красных кроссовок)' },
     { speaker: 'mech', text: '...Красные кроссовки?' },
     { speaker: 'matriarch', text: 'Его любимые. Без них он и метра не пробежит — а значит, не вернётся к работе. Доставьте их — и у мира появится второй шанс.' },
-    { speaker: 'coder', text: '«Буханка 3000» заправлена. Локальные нейронки крутятся на наших видяхах — ни облака, ни вайба.' },
-    { speaker: 'mech', text: 'Поехали. Найдём последнего сеньора.' },
+  ]),
+  // Intro beat 2 — Anton, boss of the IT garage, shows the van is fueled
+  // (over cutscene_intro2; the painting shows the van and his team).
+  intro_fueled: script('intro_fueled', [
+    { speaker: 'anton', side: 'center', text: 'Добрый день, коллеги! «Буханка 3000» заправлена. Команда AdsAdvisor установила Doom на ёлочку-освежитель. Иконки тоже установили. Таску я лично аппрувнул. Можете ехать!' },
+  ]),
+  // Intro beat 3 — the heroes already aboard, rolling out (over cutscene_in_car).
+  // The painting already shows the heroes in the van, so skip the stage portrait.
+  intro_go: script('intro_go', [
+    { speaker: 'mech', side: 'center', text: 'Поехали. Найдём последнего сеньора.', hidePortrait: true },
+    { speaker: 'coder', side: 'center', text: 'И узнаем в чем как он сумел противостоять этой вайбкодерской заразе!.', hidePortrait: true },
   ]),
 
   // --- Intro skip Easter egg (the Lead-admin guilt-trips you on skip) -------
@@ -78,7 +113,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     { speaker: 'klevak', text: 'Да кто ж знал! Лимиты на клод кончились и я пытался все сделать с gemini... Сюда уже ломится босс из Раш ряля, задержите его, я навабйкодю заплатку! Лимиты сбросились!' },
   ]),
   mission_lvl_2: script('mission_lvl_2', [
-    { speaker: 'finance', side: 'right', text: 'Наша казна пустеет, Миллорд! Ой! Простите, обозналась! Кто вы? Что хотели?' },
+    { speaker: 'finance', side: 'right', text: 'Ваша казна пустеет, Миллорд! Ой! Простите, обозналась! Кто вы? Что хотели?' },
     { speaker: 'mech', side: 'left', text: 'На Матриарх послала, за последним миллорд программистом, таска уже на аппруве. Не знаете где его искать?' },
     { speaker: 'finance', text: 'Дакки, боевая утка, клюёт мои гроссбухи и крякает баги прямо в отчёты! Иван дал ей доступ к казне. Прикрой кассу, я закрою квартал!' },
   ]),
@@ -156,7 +191,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   victory_lvl_1: script('victory_lvl_1', [
     { speaker: 'boss_rr', side: 'right', text: 'Откат не прошёл… сам откатываюсь. В свой билд, живо!' },
     { speaker: 'klevak', side: 'right', text: 'Район живой! Я… эм… почти не виноват, да? Главное — починили!' },
-    { speaker: 'mech', side: 'left', text: 'Чини свой вайб, Клевак. Нам дальше — Сеньор сам себя не найдёт.' },
+    { speaker: 'mech', side: 'left', text: 'Чини свой вайб, Иван. Нам дальше — Сеньор сам себя не найдёт.' },
     // The recurring backseat-passenger gag begins: just a creeping feeling.
     { speaker: 'coder', side: 'left', text: 'Слушай… не оборачивайся. Тебе не кажется, что за нами кто-то следит?' },
     { speaker: 'mech', side: 'left', text: 'Дорога сзади пустая. Это нервишки после босса. Газуй.' },
@@ -215,6 +250,27 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     { speaker: 'mech', side: 'left', text: 'Заводи Буханку. Работы — на целый мир.' },
     // The silent passenger gets the last word — by saying nothing, as always.
     { speaker: 'spy', side: 'right', text: '[молчит и смотрит]' },
+  ]),
+
+  // --- Post-credits sting (plays after the credits roll) -------------------
+  // The silent backseat passenger was a corporate spy all along. He debriefs his
+  // employer — the boss of rival studio Pixonic — in a shadowy office.
+  finale_secret: script('finale_secret', [
+    { speaker: 'secret_boss', side: 'right', text: 'Ну что, агент. Всё выяснил? Чертежи «Буханки 3000» у нас?' },
+    { speaker: 'spy', side: 'left', text: '[молча кивает]' },
+    { speaker: 'secret_boss', side: 'right', text: 'Прекрасно. У нас в Pixonic как раз сбросились лимиты. Навайбкодим из этого что-нибудь… масштабное.' },
+  ]),
+  // The robot reveal — over cutscene_final3 (the battle-truck built from the
+  // stolen blueprints).
+  finale_robot1: script('finale_robot1', [
+    { speaker: 'narrator', text: 'По украденным чертежам в студии Pixonic за одну ночь навайбкодили боевую машину.' },
+  ]),
+  // …and over cutscene_final4 (it sprouts legs and walks). The spy gets the final
+  // wordless beat, as always.
+  finale_robot2: script('finale_robot2', [
+    { speaker: 'narrator', text: '…а наутро она встала на ноги и пошла. Тестировать, разумеется, никто не стал.' },
+    { speaker: 'secret_boss', side: 'right', text: 'Релиз в пятницу. Что может пойти не так?' },
+    { speaker: 'spy', side: 'left', text: '[молчит и смотрит]' },
   ]),
 };
 

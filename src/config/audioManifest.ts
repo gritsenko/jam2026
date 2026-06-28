@@ -56,6 +56,14 @@ export const AUDIO: AudioSpec[] = [
     prompt:
       'driving dark synth music loop, pulsing bass arpeggio with steady punchy electronic percussion, tense industrial cyberpunk energy, instrumental, around 120 bpm',
   },
+  {
+    // Main campaign theme — plays over the intro cutscene and the finale + credits.
+    key: 'music_theme',
+    kind: 'music',
+    volume: 0.55,
+    prompt:
+      'cinematic hopeful main theme music loop, warm analog synth melody over driving dieselpunk percussion, adventurous and heartfelt, instrumental, around 100 bpm',
+  },
 
   // ---- Gameplay SFX: cards / placement -------------------------------------
   {
@@ -384,11 +392,35 @@ export const AUDIO: AudioSpec[] = [
       'minimal clean UI tap, soft subtle digital tick, gentle and crisp, 0.15 seconds',
   },
   {
+    // Global tap feedback: played on EVERY pointer press anywhere on screen
+    // (see ui/TapFeedback.ts), so keep it subtle — it layers under every action.
+    key: 'sfx_click_1',
+    kind: 'ui',
+    volume: 0.4,
+    prompt:
+      'minimal soft UI tap feedback, gentle muted digital tick, very subtle and clean, 0.12 seconds',
+  },
+  {
     key: 'sfx_reroll',
     kind: 'ui',
     volume: 0.5,
     prompt:
       'UI card shuffle, light quick digital riffle with a soft airy sweep, clean, 0.5 seconds',
+  },
+  {
+    // Page turn: tutorial "next" button + advancing to the next dialogue line.
+    key: 'sfx_nextpage',
+    kind: 'ui',
+    volume: 0.5,
+    prompt:
+      'turning to the next page, soft quick paper-flip swish with a gentle digital tick, light and clean, 0.3 seconds',
+  },
+  {
+    // Skip / dismiss: the "skip" pill in cutscenes / dialogue / tutorials.
+    key: 'sfx_hut',
+    kind: 'ui',
+    volume: 0.5,
+    prompt: 'skip / dismiss UI cue, short snappy whoosh-out (player-authored clip)',
   },
 
   // ---- Character voices (assets/audio/heroes/<key>.mp3) ---------------------
@@ -396,6 +428,12 @@ export const AUDIO: AudioSpec[] = [
   // of a speaker turn). Wired per-character via StoryCharacter.voiceKey
   // (config/storyCharacters.ts). The key is the bare filename: heroes/support.mp3
   // → 'support'. Routed on the sfx bus. Add a row here when a new voice lands.
+  {
+    key: 'matriarch',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short warm matronly clan-leader voice bark / greeting (player-authored clip)',
+  },
   {
     key: 'support',
     kind: 'sfx',
@@ -437,6 +475,18 @@ export const AUDIO: AudioSpec[] = [
     kind: 'sfx',
     volume: 0.9,
     prompt: 'short haughty chat-queen villain voice bark / taunt (player-authored clip)',
+  },
+  {
+    key: 'finance',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short flustered treasury-clerk voice bark / greeting (player-authored clip)',
+  },
+  {
+    key: 'strateg',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short measured community-and-localization strategist voice bark / greeting (player-authored clip)',
   },
 ];
 

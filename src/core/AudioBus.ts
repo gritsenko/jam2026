@@ -44,6 +44,17 @@ for (const [path, url] of Object.entries(AUDIO_URLS)) AUDIO_FILE[basename(path)]
 
 export type MixBus = 'music' | 'sfx' | 'ui';
 
+export interface MusicOpts {
+  /** Crossfade seconds (default 0.8). */
+  readonly fade?: number;
+  /**
+   * Output routing. `'music'` (default) goes through the music-volume slider;
+   * `'master'` bypasses it and plays at the overall (master / mute) volume — for
+   * cinematic theme moments (intro / finale) that aren't background game music.
+   */
+  readonly bus?: MixBus | 'master';
+}
+
 const MUTE_KEY = 'sgrid.muted';
 const VOL_KEY: Record<MixBus, string> = {
   music: 'sgrid.vol.music',
@@ -77,8 +88,15 @@ export class AudioBus {
   private warming = false;
   private currentMusicKey: string | null = null;
   private currentMusic: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
-  private pendingMusic: string | null = null;
+  private pendingMusic: { key: string; opts?: MusicOpts } | null = null;
   private muted = false;
+  /**
+   * Transient "duck everything" flag, independent of the persisted `muted`
+   * setting: set while the window is unfocused / the tab is hidden so the game
+   * goes silent in the background and the player's own mute choice is restored
+   * untouched when they return. Effective master gain = 0 if muted OR suspended.
+   */
+  private suspended = false;
   private vol: Record<MixBus, number>;
   /** Last play time (ms) per throttle group, for playOneOf burst-limiting. */
   private lastGroupPlay = new Map<string, number>();
@@ -132,9 +150,9 @@ export class AudioBus {
 
   private flushPendingMusic(): void {
     if (!this.pendingMusic || !this.ctx || this.ctx.state !== 'running') return;
-    const key = this.pendingMusic;
+    const pending = this.pendingMusic;
     this.pendingMusic = null;
-    void this.playMusic(key);
+    void this.playMusic(pending.key, pending.opts);
   }
 
   private ensureContext(): void {
@@ -145,7 +163,7 @@ export class AudioBus {
     if (!Ctx) return;
     this.ctx = new Ctx();
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 1;
+    this.master.gain.value = this.masterTarget();
     this.master.connect(this.ctx.destination);
     const mk = (b: MixBus): GainNode => {
       const g = this.ctx!.createGain();
@@ -315,12 +333,13 @@ export class AudioBus {
   }
 
   /** Crossfade to a looping track. Same key = no-op; missing file = silent. */
-  async playMusic(key: string, opts?: { fade?: number }): Promise<void> {
+  async playMusic(key: string, opts?: MusicOpts): Promise<void> {
     this.ensureContext();
     if (!this.ctx || !this.bus || !AUDIO_FILE[key]) return;
-    // Not unlocked yet — remember the intent and start it on the first gesture.
+    // Not unlocked yet — remember the intent (incl. routing) and start it on the
+    // first gesture.
     if (this.ctx.state === 'suspended') {
-      this.pendingMusic = key;
+      this.pendingMusic = { key, opts };
       return;
     }
     if (this.currentMusicKey === key) return;
@@ -340,7 +359,13 @@ export class AudioBus {
     const target = AUDIO_VOLUME[key] ?? 0.5;
     g.gain.setValueAtTime(0.0001, now);
     g.gain.exponentialRampToValueAtTime(target, now + fade);
-    src.connect(g).connect(this.bus.music);
+    // 'master' bypasses the music-volume slider (cinematic theme); otherwise route
+    // to the requested mixer bus, defaulting to 'music'.
+    let dest: GainNode;
+    if (opts?.bus === 'master') dest = this.master;
+    else if (opts?.bus) dest = this.bus[opts.bus];
+    else dest = this.bus.music;
+    src.connect(g).connect(dest);
     src.start();
     this.currentMusic = { src, gain: g };
   }
@@ -379,7 +404,7 @@ export class AudioBus {
     }
     if (this.bus) this.bus[bus].gain.value = clamped;
     // Let the player hear the new sfx/ui level immediately.
-    if (bus === 'ui') this.playSfx('sfx_click');
+    if (bus === 'ui') this.playSfx('sfx_click_1');
     else if (bus === 'sfx') this.playSfx('sfx_hit');
   }
 
@@ -394,11 +419,31 @@ export class AudioBus {
     } catch {
       /* ignore */
     }
-    if (this.ctx) this.master.gain.value = muted ? 0 : 1;
+    this.applyMasterGain();
   }
 
   toggleMute(): boolean {
     this.setMuted(!this.muted);
     return this.muted;
+  }
+
+  /**
+   * Silence (or restore) all output while the window is unfocused / hidden,
+   * without touching the player's persisted mute setting. Returning to the
+   * foreground calls `setSuspended(false)` and the previous volume comes back.
+   */
+  setSuspended(suspended: boolean): void {
+    if (this.suspended === suspended) return;
+    this.suspended = suspended;
+    this.applyMasterGain();
+  }
+
+  /** Effective master level: zero when muted by the player or backgrounded. */
+  private masterTarget(): number {
+    return this.muted || this.suspended ? 0 : 1;
+  }
+
+  private applyMasterGain(): void {
+    if (this.ctx) this.master.gain.value = this.masterTarget();
   }
 }

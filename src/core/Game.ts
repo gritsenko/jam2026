@@ -1,5 +1,5 @@
-import { Application, Container } from 'pixi.js';
-import { COLORS } from '../theme';
+import { Application, Container, Graphics, type Text } from 'pixi.js';
+import { COLORS, hex } from '../theme';
 import { AssetLoader } from './AssetLoader';
 import { AudioBus } from './AudioBus';
 import { bootDone, bootProgress } from './boot';
@@ -7,6 +7,9 @@ import { loadFonts } from './fonts';
 import { ResponsiveLayout } from './ResponsiveLayout';
 import { SceneManager } from './SceneManager';
 import { setTweenTicker } from './tween';
+import { t } from './i18n';
+import { makeText } from '../ui/helpers';
+import { TapFeedback } from '../ui/TapFeedback';
 import type { RouteId, SceneFactory, SceneServices } from './scene';
 import * as Telemetry from '../telemetry/Telemetry';
 
@@ -26,6 +29,20 @@ export class Game {
   private layout!: ResponsiveLayout;
   private scenes!: SceneManager;
   private resizeHandler = () => this.handleResize();
+  /** Frozen while the window is unfocused / the tab is hidden (see setActive). */
+  private paused = false;
+  /**
+   * Activity state derived from the events themselves, not re-queried at event
+   * time: inside a `blur` handler `document.hasFocus()` often still reports true
+   * (the focus change hasn't propagated yet), which previously left audio
+   * playing after an alt-tab. `active = hasFocus && docVisible`.
+   */
+  private hasFocus = true;
+  private docVisible = true;
+  private pauseOverlay = new Container();
+  private pauseDim = new Graphics();
+  private pauseTitle!: Text;
+  private pauseHint!: Text;
 
   async boot(routes: Record<RouteId, SceneFactory>, start: RouteId): Promise<void> {
     const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
@@ -82,6 +99,14 @@ export class Game {
 
     this.layout.onChange((info) => this.scenes.onResize(info));
 
+    // Global tap feedback (click sound on any press + ripple on short taps).
+    // Added before the pause overlay so its ripple layer stays below the pause
+    // dim (no ripples drawn over the paused screen; audio is muted there too).
+    new TapFeedback(this.app.canvas, this.overlayRoot, this.audio);
+
+    this.buildPauseOverlay();
+    this.bindActivityListeners();
+
     window.addEventListener('resize', this.resizeHandler);
     window.addEventListener('orientationchange', this.resizeHandler);
     window.visualViewport?.addEventListener('resize', this.resizeHandler);
@@ -89,9 +114,13 @@ export class Game {
     // Guard the frame loop: an uncaught error in a scene's update would stop
     // PixiJS scheduling further frames (the app freezes black until reload).
     let errorReported = false; // emit runtime_error once, not every frame
-    this.app.ticker.add((t) => {
+    this.app.ticker.add((tick) => {
+      // Backgrounded: hold the simulation so it doesn't advance unseen (and so a
+      // long blur doesn't dump a huge time-step when focus returns). Rendering
+      // continues so the dimmed pause overlay still shows.
+      if (this.paused) return;
       try {
-        this.scenes.update(t.deltaMS / 1000);
+        this.scenes.update(tick.deltaMS / 1000);
       } catch (err) {
         console.error('[Game] scene update threw', err);
         if (!errorReported) {
@@ -103,6 +132,9 @@ export class Game {
 
     this.handleResize();
     this.scenes.start(start);
+    // Start paused if we booted into a background tab / unfocused window
+    // (bindActivityListeners seeded hasFocus/docVisible and called applyActivity).
+    this.applyActivity();
 
     bootProgress(100);
     bootDone();
@@ -119,5 +151,87 @@ export class Game {
     }
     this.app.renderer.resize(w, h);
     this.layout.resize(w, h);
+    this.layoutPauseOverlay(w, h);
+  }
+
+  // --- Pause / mute on focus loss ------------------------------------------
+
+  /**
+   * Pause the simulation and silence audio whenever the game is in the
+   * background — the window lost focus (desktop alt-tab) or the tab/screen went
+   * away (mobile lock, tab switch). Both signals fold into one "is the game
+   * actually in front of the player" check so the two never disagree.
+   */
+  private bindActivityListeners(): void {
+    this.hasFocus = document.hasFocus();
+    this.docVisible = !document.hidden;
+    // Drive focus/visibility from the events directly — never re-query
+    // document.hasFocus() inside a blur handler (it lies, see field comment).
+    window.addEventListener('blur', () => this.setFocus(false));
+    window.addEventListener('focus', () => this.setFocus(true));
+    window.addEventListener('pagehide', () => this.setVisible(false));
+    window.addEventListener('pageshow', () => this.setVisible(true));
+    document.addEventListener('visibilitychange', () => this.setVisible(!document.hidden));
+    this.applyActivity();
+  }
+
+  private setFocus(focused: boolean): void {
+    this.hasFocus = focused;
+    this.applyActivity();
+  }
+
+  private setVisible(visible: boolean): void {
+    this.docVisible = visible;
+    this.applyActivity();
+  }
+
+  /** Resume from the pause overlay: a tap means the window is focused + visible. */
+  private resumeFromTap(): void {
+    this.hasFocus = true;
+    this.docVisible = true;
+    this.applyActivity();
+  }
+
+  private applyActivity(): void {
+    this.setActive(this.hasFocus && this.docVisible);
+  }
+
+  private setActive(active: boolean): void {
+    if (this.paused === !active) return; // no change
+    this.paused = !active;
+    this.audio.setSuspended(this.paused);
+    this.pauseOverlay.visible = this.paused;
+    // While shown, the dim swallows the click that refocuses the window so it
+    // can't leak through onto the board.
+    this.pauseDim.eventMode = this.paused ? 'static' : 'none';
+  }
+
+  private buildPauseOverlay(): void {
+    this.pauseOverlay.visible = false;
+    this.pauseOverlay.eventMode = 'static';
+    this.pauseDim.eventMode = 'none';
+    // Tapping the dim is a manual resume fallback for browsers that don't fire a
+    // clean focus event when the window comes back.
+    this.pauseDim.on('pointertap', () => this.resumeFromTap());
+    this.pauseTitle = makeText(t('common.paused'), 'display', { align: 'center' });
+    this.pauseTitle.anchor.set(0.5);
+    this.pauseHint = makeText(t('common.pausedHint'), 'small', {
+      align: 'center',
+      fill: hex(COLORS.textDim),
+    });
+    this.pauseHint.anchor.set(0.5);
+    this.pauseOverlay.addChild(this.pauseDim, this.pauseTitle, this.pauseHint);
+    this.overlayRoot.addChild(this.pauseOverlay);
+  }
+
+  private layoutPauseOverlay(w: number, h: number): void {
+    if (!this.pauseTitle) return; // pre-boot resize
+    this.pauseDim.clear();
+    this.pauseDim.rect(0, 0, w, h).fill({ color: COLORS.bgDeep, alpha: 0.72 });
+    this.pauseTitle.scale.set(1);
+    const maxW = w * 0.9;
+    if (this.pauseTitle.width > maxW) this.pauseTitle.scale.set(maxW / this.pauseTitle.width);
+    this.pauseTitle.position.set(w / 2, h / 2 - 18);
+    this.pauseHint.position.set(w / 2, h / 2 + 44);
   }
 }

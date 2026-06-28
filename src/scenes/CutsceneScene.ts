@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite } from 'pixi.js';
+import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { COLORS, hex } from '../theme';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Scene, type RouteId, type SceneParams } from '../core/scene';
@@ -13,6 +13,7 @@ import {
   type EasingName,
 } from '../config/cutscenes';
 import { getDialogue } from '../config/dialogue';
+import { CREDITS } from '../config/credits';
 import { Button } from '../ui/Button';
 import { SkipButton } from '../ui/SkipButton';
 import { DialogueOverlay, dialogueSkipPos } from '../ui/DialogueOverlay';
@@ -62,6 +63,13 @@ export class CutsceneScene extends Scene {
   private shotCam: TweenHandle | null = null;
   private shotHold: TweenHandle | null = null;
 
+  /** Credits roll (kind: 'credits' shots): scrolling text over a dark scrim. */
+  private creditsRoll: Container | null = null;
+  private creditsScrim: Graphics | null = null;
+  private creditsHeight = 0;
+  private creditsStarted = false;
+  private creditsDur: number | null = null;
+
   private track(h: TweenHandle): TweenHandle {
     this.tweens.push(h);
     return h;
@@ -73,7 +81,12 @@ export class CutsceneScene extends Scene {
     this.def = getCutscene(id) ?? null;
     const next = (params?.next as { route: RouteId; params?: SceneParams } | undefined) ?? null;
     this.nextOverride = next;
-    this.services.audio.stopMusic();
+    // Score the cutscene with its theme music (e.g. the campaign theme over the
+    // intro + finale); otherwise stop music for the duration. A `musicAtMaster`
+    // cutscene routes that theme to the overall volume, bypassing the music slider.
+    const music = this.def?.music;
+    if (music) void this.services.audio.playMusic(music, this.def?.musicAtMaster ? { bus: 'master' } : undefined);
+    else this.services.audio.stopMusic();
     Telemetry.track('cutscene_view', { id });
 
     this.image.anchor.set(0.5);
@@ -81,9 +94,14 @@ export class CutsceneScene extends Scene {
     this.addChild(this.bg, this.cam, this.overlayLayer);
 
     // Cutscene-level skip: jumps straight to the end (and `next`). On the intro it
-    // first triggers the Lead-admin "leave the call?" Easter egg (see onSkip).
-    this.skipBtn = new SkipButton(() => this.onSkip());
+    // first triggers the Lead-admin "leave the call?" Easter egg (see onSkip), and
+    // it reads "Покинуть встречу" (it's framed as a work call) instead of "SKIP".
+    const isIntro = this.def?.id === 'intro';
+    this.skipBtn = new SkipButton(() => this.onSkip(), isIntro ? { label: t('cutscene.leaveMeeting') } : {});
     this.overlayLayer.addChild(this.skipBtn);
+    // On the intro, hold the skip back until the second phrase shows, so first-time
+    // players read at least the opening exchange before they can bail (see onDialogueLineShown).
+    if (isIntro) this.skipBtn.visible = false;
 
     // First time through, this beat is now "seen" (so it won't auto-play again);
     // Admin mode replays it regardless (see progress.shouldPlayStory).
@@ -101,12 +119,14 @@ export class CutsceneScene extends Scene {
     this.tweens = [];
     this.skipPrompt?.destroy({ children: true });
     this.skipPrompt = null;
+    this.disposeCredits();
   }
 
   // --- shot sequencing -----------------------------------------------------
 
   private playShot(i: number): void {
     this.stopShotTweens();
+    this.disposeCredits();
     const shot = this.def?.shots[i];
     if (!shot) {
       this.endCutscene();
@@ -114,7 +134,16 @@ export class CutsceneScene extends Scene {
     }
     this.shotIndex = i;
 
-    this.image.texture = this.services.assets.get(shot.image);
+    // Credits roll — no painting; scroll config/credits.ts over a dark scrim.
+    if (shot.kind === 'credits') {
+      this.image.visible = false;
+      this.playCredits(shot);
+      return;
+    }
+
+    // A shot may have no image (a dialogue beat over a plain dark backdrop).
+    this.image.visible = !!shot.image;
+    if (shot.image) this.image.texture = this.services.assets.get(shot.image);
     const { from, to } = cameraKeyframes(shot.camera, shot.focus);
     this.curKf = { ...from };
     this.applyCamera();
@@ -164,9 +193,29 @@ export class CutsceneScene extends Scene {
     this.dialogue = new DialogueOverlay(dlg, this.services.assets, this.services.audio, () => this.advanceShot(), {
       dimAlpha: 0.22,
       showSkip: false,
+      onLineShown: (index) => this.onDialogueLineShown(index),
     });
     this.overlayLayer.addChildAt(this.dialogue, 0); // below the skip button
     if (this.lastInfo) this.dialogue.layout(this.lastInfo);
+  }
+
+  /**
+   * Intro only: the cutscene skip is hidden until the dialogue reaches its second
+   * phrase (index 1), then fades in. The intro's opening lines all live in the
+   * first shot's script, so this fires there; once shown it stays visible.
+   */
+  private onDialogueLineShown(index: number): void {
+    if (this.def?.id !== 'intro' || this.skipBtn.visible || index < 1) return;
+    this.skipBtn.visible = true;
+    this.skipBtn.alpha = 0;
+    this.track(
+      tween({
+        duration: 0.3,
+        onUpdate: (e) => {
+          if (!this.skipBtn.destroyed) this.skipBtn.alpha = e;
+        },
+      }),
+    );
   }
 
   private advanceShot(): void {
@@ -194,6 +243,7 @@ export class CutsceneScene extends Scene {
    * tapping through it then really skips. Every other cutscene skips immediately.
    */
   private onSkip(): void {
+    this.services.audio.playSfx('sfx_hut');
     if (this.def?.id === 'intro' && !this.skipConfirmShown) {
       this.skipConfirmShown = true;
       this.showSkipPrompt();
@@ -203,7 +253,6 @@ export class CutsceneScene extends Scene {
   }
 
   private showSkipPrompt(): void {
-    this.services.audio.playSfx('sfx_click');
     const dlg = getDialogue('intro_skip_confirm');
     if (!dlg) {
       this.skipAll();
@@ -232,8 +281,8 @@ export class CutsceneScene extends Scene {
   }
 
   private skipAll(): void {
-    this.services.audio.playSfx('sfx_click');
     this.disposeDialogue();
+    this.disposeCredits();
     this.tweens.forEach((tw) => tw.stop());
     this.tweens = [];
     this.endCutscene();
@@ -244,7 +293,7 @@ export class CutsceneScene extends Scene {
   /** Place + scale the painting so its focus point sits at screen center. */
   private applyCamera(): void {
     const info = this.lastInfo;
-    if (!info) return;
+    if (!info || !this.image.visible) return;
     const f = info.full;
     const tex = this.image.texture;
     const tw = tex.width || 1;
@@ -258,6 +307,133 @@ export class CutsceneScene extends Scene {
       cx - (this.curKf.fx - 0.5) * tw * eff,
       cy - (this.curKf.fy - 0.5) * th * eff,
     );
+  }
+
+  // --- credits roll --------------------------------------------------------
+
+  /** Build + start the scrolling credits for a `kind: 'credits'` shot. */
+  private playCredits(shot: CutsceneShot): void {
+    this.disposeCredits();
+    this.creditsDur = shot.durationSec ?? null;
+    this.creditsStarted = false;
+
+    const scrim = new Graphics();
+    scrim.eventMode = 'static';
+    scrim.on('pointertap', () => this.advanceShot()); // tap skips the roll
+    this.creditsScrim = scrim;
+
+    const roll = new Container();
+    this.creditsRoll = roll;
+    this.creditsHeight = this.buildCredits(roll);
+
+    // Sits above the painting but below the skip button (added first in onEnter).
+    this.overlayLayer.addChildAt(scrim, 0);
+    this.overlayLayer.addChildAt(roll, 1);
+
+    if (this.lastInfo) this.layoutCredits();
+  }
+
+  /** Lay out the credit lines into `roll` (centered, stacked); returns total height. */
+  private buildCredits(roll: Container): number {
+    const wrap = 900; // design-space wrap width (DESIGN is 1080 wide)
+    let y = 0;
+    const add = (text: Text, gapAfter: number): void => {
+      text.anchor.set(0.5, 0);
+      text.x = 0;
+      text.y = y;
+      roll.addChild(text);
+      y += text.height + gapAfter;
+    };
+    for (const line of CREDITS) {
+      if (line.kind === 'gap') {
+        y += line.size ?? 44;
+      } else if (line.kind === 'title') {
+        add(
+          makeText(line.text, 'display', {
+            fontSize: 84,
+            fill: hex(COLORS.gold),
+            align: 'center',
+            wordWrap: true,
+            wordWrapWidth: wrap,
+            stroke: { color: hex(COLORS.black), width: 6, alpha: 0.85 },
+          }),
+          18,
+        );
+      } else if (line.kind === 'header') {
+        add(
+          makeText(line.text, 'title', {
+            fontSize: 46,
+            fill: hex(COLORS.brass),
+            align: 'center',
+            wordWrap: true,
+            wordWrapWidth: wrap,
+          }),
+          10,
+        );
+      } else if (line.kind === 'name') {
+        add(
+          makeText(line.text, 'label', {
+            fontSize: 40,
+            fill: hex(COLORS.textBright),
+            align: 'center',
+            wordWrap: true,
+            wordWrapWidth: wrap,
+          }),
+          6,
+        );
+      } else {
+        add(
+          makeText(line.text, 'small', {
+            fontSize: 32,
+            fill: hex(COLORS.textDim),
+            fontStyle: 'italic',
+            align: 'center',
+            wordWrap: true,
+            wordWrapWidth: wrap,
+          }),
+          6,
+        );
+      }
+    }
+    return y;
+  }
+
+  /** Position the dark scrim + recenter the roll; start the scroll once geometry exists. */
+  private layoutCredits(): void {
+    const roll = this.creditsRoll;
+    const scrim = this.creditsScrim;
+    const info = this.lastInfo;
+    if (!roll || !scrim || !info) return;
+    const { full, safe } = info;
+    scrim.clear();
+    scrim.rect(full.x, full.y, full.width, full.height).fill({ color: COLORS.black, alpha: 0.92 });
+    roll.x = safe.x + safe.width / 2;
+    if (this.creditsStarted) return;
+    this.creditsStarted = true;
+    const startY = full.y + full.height + 40;
+    const endY = full.y - this.creditsHeight - 40;
+    const dist = startY - endY;
+    const speed = 130; // design px / sec
+    const dur = this.creditsDur ?? Math.max(12, dist / speed);
+    roll.y = startY;
+    this.shotCam = this.track(
+      tween({
+        duration: dur,
+        easing: Easings.linear,
+        onUpdate: (e) => {
+          if (!roll.destroyed) roll.y = lerp(startY, endY, e);
+        },
+        onComplete: () => this.advanceShot(),
+      }),
+    );
+  }
+
+  private disposeCredits(): void {
+    this.creditsRoll?.destroy({ children: true });
+    this.creditsRoll = null;
+    this.creditsScrim?.destroy();
+    this.creditsScrim = null;
+    this.creditsStarted = false;
   }
 
   // --- end card ------------------------------------------------------------
@@ -331,6 +507,7 @@ export class CutsceneScene extends Scene {
     this.applyCamera();
     this.dialogue?.layout(info);
     this.skipPrompt?.layout(info);
+    this.layoutCredits();
     this.layoutEndCard();
     // Skip sits right next to the dialogue (its top-right edge), matching the
     // standalone DialogueOverlay; on a wordless camera shot it floats there too.

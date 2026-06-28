@@ -18,11 +18,12 @@ export class SkipButton extends Container {
   private pressed = false;
   private scaleTween?: { stop(): void };
 
-  constructor(onClick: () => void, height = 60) {
+  constructor(onClick: () => void, opts: { label?: string; height?: number } = {}) {
     super();
+    const height = opts.height ?? 60;
     this.btnH = height;
 
-    this.caption = makeText(t('common.skip'), 'label', { fill: COLORS.textBright });
+    this.caption = makeText(opts.label ?? t('common.skip'), 'label', { fill: COLORS.textBright });
     this.caption.anchor.set(0.5);
     // Pill = caption width + a rounded cap (~half-height) of padding on each side.
     this.btnW = Math.ceil(this.caption.width) + height;

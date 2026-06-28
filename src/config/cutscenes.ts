@@ -26,8 +26,13 @@ export type CameraMove =
 export type EasingName = 'linear' | 'outCubic' | 'inOutCubic' | 'outBack' | 'inOutSine';
 
 export interface CutsceneShot {
-  /** Background asset key shown full-bleed (cover-fit). */
-  readonly image: string;
+  /**
+   * Background asset key shown full-bleed (cover-fit). Omit for a shot with no
+   * painting — a `credits` roll, or a dialogue beat over a plain dark backdrop.
+   */
+  readonly image?: string;
+  /** Shot kind. `'credits'` rolls config/credits.ts instead of a painting. */
+  readonly kind?: 'image' | 'credits';
   /** Camera move applied over the shot. */
   readonly camera: CameraMove;
   /** Focus point the move centers on, as a fraction of the image (default center). */
@@ -49,25 +54,63 @@ export interface CutsceneDef {
   readonly next?: { readonly route: RouteId; readonly params?: SceneParams };
   /** Show a centered "THE END" card with a Continue button before {@link next}. */
   readonly endCard?: boolean;
+  /**
+   * Music key to play (looped, crossfaded) while the cutscene runs. Omit to stop
+   * music for the duration. Registered in config/audioManifest.ts.
+   */
+  readonly music?: string;
+  /**
+   * Route the music to the master output instead of the music-volume bus, so it
+   * plays at the overall (master / mute) volume and ignores the in-game "music"
+   * slider. Use for cinematic theme moments (the intro / finale share
+   * `music_theme`) that are scored sequences, not background game music.
+   * Default false.
+   */
+  readonly musicAtMaster?: boolean;
 }
 
 export const CUTSCENES: Record<string, CutsceneDef> = {
-  // 1) Campaign intro — slow push-in on the Buhanka poster while the matriarch
-  //    briefs the heroes. Plays after the menu's START, then opens the world map.
+  // 1) Campaign intro — first an establishing beat on the My.Games office (so the
+  //    matriarch's portrait doesn't cover the sign), then she briefs the heroes,
+  //    then the van is shown fueled and the heroes roll out. Theme music plays.
   intro: {
     id: 'intro',
+    music: 'music_theme',
+    musicAtMaster: true, // cinematic theme — plays at overall volume, not the music slider
     shots: [
-      { image: 'cutscene_intro', camera: 'zoomIn', focus: { x: 0.5, y: 0.5 }, durationSec: 26, dialogue: 'intro' },
+      // Establishing: glide down onto the My.Games marquee, no dialogue.
+      { image: 'cutscene_intro', camera: 'descend', focus: { x: 0.5, y: 0.56 }, durationSec: 6, holdSec: 1.4 },
+      // The matriarch briefs the heroes (her portrait now slides in over the office).
+      { image: 'cutscene_intro', camera: 'zoomIn', focus: { x: 0.5, y: 0.42 }, durationSec: 24, dialogue: 'intro' },
+      // The Buhanka 3000, fueled and ready.
+      { image: 'cutscene_intro2', camera: 'zoomIn', focus: { x: 0.5, y: 0.5 }, durationSec: 12, dialogue: 'intro_fueled' },
+      // The heroes aboard, rolling out.
+      { image: 'cutscene_in_car', camera: 'zoomIn', focus: { x: 0.5, y: 0.45 }, durationSec: 12, dialogue: 'intro_go' },
     ],
     next: { route: 'worldmap' },
   },
 
-  // 2) Finale — glide down over the whole world while the last Senior laces up the
-  //    red sneakers, then a "THE END" card back to the menu.
+  // 2) Finale — the heroes drive home with the rescued Senior, a wide beauty shot,
+  //    the credits roll, then a post-credits sting: the silent passenger was a spy
+  //    for rival studio Pixonic, who vibecodes a walking robot from the stolen
+  //    blueprints. Ends on a "THE END" card back to the menu. Theme music plays.
   finale: {
     id: 'finale',
+    music: 'music_theme',
+    musicAtMaster: true, // same cinematic theme as the intro — overall volume, not the music slider
     shots: [
-      { image: 'bg_worldmap', camera: 'descend', focus: { x: 0.5, y: 0.55 }, durationSec: 26, dialogue: 'finale' },
+      // Epilogue conversation, driving home with the Senior aboard.
+      { image: 'cutscene_final1', camera: 'zoomIn', focus: { x: 0.5, y: 0.5 }, durationSec: 24, dialogue: 'finale' },
+      // Wide beauty shot — the van crossing the desert toward the rebuilt base.
+      { image: 'cutscene_final2', camera: 'zoomOut', focus: { x: 0.5, y: 0.5 }, durationSec: 9, holdSec: 1.5 },
+      // Credits roll (config/credits.ts) over a dark backdrop.
+      { kind: 'credits', camera: 'static' },
+      // Post-credits sting — the spy debriefs his employer (no painting; dark room).
+      { camera: 'static', dialogue: 'finale_secret' },
+      // The battle-truck Pixonic built from the stolen blueprints.
+      { image: 'cutscene_final3', camera: 'zoomIn', focus: { x: 0.5, y: 0.5 }, durationSec: 10, dialogue: 'finale_robot1' },
+      // …it sprouts legs and walks. The spy gets the last (wordless) beat.
+      { image: 'cutscene_final4', camera: 'zoomIn', focus: { x: 0.5, y: 0.55 }, durationSec: 12, dialogue: 'finale_robot2' },
     ],
     next: { route: 'menu' },
     endCard: true,

@@ -980,6 +980,54 @@ export const ASSETS: AssetSpec[] = [
     placeholder: { shape: 'rect', tint: COLORS.bgCanyon, label: '' },
   },
   {
+    // Intro beat 2: the Coder shows the Buhanka is fueled (glowing green reactor core).
+    key: 'cutscene_intro2',
+    category: 'background',
+    size: 1024,
+    prompt: 'comic poster: the armored van "Buhanka 3000" parked in a sunset desert canyon, its roof reactor glowing with green energy coins, satellite dish and antennas, fueled and ready, warm orange light, no text',
+    placeholder: { shape: 'rect', tint: COLORS.bgCanyon, label: '' },
+  },
+  {
+    // Intro beat 3: the heroes already aboard the van, seen through the windshield.
+    key: 'cutscene_in_car',
+    category: 'background',
+    size: 1024,
+    prompt: 'comic poster: view through a battered van windshield of three wasteland heroes in the cabin — a goggled mechanic at the wheel, a tech operator with a tablet, a long-haired passenger in the back, dieselpunk dashboard, desert beyond, no text',
+    placeholder: { shape: 'rect', tint: COLORS.bgCanyon, label: '' },
+  },
+  {
+    // Finale beat 1: the heroes drive home with the rescued Last Senior aboard.
+    key: 'cutscene_final1',
+    category: 'background',
+    size: 1024,
+    prompt: 'comic poster: view through a van windshield of cheerful wasteland heroes driving home — a tech operator, a goggled mechanic at the wheel, a shaven-headed senior and a long-haired passenger in the back, dieselpunk dashboard, warm light, no text',
+    placeholder: { shape: 'rect', tint: COLORS.bgCanyon, label: '' },
+  },
+  {
+    // Finale beat 2: wide shot of the van crossing the desert toward a rebuilt base.
+    key: 'cutscene_final2',
+    category: 'background',
+    size: 1024,
+    prompt: 'wide comic landscape: an armored van driving a dusty desert track at golden hour toward a small lit-up rebuilt settlement, mesas and ruins on the horizon, hopeful warm light, no text',
+    placeholder: { shape: 'rect', tint: COLORS.bgCanyon, label: '' },
+  },
+  {
+    // Finale beat 3: the heavy battle-truck Pixonic vibecoded from the stolen blueprints.
+    key: 'cutscene_final3',
+    category: 'background',
+    size: 1024,
+    prompt: 'comic poster: a hulking armored dieselpunk battle-truck with a glowing green reactor core, fans and antennas, standing on a stone platform in a sunset desert canyon, menacing, no text',
+    placeholder: { shape: 'rect', tint: COLORS.bgCanyon, label: '' },
+  },
+  {
+    // Finale beat 4: the same machine, now a WALKING battle robot with legs + minigun.
+    key: 'cutscene_final4',
+    category: 'background',
+    size: 1024,
+    prompt: 'comic poster: a dieselpunk battle-truck that has sprouted mechanical walker legs and a rotary cannon arm, a walking war robot standing on a stone platform in a sunset desert canyon, absurd and intimidating, no text',
+    placeholder: { shape: 'rect', tint: COLORS.bgCanyon, label: '' },
+  },
+  {
     key: 'char_mech',
     category: 'prop',
     size: 512,
@@ -992,6 +1040,14 @@ export const ASSETS: AssetSpec[] = [
     size: 512,
     prompt: 'full-body cut-out character: a tech operator in a red dieselpunk coat with brass reactor armor, holding a glowing holographic tablet, glasses, calm clever look',
     placeholder: { shape: 'rect', tint: ELEMENTS.Fire.base, label: 'CODER' },
+  },
+  {
+    // Anton — boss of the IT garage; presents the fueled van in the intro.
+    key: 'char_anton',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a friendly IT garage boss in a dark navy business jacket over a blue plaid shirt, short brown hair, holding a tablet showing glowing blue code and a wrench hologram, warm confident smile',
+    placeholder: { shape: 'rect', tint: ELEMENTS.Electricity.base, label: 'ANTON' },
   },
   {
     key: 'char_matriarch',
@@ -1103,6 +1159,16 @@ export const ASSETS: AssetSpec[] = [
     size: 512,
     prompt: 'full-body cut-out character: a long-haired young man with an orange scarf and a black tee, holding a small dieselpunk handheld console showing a world map, a tote bag strap across his chest, blank unsettling stare (cut from docs/visual_refs/visual_sources/spy.png)',
     placeholder: { shape: 'rect', tint: COLORS.metalDark, label: 'SPY' },
+  },
+  {
+    // The spy's secret employer — the head of rival studio "Pixonic". Appears only
+    // in the post-credits finale scene, where he debriefs the silent spy and then
+    // vibecodes a walking robot from the stolen Buhanka 3000 blueprints.
+    key: 'char_secret_boss',
+    category: 'prop',
+    size: 512,
+    prompt: 'cut-out portrait: a stern mafia don in a pinstripe double-breasted suit and a fedora, smoking a cigar, seated in a leather armchair, gold rings, shadowy confident look (cut from docs/visual_refs/visual_sources/secret_boss.png)',
+    placeholder: { shape: 'rect', tint: COLORS.metalDark, label: 'BOSS' },
   },
 ];
 

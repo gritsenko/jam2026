@@ -28,6 +28,8 @@
         overscroll-behavior: none;
         -webkit-user-select: none;
         user-select: none;
+        /* No iOS long-press callout (image save / text selection bubble). */
+        -webkit-touch-callout: none;
         -webkit-tap-highlight-color: transparent;
       }
       #app,
@@ -131,6 +133,11 @@
       /* Boot-splash progress bridge, available before the module bundle loads so
          the bar animates during the initial JS download/parse on slow mobiles. */
       (function () {
+        /* Kill the right-click / long-press context menu across the whole page so a
+           stray right-click never pops the browser menu over the game canvas. */
+        window.addEventListener('contextmenu', function (e) {
+          e.preventDefault();
+        });
         var boot = document.getElementById('boot');
         var track = boot && boot.querySelector('.boot-track');
         var fill = boot && boot.querySelector('.boot-fill');

@@ -712,7 +712,6 @@ export class BattleScene extends Scene {
       preset: 'label',
       labelColor: hex(COLORS.textBright),
       onClick: () => {
-        this.services.audio.playSfx('sfx_click');
         this.services.navigate('worldmap');
       },
     });
@@ -789,7 +788,6 @@ export class BattleScene extends Scene {
   /** Admin: force an immediate win so the victory dialogue chain plays. */
   private debugForceVictory(): void {
     if (this.banner || this.dialogue) return;
-    this.services.audio.playSfx('sfx_click');
     this.sim.forceVictory();
   }
 
@@ -799,7 +797,6 @@ export class BattleScene extends Scene {
     const id = bossTauntId(this.levelId);
     const script = id ? getDialogue(id) : undefined;
     if (!script) return;
-    this.services.audio.playSfx('sfx_click');
     this.dialogue = new DialogueOverlay(
       script,
       this.services.assets,
@@ -1057,7 +1054,6 @@ export class BattleScene extends Scene {
     this.refreshSynergy();
     this.syncTowers();
     Telemetry.track('sell', { cardId: def.id, grade: placed.grade, refund, slot: index });
-    this.services.audio.playSfx('sfx_click');
     this.clearInspect();
   }
 
@@ -1287,6 +1283,7 @@ export class BattleScene extends Scene {
   private onDragMove(e: FederatedPointerEvent): void {
     const card = this.dragging;
     if (!card) return;
+    if (card.destroyed) return this.abortStuckDrag();
     const p = this.dragLayer.toLocal(e.global);
     this.dragPointer = { x: p.x, y: p.y };
     const tgt = this.cardPosForPointer(p);
@@ -1497,9 +1494,39 @@ export class BattleScene extends Scene {
     );
   }
 
+  /**
+   * Bail out of a drag whose card was destroyed out from under us (its place/burn
+   * fly-away animation finished while it was somehow still the drag target). Tears
+   * down every drag-time visual and clears {@link dragging} without touching the
+   * dead card. Without this the destroyed card stays in {@link dragging} and every
+   * move / release throws on its null `position` (endDrag never reaches the line
+   * that clears it), permanently freezing drag.
+   */
+  private abortStuckDrag(): void {
+    this.dragging = null;
+    this.fieldDragFrom = null;
+    this.dragLifting = false;
+    this.dragLiftTween?.stop();
+    this.cardFadeTween?.stop();
+    this.previewSlot?.clearGhost();
+    this.previewSlot = null;
+    this.cardGhosted = false;
+    this.gauge.setCharging(false);
+    this.gauge.setPreviewLoad(null);
+    this.setFusionTarget(null);
+    this.grid.clearHighlights();
+    this.grid.clearInspect();
+    this.hideRangePreview();
+    this.moveCost.hide();
+    this.hideReactor();
+    this.modOverlay.hide();
+    this.hint.alpha = 0.7;
+  }
+
   private endDrag(): void {
     const card = this.dragging;
     if (!card) return;
+    if (card.destroyed) return this.abortStuckDrag();
 
     // Settle the card at its final held position (the pickup lift may still be
     // running) and snap from its visual center, not the finger (§1). Use the last
@@ -2136,6 +2163,13 @@ export class BattleScene extends Scene {
 
   /** Mark the hand position that held `card` as empty and start its recharge. */
   private freeHandCard(card: BattleCard): void {
+    // The card is consumed (placed / merged / burned / fused) and now only flies
+    // its short place/burn animation before being destroyed. Drop its interactivity
+    // immediately so it can't be re-grabbed mid-flight — a fresh drag started on a
+    // card that the animation then destroys would leave `dragging` pointing at a
+    // destroyed object, and every later move/release throws on its null `position`,
+    // permanently freezing drag (see abortStuckDrag).
+    card.eventMode = 'none';
     const slot = this.hand.find((h) => h.card === card);
     if (!slot) return;
     slot.returnTween?.stop();
@@ -3837,7 +3871,6 @@ export class BattleScene extends Scene {
   /** Open the modal audio-settings overlay (gear button), once. */
   private openSettings(): void {
     if (this.settings) return;
-    this.services.audio.playSfx('sfx_click');
     this.settings = new SettingsPanel(this.services.audio, () => this.closeSettings());
     this.addChild(this.settings); // top-most, above the drag layer
     this.settings.layout(this.services.getLayout());

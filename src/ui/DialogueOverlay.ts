@@ -39,6 +39,8 @@ export interface DialogueOverlayOptions {
   readonly dimAlpha?: number;
   /** Show the built-in "skip" button (skips the whole script). Default true. */
   readonly showSkip?: boolean;
+  /** Called when a line is shown, with its 0-based index in the script. */
+  readonly onLineShown?: (index: number) => void;
 }
 
 interface SlotOccupant {
@@ -64,6 +66,7 @@ interface SlotOccupant {
 export class DialogueOverlay extends Container {
   private readonly scrim = new Graphics();
   private readonly portraitLayer = new Container();
+  private readonly emoteLayer = new Container(); // floating-emoji flourish above portraits
   private readonly box = new Container();
   private readonly boxBg = new Graphics();
   private readonly namePlate = new Graphics();
@@ -84,11 +87,21 @@ export class DialogueOverlay extends Container {
   private done = false;
   private lastInfo: LayoutInfo | null = null;
 
+  /**
+   * Active per-line emoji emitter (DialogueLine.emote). Spawns either at a fixed
+   * screen point (`at`, fraction of full area — DialogueLine.emoteAt) or, when
+   * that's absent, anchored to the speaker's portrait slot (`side`).
+   */
+  private emote: { emojis: readonly string[]; side: Side | null; at: { x: number; y: number } | null } | null = null;
+  private emoteClock = 0;
+  private emoteParticles: { sprite: Text; handle: TweenHandle }[] = [];
+
   private readonly script: DialogueScript;
   private readonly assets: AssetLoader;
   private readonly audio: AudioBus;
   private readonly onDone: () => void;
   private readonly dimAlpha: number;
+  private readonly onLineShown?: (index: number) => void;
 
   constructor(
     script: DialogueScript,
@@ -103,6 +116,7 @@ export class DialogueOverlay extends Container {
     this.audio = audio;
     this.onDone = onDone;
     this.dimAlpha = opts.dimAlpha ?? 0.45;
+    this.onLineShown = opts.onLineShown;
 
     // Scrim + box both advance the dialogue on tap (portraits live above the
     // scrim, so a tap on a portrait still hits the scrim region around it).
@@ -123,7 +137,7 @@ export class DialogueOverlay extends Container {
 
     this.skipBtn = (opts.showSkip ?? true) ? new SkipButton(() => this.skip()) : null;
 
-    this.addChild(this.scrim, this.portraitLayer, this.box);
+    this.addChild(this.scrim, this.portraitLayer, this.emoteLayer, this.box);
     if (this.skipBtn) this.addChild(this.skipBtn);
 
     this.next(); // show the first line
@@ -138,7 +152,9 @@ export class DialogueOverlay extends Container {
       this.applyReveal();
       return;
     }
-    this.audio.playSfx('sfx_click');
+    // Page-turn cue only on a real transition to another line (the last tap closes
+    // the script — it's a dismiss, not a page turn).
+    if (this.index + 1 < this.script.lines.length) this.audio.playSfx('sfx_nextpage');
     this.next();
   }
 
@@ -148,7 +164,7 @@ export class DialogueOverlay extends Container {
 
   private skip(): void {
     if (this.done) return;
-    this.audio.playSfx('sfx_click');
+    this.audio.playSfx('sfx_hut');
     this.finish();
   }
 
@@ -169,11 +185,24 @@ export class DialogueOverlay extends Container {
     const char = getStoryCharacter(line.speaker);
     const side: Side = line.side ?? this.lastSide.get(char.id) ?? char.homeSide;
 
-    if (!char.narrator) {
+    // `hidePortrait` lines show only the box (the painting already has the cast);
+    // any portraits on stage are cleared. Otherwise place/light the speaker.
+    if (line.hidePortrait) {
+      this.clearPortraits();
+    } else if (!char.narrator) {
       this.lastSide.set(char.id, side);
       this.placeSpeaker(char.id, side);
     }
-    this.setActive(char.narrator ? null : char.id);
+    this.setActive(char.narrator || line.hidePortrait ? null : char.id);
+
+    // Floating-emoji flourish for this line (rides the active speaker's portrait;
+    // skipped when there's no portrait to anchor to — narrator / hidePortrait).
+    const emoteSide: Side | null = line.hidePortrait || char.narrator ? null : side;
+    this.setEmote(
+      line.emote && line.emote.length > 0 && (line.emoteAt || emoteSide)
+        ? { emojis: line.emote, side: line.emoteAt ? null : emoteSide, at: line.emoteAt ?? null }
+        : null,
+    );
 
     // Bark: a per-line `sound` plays for THIS phrase whenever present; otherwise the
     // speaker's default `voiceKey` fires once — only on the FIRST line that character
@@ -185,6 +214,7 @@ export class DialogueOverlay extends Container {
     this.fullText = lineText(this.script.id, this.index, line.text);
     this.revealed = 0;
     this.renderBox();
+    this.onLineShown?.(this.index);
   }
 
   // --- portraits -----------------------------------------------------------
@@ -229,6 +259,11 @@ export class DialogueOverlay extends Container {
         if (!sprite.destroyed) occupant.enter = null;
       },
     });
+  }
+
+  /** Clear every portrait on stage (used by `hidePortrait` lines). */
+  private clearPortraits(): void {
+    for (const s of ['left', 'center', 'right'] as Side[]) this.removeSlot(s);
   }
 
   private removeSlot(side: Side): void {
@@ -295,6 +330,84 @@ export class DialogueOverlay extends Container {
     occ.sprite.y = boxTop + 26;
     // While sliding in, the entrance tween owns x; otherwise snap to the resting x.
     if (!occ.enter) occ.sprite.x = cx;
+  }
+
+  // --- emoji flourish ------------------------------------------------------
+
+  /** Arm (or clear) the per-line floating-emoji emitter; tick() spawns over time. */
+  private setEmote(next: { emojis: readonly string[]; side: Side | null; at: { x: number; y: number } | null } | null): void {
+    this.emote = next && next.emojis.length > 0 ? next : null;
+    this.emoteClock = 0;
+    // Small opening burst so the flourish reads immediately (no-op before first
+    // layout — there's no geometry yet; tick() takes over once it does).
+    if (this.emote && this.lastInfo) for (let i = 0; i < 4; i++) this.spawnEmote();
+  }
+
+  /**
+   * Spawn one emoji that drifts up + fades. It originates either at a fixed screen
+   * point (`emote.at`, fraction of the full area) or, when none is set, near the
+   * active speaker's portrait.
+   */
+  private spawnEmote(): void {
+    const info = this.lastInfo;
+    const emote = this.emote;
+    if (!info || !emote) return;
+
+    let startX: number;
+    let startY: number;
+    let rise: number;
+    let sway: number;
+    if (emote.at) {
+      const f = info.full;
+      const cx = f.x + f.width * emote.at.x;
+      const cy = f.y + f.height * emote.at.y;
+      startX = cx + (Math.random() - 0.5) * f.width * 0.22;
+      startY = cy + (Math.random() - 0.5) * f.height * 0.05;
+      rise = f.height * (0.1 + Math.random() * 0.08);
+      sway = (Math.random() - 0.5) * f.width * 0.08;
+    } else {
+      const occ = emote.side ? this.slots[emote.side] : null;
+      if (!occ || occ.sprite.destroyed) return;
+      const sprite = occ.sprite;
+      const w = Math.max(80, sprite.width);
+      const h = Math.max(80, sprite.height);
+      const top = sprite.y - h; // anchor (0.5, 1): feet at y, top a height up
+      startX = occ.baseX + (Math.random() - 0.5) * w * 0.7;
+      startY = top + h * (0.08 + Math.random() * 0.32);
+      rise = 150 + Math.random() * 130;
+      sway = (Math.random() - 0.5) * 70;
+    }
+
+    const glyph = emote.emojis[Math.floor(Math.random() * emote.emojis.length)] ?? '💖';
+    const t = makeText(glyph, 'title', {
+      fontSize: 46 + Math.random() * 18,
+      fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif',
+      stroke: { color: hex(COLORS.black), width: 0, alpha: 0 },
+    });
+    t.anchor.set(0.5);
+    t.position.set(startX, startY);
+    t.alpha = 0;
+    this.emoteLayer.addChild(t);
+
+    const dur = 1.5 + Math.random() * 0.9;
+    const rec: { sprite: Text; handle: TweenHandle } = { sprite: t, handle: null as unknown as TweenHandle };
+    rec.handle = tween({
+      duration: dur,
+      easing: Easings.outCubic,
+      onUpdate: (e) => {
+        if (t.destroyed) return;
+        t.y = startY - rise * e;
+        t.x = startX + sway * e + Math.sin(e * Math.PI * 3) * 6;
+        t.alpha = e < 0.18 ? e / 0.18 : 1 - (e - 0.18) / 0.82;
+        t.scale.set(0.7 + 0.4 * Math.min(1, e * 4));
+      },
+      onComplete: () => {
+        const i = this.emoteParticles.indexOf(rec);
+        if (i >= 0) this.emoteParticles.splice(i, 1);
+        if (!t.destroyed) t.destroy();
+      },
+    });
+    this.emoteParticles.push(rec);
   }
 
   // --- dialogue box --------------------------------------------------------
@@ -389,6 +502,15 @@ export class DialogueOverlay extends Container {
 
   tick(dt: number): void {
     this.idleClock += dt;
+    // Trickle out the floating-emoji flourish while a line with `emote` is shown.
+    if (this.emote) {
+      const interval = 0.28;
+      this.emoteClock += dt;
+      while (this.emoteClock >= interval) {
+        this.emoteClock -= interval;
+        this.spawnEmote();
+      }
+    }
     if (this.isTyping()) {
       this.revealed = Math.min(this.fullText.length, this.revealed + CHARS_PER_SEC * dt);
       this.applyReveal();
@@ -422,6 +544,8 @@ export class DialogueOverlay extends Container {
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
     for (const s of ['left', 'center', 'right'] as Side[]) this.slots[s]?.enter?.stop();
+    for (const p of this.emoteParticles) p.handle.stop();
+    this.emoteParticles = [];
     super.destroy(options);
   }
 }

@@ -818,6 +818,48 @@
       "prompt": "cozy post-apocalyptic comic poster: a rugged armored van Buhanka 3000 bristling with satellite dishes and GPU racks parked in a sunset desert canyon of ruins, warm orange light, no text"
     },
     {
+      "key": "cutscene_intro2",
+      "file": "assets/sprites/cutscene_intro2.png",
+      "category": "background",
+      "size": 1024,
+      "prompt": "comic poster: the armored van Buhanka 3000 parked in a sunset desert canyon, its roof reactor glowing with green energy coins, satellite dish and antennas, fueled and ready, warm orange light, no text"
+    },
+    {
+      "key": "cutscene_in_car",
+      "file": "assets/sprites/cutscene_in_car.png",
+      "category": "background",
+      "size": 1024,
+      "prompt": "comic poster: view through a battered van windshield of three wasteland heroes in the cabin — a goggled mechanic at the wheel, a tech operator with a tablet, a long-haired passenger in the back, dieselpunk dashboard, desert beyond, no text"
+    },
+    {
+      "key": "cutscene_final1",
+      "file": "assets/sprites/cutscene_final1.png",
+      "category": "background",
+      "size": 1024,
+      "prompt": "comic poster: view through a van windshield of cheerful wasteland heroes driving home — a tech operator, a goggled mechanic at the wheel, a shaven-headed senior and a long-haired passenger in the back, dieselpunk dashboard, warm light, no text"
+    },
+    {
+      "key": "cutscene_final2",
+      "file": "assets/sprites/cutscene_final2.png",
+      "category": "background",
+      "size": 1024,
+      "prompt": "wide comic landscape: an armored van driving a dusty desert track at golden hour toward a small lit-up rebuilt settlement, mesas and ruins on the horizon, hopeful warm light, no text"
+    },
+    {
+      "key": "cutscene_final3",
+      "file": "assets/sprites/cutscene_final3.png",
+      "category": "background",
+      "size": 1024,
+      "prompt": "comic poster: a hulking armored dieselpunk battle-truck with a glowing green reactor core, fans and antennas, standing on a stone platform in a sunset desert canyon, menacing, no text"
+    },
+    {
+      "key": "cutscene_final4",
+      "file": "assets/sprites/cutscene_final4.png",
+      "category": "background",
+      "size": 1024,
+      "prompt": "comic poster: a dieselpunk battle-truck that has sprouted mechanical walker legs and a rotary cannon arm, a walking war robot standing on a stone platform in a sunset desert canyon, absurd and intimidating, no text"
+    },
+    {
       "key": "char_mech",
       "file": "assets/sprites/char_mech.png",
       "category": "prop",
@@ -830,6 +872,13 @@
       "category": "prop",
       "size": 512,
       "prompt": "full-body cut-out character: a tech operator in a red dieselpunk coat with brass reactor armor, holding a glowing holographic tablet, glasses, calm clever look"
+    },
+    {
+      "key": "char_anton",
+      "file": "assets/sprites/char_anton.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a friendly IT garage boss in a dark navy business jacket over a blue plaid shirt, short brown hair, holding a tablet showing glowing blue code and a wrench hologram, warm confident smile"
     },
     {
       "key": "char_matriarch",
@@ -928,6 +977,13 @@
       "category": "prop",
       "size": 512,
       "prompt": "full-body cut-out character: a long-haired young man with an orange scarf and a black tee, holding a small dieselpunk handheld console showing a world map, a tote bag strap across his chest, blank unsettling stare (cut from docs/visual_refs/visual_sources/spy.png)"
+    },
+    {
+      "key": "char_secret_boss",
+      "file": "assets/sprites/char_secret_boss.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "cut-out portrait: a stern mafia don in a pinstripe double-breasted suit and a fedora, smoking a cigar, seated in a leather armchair, gold rings, shadowy confident look (cut from docs/visual_refs/visual_sources/secret_boss.png)"
     }
   ]
 }
