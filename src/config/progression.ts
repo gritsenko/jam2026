@@ -1,4 +1,4 @@
-import { LEVELS } from './levels';
+import { LEVELS, levelRegion } from './levels';
 import { activeGameConfig } from '../data/load';
 
 /**
@@ -12,6 +12,18 @@ import { activeGameConfig } from '../data/load';
 
 /** Level ids in campaign order (mirrors the world-map node order). */
 export const LEVEL_ORDER: string[] = LEVELS.map((l) => l.id);
+
+/**
+ * Id of the last level of the *main campaign* (region 1) — the one whose victory
+ * rolls the story finale cutscene. Region 2+ levels are post-game bonus content
+ * (no victory dialogue, no finale), so the narrative ending is keyed to this, not
+ * to the absolute last level in {@link LEVEL_ORDER}.
+ */
+export function finalCampaignLevelId(): string {
+  const campaign = LEVELS.filter((l) => levelRegion(l) === 1);
+  const last = campaign[campaign.length - 1];
+  return last?.id ?? LEVEL_ORDER[LEVEL_ORDER.length - 1] ?? '';
+}
 
 /**
  * Towers the player starts with before clearing anything (§2: Plasma + Frost) and

@@ -67,7 +67,7 @@ import { pendingLessons } from '../config/tutorial';
 import { DialogueOverlay } from '../ui/DialogueOverlay';
 import { getDialogue, missionBriefId, victoryDialogueId, bossTauntId, type DialogueScript } from '../config/dialogue';
 import { randomDefeatQuote } from '../config/quotes';
-import { LEVEL_ORDER } from '../config/progression';
+import { finalCampaignLevelId } from '../config/progression';
 import { CoreBadge } from '../ui/CoreBadge';
 import { EnemySprite } from '../ui/EnemySprite';
 import { EnergyGauge } from '../ui/EnergyGauge';
@@ -3554,7 +3554,7 @@ export class BattleScene extends Scene {
    * the dialogue (Admin replays it); the finale plays on first clear or in Admin.
    */
   private handleVictory(): void {
-    const isFinal = LEVEL_ORDER[LEVEL_ORDER.length - 1] === this.levelId;
+    const isFinal = finalCampaignLevelId() === this.levelId;
     const firstClear = !progress.isCleared(this.levelId);
     const vId = victoryDialogueId(this.levelId);
     const vScript = vId ? getDialogue(vId) : undefined;

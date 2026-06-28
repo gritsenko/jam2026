@@ -37,6 +37,8 @@ export class EnergyGauge extends Container {
   private charging = false;
   private odLabel: Text;
   private readout: Text;
+  /** Blinking "OVERLOAD!" alarm shown over the bar while the grid is past capacity. */
+  private overloadLabel: Text;
   private w: number;
   private h: number;
   private state: GaugeState = { load: 0, capacity: 10, max: 15, overdrive: false };
@@ -67,6 +69,19 @@ export class EnergyGauge extends Container {
     this.odLabel = makeText(t('hud.overdrive'), 'label', { fontSize: 22, fill: hex(COLORS.energyOverdrive) });
     this.odLabel.anchor.set(1, 0.5);
     this.addChild(this.odLabel);
+
+    // Centered alarm over the bar — bright text with a heavy dark+red rim so it
+    // reads against the red overload wash. Hidden until the grid overloads; the
+    // blink (alpha + scale) is driven in tick().
+    this.overloadLabel = makeText(t('hud.overloadAlert'), 'title', {
+      fontSize: 34,
+      fill: hex(COLORS.white),
+      stroke: { color: hex(COLORS.black), width: 5, alpha: 0.7 },
+      letterSpacing: 2,
+    });
+    this.overloadLabel.anchor.set(0.5);
+    this.overloadLabel.visible = false;
+    this.addChild(this.overloadLabel);
 
     this.redraw();
   }
@@ -133,6 +148,16 @@ export class EnergyGauge extends Container {
     // Honors the drag preview so a would-be overload telegraphs before committing.
     const overloaded = this.shownLoad > this.state.capacity;
     this.overloadG.alpha = overloaded ? 0.3 + 0.3 * (0.5 + 0.5 * Math.sin(this.pulse * 2)) : 0;
+
+    // Blinking "OVERLOAD!" alarm: a sharp pulse (alpha + a slight throb) to spike
+    // tension while the grid is past capacity. Hidden the rest of the time.
+    this.overloadLabel.visible = overloaded;
+    if (overloaded) {
+      const blink = 0.5 + 0.5 * Math.sin(this.pulse * 4);
+      this.overloadLabel.alpha = 0.25 + 0.75 * blink;
+      const s = 1 + 0.08 * blink;
+      this.overloadLabel.scale.set(s);
+    }
 
     // Slide the capacity ("optimal") divider toward its target x, then redraw it
     // (with a gentle neon pulse). First frame snaps so it doesn't fly in from 0.
@@ -213,6 +238,9 @@ export class EnergyGauge extends Container {
     // Numeric readout lives in the HUD label; keep the bar itself clean.
     this.readout.text = `${shown} / ${capacity}`;
     this.readout.visible = false;
+
+    // Center the overload alarm over the bar (not the Overdrive cap).
+    this.overloadLabel.position.set(barX + barW / 2, this.h / 2);
 
     // Overdrive cap on the right.
     const odX = this.w - padX - odW;

@@ -49,6 +49,7 @@ const en: Dict = {
   'hud.core': 'CORE',
   'hud.overdrive': 'OVERDRIVE',
   'hud.overload': 'OVERLOAD',
+  'hud.overloadAlert': 'OVERLOAD!',
   'hud.reactor': 'REACTOR',
   'hud.burn': 'BURN',
   'hud.reactorBurnEffect': '+2 ENERGY 15s',
@@ -226,6 +227,7 @@ const ru: Dict = {
   'hud.core': 'ЯДРО',
   'hud.overdrive': 'ОВЕРДРАЙВ',
   'hud.overload': 'ПЕРЕГРУЗ',
+  'hud.overloadAlert': 'ПЕРЕГРУЗКА!',
   'hud.reactor': 'РЕАКТОР',
   'hud.burn': 'СЖЕЧЬ',
   'hud.reactorBurnEffect': '+2 ЭНЕРГ. 15с',
@@ -280,8 +282,8 @@ const ru: Dict = {
   'stat.defense': 'ЗАЩ',
 
   // --- card lock veils ---
-  'card.needGold': 'НЕТ ЗОЛОТА',
-  'card.needGems': 'НЕТ КРИСТАЛЛОВ',
+  'card.needGold': 'НЕТ ТОКЕНОВ',
+  'card.needGems': 'НЕТ ТОКЕНОВ ОПУСА',
 
   // --- settings ---
   'settings.title': 'НАСТРОЙКИ',
@@ -398,44 +400,44 @@ const ru: Dict = {
   'tutorial.basics_place.body': 'Перетащи карту из руки на пустой слот платформы 3×3.',
   'tutorial.basics_synergy.title': 'Соседи усиливают',
   'tutorial.basics_synergy.body':
-    'Башня баффает ортогональных соседей по сетке. Ставь рядом — не вразброс.',
+    'Башня баффает соседей по сетке. Ставь рядом для мощного усиления.',
   'tutorial.basics_energy.title': 'Энергия и ядро',
   'tutorial.basics_energy.body':
-    'Каждая башня грузит энергосеть (шкала сверху).\n\nПрорвавшийся враг бьёт по целостности Ядра — потеряешь ядро, проиграешь.',
+    'Башня грузит энергосеть. Не доводи до красной зоны, иначе пушки будут дольше перезаряжаться.\n\nВраги воруют наши видеокарты, когда доходят до конца - не дай им этого сделать.',
   'tutorial.tower_storm_coil.title': 'ТеслаПушка',
   'tutorial.tower_storm_coil.body':
     'Цепная молния — бьёт по группе врагов, перепрыгивая между целями.',
   'tutorial.mech_merge.title': 'Мердж',
   'tutorial.mech_merge.body':
-    'Две одинаковые карты сливаются в грейд повыше: I+I→II в руке, II+II→III на поле.',
-  'tutorial.mech_crystals.title': 'Кристаллы',
+    'Две одинаковые башни сливаются более крутые. И могут быть резанировать с большим количеством соседей!',
+  'tutorial.mech_crystals.title': 'Токены Опуса',
   'tutorial.mech_crystals.body':
-    'Идеальная зачистка волны и элитные враги роняют кристаллы — премиум-валюта.',
+    'Идеальная зачистка волны и элитные враги роняют Токены Опуса — премиум-валюта.',
   'tutorial.mech_reroll.title': 'Реролл руки',
   'tutorial.mech_reroll.body':
-    'Не нравится добор? Перекрути руку за кристаллы. Цена растёт за волну.',
+    'Не нравится добор? Перекрути руку за Токены Опуса. Цена растёт за каждый ролл.',
   'tutorial.mech_resonance.title': 'Резонанс',
   'tutorial.mech_resonance.body':
     'Соседи Grade II+ разных стихий запускают реакцию:\n\nПаровой Выброс (Огонь+Вода), Сверхпроводимость (Вода+Ток), Шрапнель (Огонь+Физика).',
   'tutorial.tower_railgun.title': 'Рельсотрон',
   'tutorial.tower_railgun.body': 'Пробивающий луч — шьёт всю линию врагов насквозь.',
-  'tutorial.tower_grid_stabilizer.title': 'Стабилизатор',
-  'tutorial.tower_grid_stabilizer.body': 'Поддержка: разгоняет темп соседних башен.',
+  'tutorial.tower_grid_stabilizer.title': 'Ядреный Реактор',
+  'tutorial.tower_grid_stabilizer.body': 'Поддержка: разгоняет темп соседних башен. И добавляет дури в нашу сеть.',
   'tutorial.mech_overload.title': 'Перегрузка и Реактор',
   'tutorial.mech_overload.body':
-    'Слишком большая нагрузка режет темп всех башен.\n\nСожги карту в Реакторе — временно поднимешь ёмкость (Overdrive). Сжигание стоит золота.',
+    'Сожги карту в Реакторе Буханки для разгона ёмкости сети (Overdrive) на некоторое время. Сжигание стоит обычных токенов.',
   'tutorial.tower_shield_generator.title': 'Генератор Щита',
   'tutorial.tower_shield_generator.body':
-    'Вешает барьер на лидера волны и защищает соседние башни от прерывания.',
+    'Некоторые враги и боссы могут сбивать зарядку. Купол защищает соседние башни от поломок врагами.',
   'tutorial.mech_interrupt.title': 'Диверсант',
   'tutorial.mech_interrupt.body':
     'Враг-глушитель станит башни в радиусе.\n\nСоседний Щит гасит прерывание: один — вдвое, два или центр — иммунитет.',
   'tutorial.mech_mod_cards.title': 'Модернизация',
   'tutorial.mech_mod_cards.body':
-    'Редкие карты применяются ко всей платформе, а не в слот: тащи на платформу и отпускай.',
+    'Редкие карты применяются ко всей платформе, а не в слот: тащи на платформу и отпускай. Прокачай свою тачку!',
   'tutorial.mech_fusion.title': 'Фьюжн',
   'tutorial.mech_fusion.body':
-    'Соедини две разные карты в руке по рецепту — получишь гибрид за золото и кристаллы.\n\nУ каждого гибрида свой боевой кит: паровой взрыв, цепь с Wet, встроенный шрапнель, бонус по slow/wet и т.д.',
+    'Соедини две разные карты в руке по рецепту — получишь гибрид за токены и Токены Опуса.\n\nУ каждого гибрида свой боевой кит: паровой взрыв, цепь с Wet, встроенный шрапнель, бонус по slow/wet и т.д.',
 };
 
 export const STRINGS: Record<'ru' | 'en', Dict> = { en, ru };
