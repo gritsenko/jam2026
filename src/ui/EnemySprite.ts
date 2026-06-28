@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { ColorMatrixFilter, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { COLORS } from '../theme';
 import { fitSprite } from './helpers';
 
@@ -20,6 +20,18 @@ const CHILL_TINT = 0x5aa0ff;
 const WET_TINT = 0x8fb8ff;
 /** Chill snowflake badge stroke color. */
 const FROST_ICON_COLOR = 0xeaf7ff;
+/** Hit flash: seconds the white pop holds before fading back to the body color. */
+const HIT_FLASH_SEC = 0.13;
+/** Hit recoil: seconds of the flinch (scale-punch + horizontal twitch) after a hit. */
+const HIT_RECOIL_SEC = 0.16;
+/** Hit recoil: peak extra scale of the flinch punch (0.18 = +18% at the moment of impact). */
+const HIT_PUNCH = 0.18;
+/** Hit recoil: peak horizontal twitch as a fraction of the token size. */
+const HIT_SHAKE_FRAC = 0.06;
+/** Burn glow: peak of the white pulse while burning (0.5 = up to 50%, never full white). */
+const BURN_FLASH_PEAK = 0.5;
+/** Burn glow: sine speed of the white pulse (multiplies the bob phase ≈ 2 Hz). */
+const BURN_FLASH_SPEED = 5.5;
 
 /** Support-mob aura ring (the "enemies synergize" telegraph): its element glow + true reach. */
 export interface AuraView {
@@ -57,10 +69,21 @@ export class EnemySprite extends Container {
   private readonly bobAmp: number;
   /** Seconds left on the white "took a hit" flash. */
   private hitFlash = 0;
+  /** Seconds left on the hit recoil (scale-punch + twitch). */
+  private hitRecoil = 0;
+  /** White-out filter for the hit flash + burn pulse; created lazily on first use. */
+  private flashFilter?: ColorMatrixFilter;
+  /** Whether {@link flashFilter} is currently attached (so idle enemies pay no filter cost). */
+  private flashAttached = false;
+  /** Burning (DoT) — drives a gentle white sine pulse instead of a one-shot flash. */
+  private burning = false;
   /** Current shield fill 0..1 (0 = no bubble). */
   private shieldFrac = 0;
-  /** Fitted |scale.x| of the body sprite, so facing-flip keeps a constant size. */
+  /** Fitted |scale| of the body sprite, so facing-flip / punch keep a constant base size. */
   private baseScaleX = 1;
+  private baseScaleY = 1;
+  /** Facing: −1 mirrors the body (heading right); the actual scale is composed in `tick`. */
+  private facingSign = 1;
   /** Element-wash tint applied between hit flashes (Wet/chill); white = none. */
   private statusTint = 0xffffff;
   /** Burn animation: source frames + the lazily-created additive flame sprite. */
@@ -93,7 +116,8 @@ export class EnemySprite extends Container {
 
     this.sprite = new Sprite(texture);
     fitSprite(this.sprite, size, size);
-    this.baseScaleX = this.sprite.scale.x; // remember the fitted size for facing-flips
+    this.baseScaleX = this.sprite.scale.x; // remember the fitted size for facing-flips / punch
+    this.baseScaleY = this.sprite.scale.y;
     this.addChild(this.sprite);
 
     // Shield bubble wraps the sprite; HP bar stays on top of everything.
@@ -138,20 +162,46 @@ export class EnemySprite extends Container {
     }
   }
 
-  /** Brief warm blink when struck. */
+  /**
+   * Struck: punchy bright-white flash (a {@link ColorMatrixFilter} lerped to a pure
+   * white silhouette — not a multiply tint, which barely shows on bright art) plus a
+   * quick flinch (scale-punch + horizontal twitch) so the hit reads at a glance. The
+   * filter is attached/driven in {@link tick}; here we just arm the timers.
+   */
   playHit(): void {
-    this.hitFlash = 0.1;
-    this.sprite.tint = 0xffc9b0;
+    this.hitFlash = HIT_FLASH_SEC;
+    this.hitRecoil = HIT_RECOIL_SEC;
+  }
+
+  /**
+   * Lerp the flash filter from the body color (`k=0`) to a pure white silhouette
+   * (`k=1`). Each row is `out = a·channel + k·alpha`: scaling the diagonal by `a=1−k`
+   * fades the original color while the 4th (alpha-coefficient) column adds white
+   * *scaled by the pixel's alpha* — so anti-aliased edges blend instead of getting a
+   * hard white halo (same trick Pixi's own `negative()` uses).
+   */
+  private setFlashIntensity(k: number): void {
+    const f = this.flashFilter;
+    if (!f) return;
+    const a = 1 - k;
+    // prettier-ignore
+    f.matrix = [
+      a, 0, 0, k, 0,
+      0, a, 0, k, 0,
+      0, 0, a, k, 0,
+      0, 0, 0, 1, 0,
+    ];
   }
 
   /**
    * Face the direction of travel. The art is authored facing LEFT (−x); moving
    * right mirrors the body sprite (only the sprite — not the HP bar / aura / shield).
-   * Near-zero `dx` keeps the last facing so a stalled enemy doesn't flicker.
+   * Near-zero `dx` keeps the last facing so a stalled enemy doesn't flicker. The
+   * actual `scale.x` is composed in {@link tick} from this sign + the hit punch.
    */
   setFacing(dx: number): void {
     if (Math.abs(dx) < 0.001) return;
-    this.sprite.scale.x = dx > 0 ? -this.baseScaleX : this.baseScaleX;
+    this.facingSign = dx > 0 ? -1 : 1;
   }
 
   /**
@@ -165,6 +215,7 @@ export class EnemySprite extends Container {
    * the snowflake — a scalded enemy reads purely as on-fire.
    */
   setStatus(s: { burning: boolean; wet: boolean; chilled: boolean }): void {
+    this.burning = s.burning; // drives the white sine pulse in `tick`
     if (this.fireFx) this.fireFx.visible = s.burning;
     else if (s.burning) this.ensureFire();
 
@@ -225,6 +276,20 @@ export class EnemySprite extends Container {
   tick(dt: number): void {
     this.phase += dt * 2.2;
     const bob = Math.sin(this.phase) * this.bobAmp;
+
+    // Hit recoil: a scale-punch that pops on impact and a fast horizontal twitch that
+    // both decay over HIT_RECOIL_SEC. Composed with the facing sign + bob so the flinch
+    // rides on top of the normal idle motion.
+    let shake = 0;
+    let punch = 1;
+    if (this.hitRecoil > 0) {
+      this.hitRecoil = Math.max(0, this.hitRecoil - dt);
+      const r = this.hitRecoil / HIT_RECOIL_SEC; // 1 → 0
+      punch = 1 + HIT_PUNCH * r;
+      shake = Math.sin((1 - r) * Math.PI * 5) * this.size * HIT_SHAKE_FRAC * r;
+    }
+    this.sprite.scale.set(this.facingSign * this.baseScaleX * punch, this.baseScaleY * punch);
+    this.sprite.x = shake;
     this.sprite.y = bob;
 
     // Aura reach ring — slow soft pulse, low alpha so a big radius doesn't dominate.
@@ -262,12 +327,30 @@ export class EnemySprite extends Container {
       this.fireFx.alpha = FIRE_FX_ALPHA * flick;
     }
 
-    // Hit flash wins briefly; otherwise the body carries its status wash (or none).
+    // Body always carries its status wash (Wet/chill) via tint. White-out intensity is
+    // the louder of a fading one-shot hit flash and — while burning — a gentle sine
+    // pulse (peaks at BURN_FLASH_PEAK, never full white) so a burning enemy glows
+    // hot rather than staying pinned solid white.
+    this.sprite.tint = this.statusTint;
+    let flash = 0;
     if (this.hitFlash > 0) {
-      this.hitFlash -= dt;
-      if (this.hitFlash <= 0) this.sprite.tint = this.statusTint;
-    } else {
-      this.sprite.tint = this.statusTint;
+      this.hitFlash = Math.max(0, this.hitFlash - dt);
+      flash = this.hitFlash / HIT_FLASH_SEC; // 1 → 0
+    }
+    if (this.burning) {
+      const pulse = BURN_FLASH_PEAK * (0.5 + 0.5 * Math.sin(this.phase * BURN_FLASH_SPEED));
+      if (pulse > flash) flash = pulse;
+    }
+    if (flash > 0) {
+      if (!this.flashFilter) this.flashFilter = new ColorMatrixFilter();
+      if (!this.flashAttached) {
+        this.sprite.filters = [this.flashFilter];
+        this.flashAttached = true;
+      }
+      this.setFlashIntensity(flash);
+    } else if (this.flashAttached) {
+      this.sprite.filters = []; // detach so idle enemies pay no filter cost
+      this.flashAttached = false;
     }
   }
 }

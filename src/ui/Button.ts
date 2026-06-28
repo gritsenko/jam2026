@@ -1,6 +1,7 @@
 import { Container, Graphics, Rectangle, type Text } from 'pixi.js';
 import { COLORS } from '../theme';
 import { tween, Easings } from '../core/tween';
+import { haptic } from '../core/haptics';
 import { drawPanel, makeText, type TextPreset } from './helpers';
 
 export interface ButtonOptions {
@@ -63,7 +64,10 @@ export class Button extends Container {
       if (this.pressed) {
         this.pressed = false;
         this.popTo(1.04);
-        if (this.enabled) opts.onClick();
+        if (this.enabled) {
+          haptic(); // tap tick — runs inside the real pointer gesture (iOS-safe)
+          opts.onClick();
+        }
       }
     });
     this.on('pointerupoutside', () => {

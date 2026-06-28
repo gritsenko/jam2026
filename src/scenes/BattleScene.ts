@@ -8,6 +8,7 @@ import { cardShortName, elementLabel, gradeLabel, t } from '../core/i18n';
 import { gameSpeedScale } from '../core/gameSpeed';
 import { getEnemySpeed } from '../core/settings';
 import { isTouchDragBoostEnabled } from '../core/touchControls';
+import { haptic } from '../core/haptics';
 import { createBattleState } from '../config/battleState';
 import {
   HAND_RESPAWN_SEC,
@@ -922,7 +923,10 @@ export class BattleScene extends Scene {
     // Released without travelling = a tap: toggle the card's description plaque.
     const card = this.pressCard;
     this.pressCard = null;
-    if (card) this.toggleCardInfo(card);
+    if (card) {
+      haptic(); // tap tick on a hand card
+      this.toggleCardInfo(card);
+    }
   }
 
   /** Show (or dismiss) the description plaque for a tapped hand card. */
@@ -991,8 +995,10 @@ export class BattleScene extends Scene {
     const pressed = this.pressSlot;
     this.pressSlot = null;
     if (!pressed || pressed !== slot) return;
-    if (slot.isOccupied) this.toggleInspect(slot.index);
-    else this.clearInspect();
+    if (slot.isOccupied) {
+      haptic(); // tap tick on a placed tower
+      this.toggleInspect(slot.index);
+    } else this.clearInspect();
   }
 
   // --- Tap-to-inspect a placed tower ---------------------------------------
@@ -2719,7 +2725,14 @@ export class BattleScene extends Scene {
         this.enemyLayer.addChild(view);
       }
       const prev = this.enemyHpSeen.get(e.id);
-      if (prev !== undefined && e.hp < prev) view.playHit();
+      if (prev !== undefined && e.hp < prev) {
+        // Burning (DoT) bleeds HP every frame; that steady tick must NOT fire the
+        // one-shot white flash (it would pin the enemy solid white — burning has its
+        // own gentle pulse instead). DoT is linear, so its loss this frame is exactly
+        // `dotDps * dt`; only a drop BEYOND that is a real impact worth flashing.
+        const dotLoss = e.dotUntil > now && e.dotDps > 0 ? e.dotDps * dt : 0;
+        if (prev - e.hp > dotLoss + 1e-4) view.playHit();
+      }
       this.enemyHpSeen.set(e.id, e.hp);
       // Y-sort (lower on the board draws over those further up) + a gentle perspective
       // scale (closer = bigger) for the slightly tilted arena.
