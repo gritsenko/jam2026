@@ -881,6 +881,13 @@
       "prompt": "full-body cut-out character: a friendly IT garage boss in a dark navy business jacket over a blue plaid shirt, short brown hair, holding a tablet showing glowing blue code and a wrench hologram, warm confident smile"
     },
     {
+      "key": "char_buhanka",
+      "file": "assets/sprites/char_buhanka.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a cute anthropomorphic dieselpunk UAZ 'loaf' van with friendly headlight eyes, riveted metal panels, brass exhaust pipes and glowing green energy accents, '3000' stencilled on the door, cheerful expression"
+    },
+    {
       "key": "char_matriarch",
       "file": "assets/sprites/char_matriarch.png",
       "category": "prop",

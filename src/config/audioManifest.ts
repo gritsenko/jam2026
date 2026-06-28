@@ -488,6 +488,12 @@ export const AUDIO: AudioSpec[] = [
     volume: 0.9,
     prompt: 'short measured community-and-localization strategist voice bark / greeting (player-authored clip)',
   },
+  {
+    key: 'anton',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short upbeat IT-garage boss voice bark / cheerful greeting (player-authored clip)',
+  },
 ];
 
 /** Per-clip volume by key (1 if unknown). */

@@ -55,7 +55,10 @@ export const STORY_CHARACTERS: Record<string, StoryCharacter> = {
   coder: { id: 'coder', name: 'Кодер', assetKey: 'char_coder', homeSide: 'left', accent: 'Fire' },
   // Anton — boss of the IT garage (the heroes' home base). Presents the fueled
   // van in the intro (intro_fueled), surrounded by his team.
-  anton: { id: 'anton', name: 'Антон', assetKey: 'char_anton', homeSide: 'left', accent: 'Electricity' },
+  anton: { id: 'anton', name: 'Антон', assetKey: 'char_anton', homeSide: 'left', accent: 'Electricity', voiceKey: 'anton' },
+  // Buhanka 3000 — the heroes' sentient dieselpunk battle-van. Chimes in during the
+  // intro right after Anton declares it fueled.
+  buhanka: { id: 'buhanka', name: 'Буханка 3000', assetKey: 'char_buhanka', homeSide: 'right', accent: 'Energy' },
   matriarch: { id: 'matriarch', name: 'Матриарх', assetKey: 'char_matriarch', homeSide: 'left', accent: 'Energy', voiceKey: 'matriarch' },
   // The Last Senior — the human who codes by hand. He IS the lvl_7 boss: this
   // talking portrait (char_senior) shows in the lvl_7 taunt/victory + the finale

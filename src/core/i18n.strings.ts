@@ -120,6 +120,10 @@ const en: Dict = {
   'settings.language': 'LANGUAGE',
   'settings.gameSpeed': 'GAME SPEED',
   'settings.enemySpeed': 'ENEMY SPEED',
+  'settings.difficulty': 'DIFFICULTY',
+  'difficulty.alpha': 'ALPHA',
+  'difficulty.zoomer': 'ZOOMER',
+  'difficulty.batya': 'DADDY',
   'settings.touchDragBoost': 'FAST DRAG (TOUCH)',
 
   // --- end-of-battle banner ---
@@ -299,6 +303,10 @@ const ru: Dict = {
   'settings.language': 'ЯЗЫК',
   'settings.gameSpeed': 'СКОРОСТЬ ИГРЫ',
   'settings.enemySpeed': 'СКОРОСТЬ ВРАГОВ',
+  'settings.difficulty': 'СЛОЖНОСТЬ',
+  'difficulty.alpha': 'АЛЬФА',
+  'difficulty.zoomer': 'ЗУММЕР',
+  'difficulty.batya': 'БАТЯ',
   'settings.touchDragBoost': 'БЫСТРОЕ ПЕРЕТАСКИВАНИЕ (ТАЧ)',
 
   // --- end-of-battle banner ---

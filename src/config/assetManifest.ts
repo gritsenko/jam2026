@@ -1050,6 +1050,14 @@ export const ASSETS: AssetSpec[] = [
     placeholder: { shape: 'rect', tint: ELEMENTS.Electricity.base, label: 'ANTON' },
   },
   {
+    // Buhanka 3000 — the heroes' sentient dieselpunk battle-van; chimes in during the intro.
+    key: 'char_buhanka',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a cute anthropomorphic dieselpunk UAZ "loaf" van with friendly headlight eyes, riveted metal panels, brass exhaust pipes and glowing green energy accents, "3000" stencilled on the door, cheerful expression',
+    placeholder: { shape: 'rect', tint: ELEMENTS.Energy.base, label: 'BUHANKA' },
+  },
+  {
     key: 'char_matriarch',
     category: 'prop',
     size: 512,

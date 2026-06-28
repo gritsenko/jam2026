@@ -87,7 +87,8 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   // Intro beat 2 — Anton, boss of the IT garage, shows the van is fueled
   // (over cutscene_intro2; the painting shows the van and his team).
   intro_fueled: script('intro_fueled', [
-    { speaker: 'anton', side: 'center', text: 'Добрый день, коллеги! «Буханка 3000» заправлена. Команда AdsAdvisor установила Doom на ёлочку-освежитель. Иконки тоже установили. Таску я лично аппрувнул. Можете ехать!' },
+    { speaker: 'anton', side: 'center', text: 'Добрый день, коллеги! «Буханка 3000» заправлена. Команда AdsAdvisor установила Doom на ёлочку-освежитель. Иконки тоже установили. Поставили на нее токеносжигающий реактор из 20 3dfx voodo 2! Блютуз, фай-фай, инфраред. И локальный дипсик!' },
+    { speaker: 'buhanka', side: 'left', text: 'Всем привет! Вы совершенно правы! Это классическая проблемма!' },
   ]),
   // Intro beat 3 — the heroes already aboard, rolling out (over cutscene_in_car).
   // The painting already shows the heroes in the van, so skip the stage portrait.

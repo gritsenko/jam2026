@@ -5,6 +5,7 @@ import { Scene } from '../core/scene';
 import { t } from '../core/i18n';
 import { Button } from '../ui/Button';
 import { LangSwitch } from '../ui/LangSwitch';
+import { DifficultySwitch } from '../ui/DifficultySwitch';
 import { AdminHud } from '../ui/AdminHud';
 import { MuteButton } from '../ui/MuteButton';
 import { SceneBackground } from '../ui/SceneBackground';
@@ -25,6 +26,7 @@ export class MainMenuScene extends Scene {
   private muteBtn!: MuteButton;
   private adminHud!: AdminHud;
   private langSwitch!: LangSwitch;
+  private difficulty!: DifficultySwitch;
   private t = 0;
   /** True after the first reset tap, while it waits for the confirming second tap. */
   private resetArmed = false;
@@ -124,6 +126,14 @@ export class MainMenuScene extends Scene {
     // available in the in-battle settings panel. Switching persists + reloads.
     this.langSwitch = new LangSwitch(420, true);
     this.addChild(this.langSwitch);
+
+    // Difficulty switch (enemy-speed difficulty tiers, separate from the in-battle
+    // game-speed tempo): Alpha 0.5× / Zoomer 1× / Daddy 1.5×. Persists + applies live.
+    // 540 wide → pills ~30% wider than the 420 language row below it (roomier captions).
+    this.difficulty = new DifficultySwitch(540, (v, id) =>
+      Telemetry.track('enemy_speed_change', { value: v, difficulty: id }),
+    );
+    this.addChild(this.difficulty);
   }
 
   override layout(info: LayoutInfo): void {
@@ -132,7 +142,7 @@ export class MainMenuScene extends Scene {
     const cx = safe.x + safe.width / 2;
     this.logo.position.set(cx, safe.y + safe.height * 0.38);
     // START sits a touch above mid-lower so the two quiet secondary buttons below it
-    // (reset, watch-intro) clear the bottom language picker on short screens.
+    // (reset, watch-intro) clear the bottom difficulty + language controls on short screens.
     this.startBtn.position.set(cx, safe.y + safe.height * 0.66);
     // Stacked under START: reset, then watch-intro (half-START + gap + half-btn, then
     // half-btn + gap + half-btn for the next row).
@@ -141,6 +151,8 @@ export class MainMenuScene extends Scene {
     this.muteBtn.position.set(safe.x + safe.width - 18 - 32, safe.y + 18 + 32);
     const langY = safe.y + safe.height - this.langSwitch.contentHeight - 28;
     this.langSwitch.position.set(cx - 210, langY);
+    // Difficulty switch stacked just above the language picker (540 wide → half = 270).
+    this.difficulty.position.set(cx - 270, langY - this.difficulty.contentHeight - 28);
     this.adminHud.layout(info);
   }
 

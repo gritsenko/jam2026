@@ -3,7 +3,8 @@
  * tempo ({@link import('./gameSpeed')}). Where game-speed fast-forwards the WHOLE
  * sim (towers included, balance unchanged), this scales ONLY enemy march, so it
  * shifts how much ground enemies cover against a fixed tower DPS — a real
- * difficulty knob. Chosen on the main menu (a stepper like the game-speed one).
+ * difficulty knob. Chosen on the main menu via a 3-way difficulty switch
+ * ({@link DIFFICULTY_PRESETS}: Alpha 0.5× / Zoomer 1× / Daddy 1.5×).
  *
  * Applies live: BattleScene reads {@link getEnemySpeed} each frame and feeds it to
  * BattleSim.enemySpeedMult; it stacks on top of the game-speed time-scale.
@@ -59,4 +60,36 @@ export function setEnemySpeed(value: number): number {
 /** Bump the enemy speed by one ±0.5 step and persist; returns the new value. */
 export function stepEnemySpeed(dir: -1 | 1): number {
   return setEnemySpeed(current + dir * ENEMY_SPEED_STEP);
+}
+
+/** One named difficulty tier behind the main-menu switch (enemy-speed preset). */
+export interface DifficultyPreset {
+  /** Stable id (highlight + telemetry). */
+  id: string;
+  /** i18n key for the pill caption. */
+  labelKey: string;
+  /** Enemy-speed multiplier this tier maps to. */
+  value: number;
+}
+
+/** The three difficulty tiers, easy → hard (left → right in the switch). */
+export const DIFFICULTY_PRESETS: readonly DifficultyPreset[] = [
+  { id: 'alpha', labelKey: 'difficulty.alpha', value: 0.5 },
+  { id: 'zoomer', labelKey: 'difficulty.zoomer', value: 1 },
+  { id: 'batya', labelKey: 'difficulty.batya', value: 1.5 },
+];
+
+/** Id of the preset whose value is closest to the live enemy speed (for highlighting). */
+export function getDifficultyId(): string {
+  const v = getEnemySpeed();
+  let bestId = DIFFICULTY_PRESETS[0]?.id ?? 'zoomer';
+  let bestDelta = Infinity;
+  for (const p of DIFFICULTY_PRESETS) {
+    const d = Math.abs(p.value - v);
+    if (d < bestDelta) {
+      bestDelta = d;
+      bestId = p.id;
+    }
+  }
+  return bestId;
 }

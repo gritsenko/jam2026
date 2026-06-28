@@ -78,6 +78,21 @@ export class Button extends Container {
   }
 
   /**
+   * Live-toggle the brass-primary highlight (segmented selectors that switch
+   * without a page reload, e.g. the difficulty picker). No-op if unchanged.
+   */
+  setPrimary(on: boolean): void {
+    if (this.primary === on) return;
+    this.primary = on;
+    this.draw();
+  }
+
+  /** Live-recolor the caption (pairs with {@link setPrimary} for active/inactive pills). */
+  setLabelColor(color: number | string): void {
+    this.labelText.style.fill = color;
+  }
+
+  /**
    * Enable/disable: a disabled button dims, ignores clicks and shows a blocked
    * cursor (used to gate Reroll when the player can't afford it).
    */
@@ -106,12 +121,23 @@ export class Button extends Container {
   }
 
   private popTo(scale: number): void {
+    if (this.destroyed) return;
     const from = this.scale.x;
     this.scaleTween?.stop();
     this.scaleTween = tween({
       duration: 0.14,
       easing: Easings.outBack,
-      onUpdate: (e) => this.scale.set(from + (scale - from) * e),
+      // The pop can outlive the button when a pointer event lands mid scene-switch:
+      // a destroyed Container has scale === null, so bail before touching it.
+      onUpdate: (e) => {
+        if (this.destroyed) return;
+        this.scale.set(from + (scale - from) * e);
+      },
     });
+  }
+
+  override destroy(options?: Parameters<Container['destroy']>[0]): void {
+    this.scaleTween?.stop();
+    super.destroy(options);
   }
 }
