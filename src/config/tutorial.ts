@@ -69,14 +69,14 @@ export const TUTORIALS: Record<string, readonly TutorialLesson[]> = {
 };
 
 /**
- * Lessons for a level that have not been shown yet. Admin mode returns them all
- * (so texts/art can be re-checked by jumping around the world map; §4).
+ * Lessons for a level that have not been shown yet. Purely "seen"-gated: a lesson
+ * is dropped once the player has acknowledged it, and never reappears — Admin mode
+ * does NOT force replays (only RESET PROGRESS clears `seen` and re-arms them).
  */
 export function pendingLessons(
   levelId: string,
   seen: ReadonlySet<string>,
-  admin: boolean,
 ): readonly TutorialLesson[] {
   const all = TUTORIALS[levelId] ?? [];
-  return admin ? all : all.filter((l) => !seen.has(l.id));
+  return all.filter((l) => !seen.has(l.id));
 }

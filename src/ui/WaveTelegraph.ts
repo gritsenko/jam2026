@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Circle, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { COLORS } from '../theme';
 import { fitSprite, glowCircle } from './helpers';
 
@@ -33,6 +33,20 @@ export class WaveTelegraph extends Container {
       .stroke({ color: COLORS.brassLight, width: this.r * 0.06, alpha: 0.8 });
     // spike (under, rotates toward source) → head disc → icon → mask → brass ring.
     this.addChild(this.spike, this.disc, this.iconMask, this.ring);
+    // Tap target = the whole head (a touch larger than the disc so it's easy to
+    // hit on touch). Effective only while the pin is made interactive — see
+    // setInteractive; the spike pulses/rotates but the hit area stays the head.
+    this.hitArea = new Circle(0, 0, this.r * 1.35);
+    this.cursor = 'pointer';
+  }
+
+  /**
+   * Enable/disable tapping the pin (start the next wave early). Off while the pin
+   * is hidden between waves so it neither blocks battlefield taps nor fires when
+   * invisible; the scene flips this with the pre-wave countdown.
+   */
+  setInteractive(on: boolean): void {
+    this.eventMode = on ? 'static' : 'none';
   }
 
   /** Aim the spike toward the off-screen source (radians); the head stays upright. */

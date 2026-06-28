@@ -60,6 +60,7 @@ const en: Dict = {
   // --- battle ---
   'battle.reroll': 'REROLL {cost}',
   'battle.waveToast': 'WAVE {n}  •  {secs}',
+  'battle.waveToastHint': 'TAP THE MARKER TO START NOW',
   'battle.resonance': 'RESONANCE',
   'battle.resonanceX': 'RESONANCE ×{count}',
   'battle.pickElement': 'PICK ELEMENT',
@@ -238,6 +239,7 @@ const ru: Dict = {
   // --- battle ---
   'battle.reroll': 'РЕРОЛЛ {cost}',
   'battle.waveToast': 'ВОЛНА {n}  •  {secs}',
+  'battle.waveToastHint': 'НАЖМИ НА МЕТКУ — НАЧАТЬ СРАЗУ',
   'battle.resonance': 'РЕЗОНАНС',
   'battle.resonanceX': 'РЕЗОНАНС ×{count}',
   'battle.pickElement': 'ВЫБЕРИ СТИХИЮ',

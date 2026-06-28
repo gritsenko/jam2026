@@ -418,6 +418,19 @@ export class BattleSim {
   }
 
   /**
+   * Skip the rest of the pre-wave / intermission countdown and launch the next
+   * wave right now. No-op unless the battle is running and currently counting
+   * down (so it can't be triggered mid-wave). Backs the tappable wave telegraph:
+   * a player who is ready can pull the next wave early instead of waiting out
+   * the timer.
+   */
+  startWaveEarly(): void {
+    if (this.status !== 'running' || this.wavePhase !== 'countdown') return;
+    this.countdown = 0;
+    this.startNextWave();
+  }
+
+  /**
    * Debug/admin: end the running battle as an immediate victory — clears the
    * field and fires {@link SimCallbacks.onVictory} exactly like a real clear, so
    * the victory dialogue + banner chain plays. No-op unless currently running.

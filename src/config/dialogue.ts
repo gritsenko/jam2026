@@ -237,8 +237,8 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   victory_lvl_7: script('victory_lvl_7', [
     { speaker: 'senior', side: 'right', text: 'Всё, всё… сдаюсь. Давно так руки не разминал…' },
     { speaker: 'mech', side: 'left', text: 'Держи. Матриарх просила вернуть. (надевает на Сеньора красные кроссовки)' },
-    { speaker: 'senior', text: '…Мои кроссовки. Чёрт. Пальцы сами просятся к клавиатуре. Ладно — поехали переписывать этот мир. По-человечески.' },
-    { speaker: 'spy', side: 'right', text: '[молчит и смотрит]' },
+    { speaker: 'senior', side: 'right', text: '…Мои кроссовки. Чёрт. Пальцы сами просятся к клавиатуре. Ладно — поехали переписывать этот мир. По-человечески.' },
+    { speaker: 'spy', side: 'center', text: '[молчит и смотрит]' },
   ]),
 
   // --- Finale (short epilogue over the world map) --------------------------
@@ -246,10 +246,11 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   finale: script('finale', [
     { speaker: 'narrator', text: 'Гидропоника осталась клубнике. В красных кроссовках Сеньор впервые за полгода скомпилировал строчку, написанную человеком — и весь мир чуть-чуть ожил.' },
     { speaker: 'senior', side: 'right', text: 'Строчка за строчкой. Без облака, без вайба. По-человечески.' },
-    { speaker: 'coder', side: 'left', text: 'А Клевак пусть носит нам кофе. В качестве ревью.' },
+    { speaker: 'coder', side: 'left', text: 'Слушай! А почему ты не стал вайбкодить-то?' },
+    { speaker: 'senior', side: 'right', text: 'Да, когда всем нашим подписку на Колд Код выдали, мне Антон случайно таск на Gemini Api аппрувнул [Дикаприо Фейс]...' },
     { speaker: 'mech', side: 'left', text: 'Заводи Буханку. Работы — на целый мир.' },
     // The silent passenger gets the last word — by saying nothing, as always.
-    { speaker: 'spy', side: 'right', text: '[молчит и смотрит]' },
+    { speaker: 'spy', side: 'center', text: '[молчит и смотрит]' },
   ]),
 
   // --- Post-credits sting (plays after the credits roll) -------------------
@@ -257,7 +258,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   // employer — the boss of rival studio Pixonic — in a shadowy office.
   finale_secret: script('finale_secret', [
     { speaker: 'secret_boss', side: 'right', text: 'Ну что, агент. Всё выяснил? Чертежи «Буханки 3000» у нас?' },
-    { speaker: 'spy', side: 'left', text: '[молча кивает]' },
+    { speaker: 'spy', side: 'center', text: '[молча кивает]' },
     { speaker: 'secret_boss', side: 'right', text: 'Прекрасно. У нас в Pixonic как раз сбросились лимиты. Навайбкодим из этого что-нибудь… масштабное.' },
   ]),
   // The robot reveal — over cutscene_final3 (the battle-truck built from the
@@ -270,7 +271,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   finale_robot2: script('finale_robot2', [
     { speaker: 'narrator', text: '…а наутро она встала на ноги и пошла. Тестировать, разумеется, никто не стал.' },
     { speaker: 'secret_boss', side: 'right', text: 'Релиз в пятницу. Что может пойти не так?' },
-    { speaker: 'spy', side: 'left', text: '[молчит и смотрит]' },
+    { speaker: 'spy', side: 'center', text: '[молчит и смотрит]' },
   ]),
 };
 

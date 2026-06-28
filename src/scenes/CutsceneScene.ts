@@ -97,11 +97,14 @@ export class CutsceneScene extends Scene {
     // first triggers the Lead-admin "leave the call?" Easter egg (see onSkip), and
     // it reads "Покинуть встречу" (it's framed as a work call) instead of "SKIP".
     const isIntro = this.def?.id === 'intro';
+    // The finale is the payoff (credits + post-credits sting) — no skip; players
+    // should watch it through, so the button stays hidden for the whole cutscene.
+    const isFinale = this.def?.id === 'finale';
     this.skipBtn = new SkipButton(() => this.onSkip(), isIntro ? { label: t('cutscene.leaveMeeting') } : {});
     this.overlayLayer.addChild(this.skipBtn);
     // On the intro, hold the skip back until the second phrase shows, so first-time
     // players read at least the opening exchange before they can bail (see onDialogueLineShown).
-    if (isIntro) this.skipBtn.visible = false;
+    if (isIntro || isFinale) this.skipBtn.visible = false;
 
     // First time through, this beat is now "seen" (so it won't auto-play again);
     // Admin mode replays it regardless (see progress.shouldPlayStory).

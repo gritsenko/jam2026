@@ -295,6 +295,11 @@ export class BattleScene extends Scene {
   private synergy: (SlotSynergy | null)[] = [];
   private hint = makeText(t('hud.dragHint'), 'micro', { fontSize: 20 });
   private waveToast = makeText('', 'title', { fontSize: 80, fill: hex(COLORS.white) });
+  // Small "tap the marker to start now" line under the countdown (fades with it).
+  private waveToastHint = makeText(t('battle.waveToastHint'), 'small', {
+    fontSize: 30,
+    fill: hex(COLORS.textDim),
+  });
 
   private hand: HandSlot[] = [];
 
@@ -618,6 +623,7 @@ export class BattleScene extends Scene {
       this.handLayer,
       this.rewardLayer,
       this.waveToast, // above the wave-cleared dim (rewardLayer scrim) so the countdown stays legible
+      this.waveToastHint,
       this.dragLayer,
     );
     // Clip the zoomed playfield to its viewport (rect set in layout()).
@@ -663,7 +669,7 @@ export class BattleScene extends Scene {
    * first wave until the player closes the modal; otherwise start combat now.
    */
   private startBattleOrTutorial(): void {
-    const lessons = pendingLessons(this.levelId, progress.seenTutorials(), progress.isAdmin());
+    const lessons = pendingLessons(this.levelId, progress.seenTutorials());
     if (lessons.length === 0) {
       this.sim.start();
       return;
@@ -750,6 +756,8 @@ export class BattleScene extends Scene {
 
     this.waveToast.anchor.set(0.5);
     this.waveToast.alpha = 0;
+    this.waveToastHint.anchor.set(0.5);
+    this.waveToastHint.alpha = 0;
 
     this.infoPanel = new TowerInfoPanel();
     this.infoPanel.setSymbolTextures(this.elementSymbols());
@@ -2901,6 +2909,7 @@ export class BattleScene extends Scene {
       target = 0.95;
     }
     this.waveToast.alpha += (target - this.waveToast.alpha) * Math.min(1, dt * 8);
+    this.waveToastHint.alpha = this.waveToast.alpha;
   }
 
   /** Draw the active march route over the arena art (worn trench + warm inlay). */
@@ -2925,13 +2934,28 @@ export class BattleScene extends Scene {
     this.telegraph.setHeading(Math.atan2(src.y - entry.y, src.x - entry.x));
     this.telegraph.alpha = 0;
     this.telegraphWaveShown = -2;
+    // Tap the pin to pull the next wave early (skips the countdown). Only live
+    // while the pin is shown — updateTelegraph flips interactivity with `active`.
+    this.telegraph.setInteractive(false);
+    this.telegraph.on('pointertap', () => this.onTelegraphTap());
     this.field.addChild(this.telegraph);
+  }
+
+  /**
+   * Pin tapped during the pre-wave countdown → launch the next wave immediately.
+   * The wave-start fanfare (onWaveStart → sfx_wave_start) is the audio feedback.
+   */
+  private onTelegraphTap(): void {
+    if (this.sim.status !== 'running' || this.sim.wavePhase !== 'countdown') return;
+    this.sim.startWaveEarly();
   }
 
   /** Fade/pulse the source marker during the pre-wave countdown; show the next enemy. */
   private updateTelegraph(dt: number): void {
     if (!this.telegraph) return;
     const active = this.sim.status === 'running' && this.sim.wavePhase === 'countdown';
+    // Only tappable (start-wave-early) while the pin is actually shown.
+    this.telegraph.setInteractive(active);
     if (active) {
       const upcoming = this.sim.nextWaveNumber - 1; // 0-based index of the wave about to start
       if (upcoming !== this.telegraphWaveShown) {
@@ -3770,6 +3794,7 @@ export class BattleScene extends Scene {
     const fieldTop = Math.max(leftStackBottom, headerCY + this.avatarR) + 14;
     const fieldBottom = gaugeY - 14;
     this.waveToast.position.set(cx, fieldTop + 60);
+    this.waveToastHint.position.set(cx, fieldTop + 60 + 72);
 
     // Tower-inspection plaque: top-center, just inside the field viewport.
     this.infoPanelWidth = Math.min(safe.width - pad * 2, 780);
