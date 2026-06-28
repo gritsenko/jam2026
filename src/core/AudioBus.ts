@@ -87,8 +87,15 @@ export class AudioBus {
   /** A background decode pass is already running (warmDecode runs once). */
   private warming = false;
   private currentMusicKey: string | null = null;
+  private currentMusicOpts?: MusicOpts;
   private currentMusic: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
   private pendingMusic: { key: string; opts?: MusicOpts } | null = null;
+  /**
+   * Set when the OS suspended/interrupted the context while music was playing
+   * (iOS backgrounding). iOS tears the music source down, so once the context is
+   * running again we restart the track instead of leaving it silent.
+   */
+  private needsMusicRestart = false;
   private muted = false;
   /**
    * Transient "duck everything" flag, independent of the persisted `muted`
@@ -141,11 +148,61 @@ export class AudioBus {
    */
   private resumeContext(): void {
     if (!this.ctx) return;
-    if (this.ctx.state === 'suspended') {
+    // iOS may park the context in the non-standard 'interrupted' state (audio
+    // session interruption / backgrounding) on top of plain 'suspended'; both
+    // need an explicit resume(). The actual flush + music restart runs in the
+    // 'statechange' → 'running' handler, because resume() resolves while iOS
+    // still reports the old state synchronously.
+    const state: string = this.ctx.state;
+    if (state === 'suspended' || state === 'interrupted') {
       void this.ctx.resume().then(() => this.flushPendingMusic());
     } else {
       this.flushPendingMusic();
     }
+  }
+
+  /**
+   * AudioContext lifecycle hook. When iOS backgrounds the page it suspends (or
+   * 'interrupt's) the context and tears down the playing music source — so even
+   * after the context resumes, the music stays silent. We flag that here and, as
+   * soon as the context is running again (via the visibilitychange resume or the
+   * next user gesture), re-arm output and restart the track. Desktop never gets
+   * here for backgrounding: we only zero the master gain there, the context
+   * itself keeps running.
+   */
+  private onStateChange(): void {
+    if (!this.ctx) return;
+    const state: string = this.ctx.state;
+    if (state === 'suspended' || state === 'interrupted') {
+      if (this.currentMusicKey) this.needsMusicRestart = true;
+    } else if (state === 'running') {
+      this.kickSilent(); // re-open audio output on iOS after an interruption
+      this.flushPendingMusic();
+      if (this.needsMusicRestart) {
+        this.needsMusicRestart = false;
+        this.restartMusic();
+      }
+    }
+  }
+
+  /** Replay the current music track from a fresh source (its node likely died). */
+  private restartMusic(): void {
+    const key = this.currentMusicKey;
+    if (!key) return;
+    const opts = this.currentMusicOpts;
+    const old = this.currentMusic;
+    // Bypass the same-key no-op guard in playMusic() and drop the dead node so
+    // fadeOutCurrent() doesn't poke it.
+    this.currentMusic = null;
+    this.currentMusicKey = null;
+    if (old) {
+      try {
+        old.src.stop();
+      } catch {
+        /* already stopped / torn down */
+      }
+    }
+    void this.playMusic(key, opts);
   }
 
   private flushPendingMusic(): void {
@@ -162,6 +219,9 @@ export class AudioBus {
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
     this.ctx = new Ctx();
+    // iOS suspends/interrupts the context on backgrounding and resumes it on
+    // return — watch the lifecycle so we can re-arm output and restart music.
+    this.ctx.addEventListener('statechange', () => this.onStateChange());
     this.master = this.ctx.createGain();
     this.master.gain.value = this.masterTarget();
     this.master.connect(this.ctx.destination);
@@ -344,6 +404,7 @@ export class AudioBus {
     }
     if (this.currentMusicKey === key) return;
     this.currentMusicKey = key;
+    this.currentMusicOpts = opts;
     const fade = opts?.fade ?? 0.8;
     const buf = await this.load(key);
     if (!buf || !this.ctx || !this.bus) return;
@@ -372,6 +433,8 @@ export class AudioBus {
 
   stopMusic(fade = 0.6): void {
     this.currentMusicKey = null;
+    this.currentMusicOpts = undefined;
+    this.needsMusicRestart = false;
     this.pendingMusic = null;
     this.fadeOutCurrent(fade);
   }
