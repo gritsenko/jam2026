@@ -445,6 +445,24 @@ export class BattleSim {
   }
 
   /**
+   * Debug/admin: skip straight to the boss finale wave. Clears the field and
+   * launches the appended boss wave right now, so its taunt and the real boss
+   * fight play out (unlike {@link forceVictory}, which just ends the battle).
+   * No-op unless running and this level actually has a boss. The boss is
+   * positioned one wave short so {@link startNextWave} takes the boss branch
+   * (it increments {@link waveIndex} first), firing onWaveStart → the taunt.
+   */
+  jumpToBossWave(): void {
+    if (this.status !== 'running' || !this.bossDef) return;
+    this.enemies.length = 0;
+    this.projectiles.length = 0;
+    this.spawnQueue.length = 0;
+    this.waveIndex = this.waves.length - 1;
+    this.waveLeaked = false;
+    this.startNextWave();
+  }
+
+  /**
    * Replace the firing towers (called when the platform changes). Cooldown
    * progress is preserved per slot so re-placing a card never resets the rest
    * of the grid's timers.

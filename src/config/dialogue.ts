@@ -87,14 +87,14 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   // Intro beat 2 — Anton, boss of the IT garage, shows the van is fueled
   // (over cutscene_intro2; the painting shows the van and his team).
   intro_fueled: script('intro_fueled', [
-    { speaker: 'anton', side: 'center', text: 'Добрый день, коллеги! «Буханка 3000» заправлена. Команда AdsAdvisor установила Doom на ёлочку-освежитель. Иконки тоже установили. Поставили на нее токеносжигающий реактор из 20 3dfx voodo 2! Блютуз, фай-фай, инфраред. И локальный дипсик!' },
-    { speaker: 'buhanka', side: 'left', text: 'Всем привет! Вы совершенно правы! Это классическая проблемма!' },
+    { speaker: 'anton', side: 'center', text: 'Добрый день, коллеги! «Буханка 3000» заправлена. Команда AdsAdvisor установила Doom на ёлочку-освежитель. Иконки тоже установили. Поставили на неё токеносжигающий реактор из 20 3dfx voodoo 2! Блютуз, вай-фай, инфраред. И локальный дипсик!' },
+    { speaker: 'buhanka', side: 'left', text: 'Всем привет! Вы совершенно правы! Это классическая проблема!' },
   ]),
   // Intro beat 3 — the heroes already aboard, rolling out (over cutscene_in_car).
   // The painting already shows the heroes in the van, so skip the stage portrait.
   intro_go: script('intro_go', [
     { speaker: 'mech', side: 'center', text: 'Поехали. Найдём последнего сеньора.', hidePortrait: true },
-    { speaker: 'coder', side: 'center', text: 'И узнаем в чем как он сумел противостоять этой вайбкодерской заразе!.', hidePortrait: true },
+    { speaker: 'coder', side: 'center', text: 'И узнаем, как он сумел противостоять этой вайбкодерской заразе!.', hidePortrait: true },
   ]),
 
   // --- Intro skip Easter egg (the Lead-admin guilt-trips you on skip) -------
@@ -110,12 +110,12 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   // is Klevak, the vibecoder who caused the whole mess.)
   mission_lvl_1: script('mission_lvl_1', [
     { speaker: 'klevak', side: 'right', text: 'О, живые! Я Иван. Слушайте… я тут навайбкодил один скриптик, а оно… ну… всё немножко сломалось.' },
-    { speaker: 'mech', side: 'left', text: '«Немножко»? Из по пути сюда мы видели толпы монстров из Zero City!' },
-    { speaker: 'klevak', text: 'Да кто ж знал! Лимиты на клод кончились и я пытался все сделать с gemini... Сюда уже ломится босс из Раш ряля, задержите его, я навабйкодю заплатку! Лимиты сбросились!' },
+    { speaker: 'mech', side: 'left', text: '«Немножко»? По пути сюда мы видели толпы монстров из Zero City!' },
+    { speaker: 'klevak', text: 'Да кто ж знал! Лимиты на клод кончились, и я пытался все сделать с gemini... Сюда уже ломится босс из Раш ряля, задержите его, я навайбкодю заплатку! Лимиты сбросились!' },
   ]),
   mission_lvl_2: script('mission_lvl_2', [
-    { speaker: 'finance', side: 'right', text: 'Ваша казна пустеет, Миллорд! Ой! Простите, обозналась! Кто вы? Что хотели?' },
-    { speaker: 'mech', side: 'left', text: 'На Матриарх послала, за последним миллорд программистом, таска уже на аппруве. Не знаете где его искать?' },
+    { speaker: 'finance', side: 'right', text: 'Ваша казна пустеет, Милорд! Ой! Простите, обозналась! Кто вы? Что хотели?' },
+    { speaker: 'mech', side: 'left', text: 'Нас прислала Матриарх, за последним миллорд программистом, таска уже на аппруве. Не знаете где его искать?' },
     { speaker: 'finance', text: 'Дакки, боевая утка, клюёт мои гроссбухи и крякает баги прямо в отчёты! Иван дал ей доступ к казне. Прикрой кассу, я закрою квартал!' },
   ]),
   mission_lvl_3: script('mission_lvl_3', [
@@ -249,7 +249,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     { speaker: 'narrator', text: 'Гидропоника осталась клубнике. В красных кроссовках Сеньор впервые за полгода скомпилировал строчку, написанную человеком — и весь мир чуть-чуть ожил.' },
     { speaker: 'senior', side: 'right', text: 'Строчка за строчкой. Без облака, без вайба. По-человечески.' },
     { speaker: 'coder', side: 'left', text: 'Слушай! А почему ты не стал вайбкодить-то?' },
-    { speaker: 'senior', side: 'right', text: 'Да, когда всем нашим подписку на Колд Код выдали, мне Антон случайно таск на Gemini Api аппрувнул [Дикаприо Фейс]...' },
+    { speaker: 'senior', side: 'right', text: 'Да, когда всем нашим подписку на Клод Код выдали, мне Антон случайно таск на Gemini Api аппрувнул [Дикаприо Фейс]...' },
     { speaker: 'mech', side: 'left', text: 'Заводи Буханку. Работы — на целый мир.' },
     // The silent passenger gets the last word — by saying nothing, as always.
     { speaker: 'spy', side: 'center', text: '[молчит и смотрит]' },

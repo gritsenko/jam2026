@@ -148,7 +148,7 @@ export class SettingsPanel extends Container {
         this.privacyBtn.setLabel(this.privacyLabel());
       },
     });
-    this.privacyBtn.position.set(CARD_W / 2, 746);
+    this.privacyBtn.position.set(CARD_W / 2, 768);
     this.card.addChild(this.privacyBtn);
 
     // Language picker (mirrors the start-screen control). Switching persists +

@@ -784,7 +784,8 @@ export class BattleScene extends Scene {
   /**
    * Dialogue-debug helpers (Admin only): a "WIN" button that ends the battle as an
    * instant victory (so the victory dialogue + spy beats play without grinding the
-   * waves) and a "BOSS" button that replays the boss-taunt dialogue on demand.
+   * waves) and a "BOSS" button that jumps straight to the boss finale wave (its
+   * taunt then the real boss fight, skipping the scripted waves).
    * Skipped entirely when Admin is off. See docs/working/current-state.md.
    */
   private buildDebugButtons(): void {
@@ -803,7 +804,7 @@ export class BattleScene extends Scene {
       height: 52,
       preset: 'label',
       labelColor: hex(COLORS.energyDanger),
-      onClick: () => this.debugReplayBossTaunt(),
+      onClick: () => this.debugJumpToBoss(),
     });
     this.hudLayer.addChild(this.debugWinBtn, this.debugBossBtn);
   }
@@ -814,21 +815,14 @@ export class BattleScene extends Scene {
     this.sim.forceVictory();
   }
 
-  /** Admin: replay this level's boss-taunt dialogue (preview only — never marked seen). */
-  private debugReplayBossTaunt(): void {
+  /**
+   * Admin: jump straight to the boss finale wave — clears the field and launches
+   * the appended boss wave now, so its taunt plays (via the normal onWaveBegan →
+   * playBossTaunt path) and the real boss fight begins. No-op on bossless levels.
+   */
+  private debugJumpToBoss(): void {
     if (this.banner || this.dialogue) return;
-    const id = bossTauntId(this.levelId);
-    const script = id ? getDialogue(id) : undefined;
-    if (!script) return;
-    this.dialogue = new DialogueOverlay(
-      script,
-      this.services.assets,
-      this.services.audio,
-      () => this.closeDialogue(),
-      { dimAlpha: 0.5 },
-    );
-    this.addChild(this.dialogue); // top-most, above the drag layer
-    this.dialogue.layout(this.services.getLayout());
+    this.sim.jumpToBossWave();
   }
 
   private buildHand(): void {

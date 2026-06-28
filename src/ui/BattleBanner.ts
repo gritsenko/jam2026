@@ -116,7 +116,7 @@ export class BattleBanner extends Container {
       this.panel.addChild(section);
     }
 
-    const btnW = 300;
+    const btnW = 360;
     const btnH = 92;
     const gap = 36;
     const totalW = opts.buttons.length * btnW + (opts.buttons.length - 1) * gap;

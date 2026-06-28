@@ -25,21 +25,21 @@ export type CreditLine =
 
 export const CREDITS: readonly CreditLine[] = [
   { kind: 'gap', size: 40 },
-  { kind: 'title', text: 'SYNERGY GRID TD' },
-  { kind: 'note', text: '«Буханка 3000» — последний билд человечества' },
+  { kind: 'title', text: 'BUHANKA 3000 TOWER DEFENSE' },
+  { kind: 'note', text: '«Буханка 3000» — в поисках последнего сеньора' },
 
   { kind: 'gap' },
   { kind: 'header', text: 'КОД' },
-  { kind: 'name', text: 'Написан руками' },
-  { kind: 'name', text: '(почти без вайба)' },
+  { kind: 'name', text: 'КЛОД' },
+  { kind: 'name', text: '(вообще без вайба)' },
 
   { kind: 'gap' },
   { kind: 'header', text: 'АРТ' },
-  { kind: 'name', text: 'Сгенерирован, отобран и собран вручную' },
+  { kind: 'name', text: 'AssetLab Magic Studio и куча ручного труда' },
 
   { kind: 'gap' },
   { kind: 'header', text: 'ЗВУК' },
-  { kind: 'name', text: 'Локальные нейронки на наших видяхах' },
+  { kind: 'name', text: 'Украден или сгенерён' },
 
   { kind: 'gap' },
   { kind: 'header', text: 'ИСТОРИЯ И ДИЗАЙН' },
@@ -48,18 +48,18 @@ export const CREDITS: readonly CreditLine[] = [
   // ↓↓↓ EDIT ME — впишите реальную команду и роли ↓↓↓
   { kind: 'gap' },
   { kind: 'header', text: 'КОМАНДА' },
-  { kind: 'name', text: '— впишите имена здесь —' },
+  { kind: 'name', text: 'ДобровSky, PapleVKa, GritsenOK, NikitKING' },
   // ↑↑↑ EDIT ME ↑↑↑
 
   { kind: 'gap' },
   { kind: 'header', text: 'ОСОБАЯ БЛАГОДАРНОСТЬ' },
   { kind: 'name', text: 'Последнему Сеньору — за то, что вернулся' },
-  { kind: 'name', text: 'Клеваку — за то, что всё сломал' },
-  { kind: 'name', text: 'Тому, кто на заднем сиденье' },
+  { kind: 'name', text: 'Ивана Клевакичева — за то, что всё сломал' },
+  { kind: 'name', text: 'Челу на заднем сиденье' },
 
   { kind: 'gap' },
   { kind: 'note', text: 'Сделано на PixiJS + TypeScript' },
-  { kind: 'note', text: 'для Game Jam 2026' },
+  { kind: 'note', text: 'для Game Jam 2026 © MY.GAMES' },
   { kind: 'note', text: 'Ни облака. Ни вайба. По-человечески.' },
 
   { kind: 'gap', size: 80 },
