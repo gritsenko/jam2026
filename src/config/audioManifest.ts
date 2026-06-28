@@ -494,6 +494,33 @@ export const AUDIO: AudioSpec[] = [
     volume: 0.9,
     prompt: 'short upbeat IT-garage boss voice bark / cheerful greeting (player-authored clip)',
   },
+  {
+    key: 'buhanka',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'short cheerful sentient dieselpunk battle-van voice bark / greeting (player-authored clip)',
+  },
+  {
+    // One-shot dialogue cue: door-knock prank on the lvl_7 boss taunt opener.
+    key: 'prank_door',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'comedic doorbell / door-knock prank sting (player-authored clip)',
+  },
+  {
+    // One-shot dialogue cue: Telegram notification ping on the lvl_4 boss taunt opener.
+    key: 'prank_telegram',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'Telegram notification ping prank sting (player-authored clip)',
+  },
+  {
+    // One-shot dialogue cue: Google Meet ringtone on the lvl_3 mission brief closer.
+    key: 'prank_googlemeet',
+    kind: 'sfx',
+    volume: 0.9,
+    prompt: 'Google Meet call ringtone prank sting (player-authored clip)',
+  },
 ];
 
 /** Per-clip volume by key (1 if unknown). */

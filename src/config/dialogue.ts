@@ -121,7 +121,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   mission_lvl_3: script('mission_lvl_3', [
     { speaker: 'strateg', side: 'right', text: 'Я Стратег — держу комьюнити и локализацию на пяти языках. И на всех уже орут.' },
     { speaker: 'mech', side: 'left', text: 'И как, помогает?' },
-    { speaker: 'strateg', text: 'Пока их королева, Оливия, не зальёт очередной «фанатский патч». Иван дал ей админку. Прикрой, я раздаю баны!' },
+    { speaker: 'strateg', text: 'Пока их королева, Оливия, не зальёт очередной «фанатский патч». Иван дал ей админку. Прикрой, я раздаю баны!', sound: 'prank_googlemeet' },
   ]),
   mission_lvl_4: script('mission_lvl_4', [
     { speaker: 'voevoda', side: 'right', text: 'Я Воевода. Держу фронт нетокода голыми руками — пакеты летят как картечь.' },
@@ -164,7 +164,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     { speaker: 'boss_olivia', text: 'Только попробуй. Забанить ВАС будет особенно приятно!' },
   ]),
   boss_taunt_lvl_4: script('boss_taunt_lvl_4', [
-    { speaker: 'boss_fijin', side: 'right', text: '[РАССИНХРОН] Цель… вижу… вижу везде. Я Фиджин. Лаг — моё оружие.' },
+    { speaker: 'boss_fijin', side: 'right', text: 'У вас новое уведомление! [РАССИНХРОН] Цель… вижу… вижу везде. Я Фиджин. Лаг — моё оружие.', sound: 'prank_telegram' },
     { speaker: 'coder', side: 'left', text: 'Он мигает по всей карте.' },
     { speaker: 'boss_fijin', text: 'Пинг… четыреста… Огонь по всем направлениям!' },
   ]),
@@ -181,6 +181,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   // lvl_7 villain = the Last Senior himself. The heroes break through to him; he
   // wants nothing but his strawberries — until he learns they're vibecoders.
   boss_taunt_lvl_7: script('boss_taunt_lvl_7', [
+    { speaker: 'senior', side: 'right', text: 'Слышишь!? Кто-то стучит! Надо открыть!', sound: 'prank_door' },
     { speaker: 'senior', side: 'right', text: 'Кроссовки, говоришь? Передай Матриарху — у меня клубника по графику. Никакого спасения мира.' },
     { speaker: 'mech', side: 'left', text: 'Без тебя мир не переписать. Мы сами немного вайбкодеры — но учимся.' },
     { speaker: 'senior', text: 'ВАЙБкодеры?! Так это ВЫ всё и сломали! С глаз долой — будете отлажены. Вручную!' },
