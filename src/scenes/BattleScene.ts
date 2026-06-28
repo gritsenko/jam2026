@@ -129,6 +129,21 @@ const BOSS_DARKEN_RATE = 1.5;
 const BOSS_SPRITE_SCALE = 1.85;
 
 /**
+ * Enemies are anchored by their *feet*, not their centre. An EnemySprite's body is
+ * centred on the token origin, so its ground line sits ~this fraction of the token
+ * size below that origin — it matches the shadow ellipse drawn at `size*0.46` in
+ * EnemySprite. Used to lift the rendered token so the feet (not the middle) meet the road.
+ */
+const BODY_FOOT_FRAC = 0.46;
+/**
+ * How far *below the road axis* an enemy's feet finally rest, as a fraction of the
+ * token size. Small positive = feet sit just under the centreline (on the road, not
+ * past its edge). Render-only — the sim path stays on the road centreline. Tune to taste:
+ * smaller raises the enemies, larger drops them.
+ */
+const ENEMY_FEET_BELOW_AXIS_FRAC = 0.1;
+
+/**
  * Per-tower fire SFX by card id (see docs/planned/tower-sound-design.md). Towers
  * not listed (support / unknown) fall back to the generic `sfx_shoot`.
  */
@@ -2684,6 +2699,8 @@ export class BattleScene extends Scene {
     const { assets } = this.services;
     const now = this.sim.now;
     for (const e of this.sim.enemies) {
+      // The level boss is a hulking super-unit — render its token markedly larger.
+      const tokenSize = e.def.archetype === 'boss' ? this.enemySize * BOSS_SPRITE_SCALE : this.enemySize;
       let view = this.enemyViews.get(e.id);
       if (!view) {
         // Support mobs telegraph their buff reach with an element-tinted aura ring.
@@ -2694,9 +2711,7 @@ export class BattleScene extends Scene {
         // Burn FX = the 4-frame additive flame animation (fx_flame_0..3); chill is
         // now a body-tint + corner snowflake drawn by EnemySprite (no big overlay).
         const fx = { flames: this.flameFrames };
-        // The level boss is a hulking super-unit — render its token markedly larger.
-        const size = e.def.archetype === 'boss' ? this.enemySize * BOSS_SPRITE_SCALE : this.enemySize;
-        view = new EnemySprite(assets.get(e.def.iconKey), size, e.id * 0.7, aura, fx);
+        view = new EnemySprite(assets.get(e.def.iconKey), tokenSize, e.id * 0.7, aura, fx);
         this.enemyViews.set(e.id, view);
         this.enemyHpSeen.set(e.id, e.hp);
         this.enemyLayer.addChild(view);
@@ -2704,12 +2719,20 @@ export class BattleScene extends Scene {
       const prev = this.enemyHpSeen.get(e.id);
       if (prev !== undefined && e.hp < prev) view.playHit();
       this.enemyHpSeen.set(e.id, e.hp);
-      view.position.set(e.x, e.y);
       // Y-sort (lower on the board draws over those further up) + a gentle perspective
       // scale (closer = bigger) for the slightly tilted arena.
-      view.zIndex = e.y;
       const depth = Math.min(1, Math.max(0, e.y / this.arenaH));
-      view.scale.set(0.9 + 0.18 * depth);
+      const viewScale = 0.9 + 0.18 * depth;
+      // Anchor by the feet, not the centre: lift the token so its body sits above the
+      // road and the feet rest just below the road axis. The body's ground line is
+      // ~BODY_FOOT_FRAC*size below centre (and is scaled by the perspective), so the
+      // feet end up ENEMY_FEET_BELOW_AXIS_FRAC*size under the axis regardless of depth.
+      // Render-only — `e.x/e.y` (the sim path) stays on the road centreline, and
+      // zIndex/depth still key off the ground point so sorting/scale are unaffected.
+      const footLift = (BODY_FOOT_FRAC * viewScale - ENEMY_FEET_BELOW_AXIS_FRAC) * tokenSize;
+      view.position.set(e.x, e.y - footLift);
+      view.zIndex = e.y;
+      view.scale.set(viewScale);
       // Face the way it's marching (art faces left; flip when heading right).
       // On (near-)vertical legs there's no horizontal heading, so face the arena
       // center — the enemy looks "inward" toward the platform instead of keeping
