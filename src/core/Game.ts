@@ -59,6 +59,10 @@ export class Game {
     this.app.stage.addChild(this.sceneRoot, this.overlayRoot);
     this.layout = new ResponsiveLayout(this.sceneRoot);
     this.audio = new AudioBus();
+    // Warm the sound cache in the background: prefetch every clip's bytes now and
+    // decode them once the first gesture unlocks the context, so gameplay SFX
+    // don't stall on a first-play fetch + decode. Non-blocking — boot continues.
+    this.audio.preload();
 
     const services: SceneServices = {
       app: this.app,

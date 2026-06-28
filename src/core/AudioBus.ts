@@ -17,7 +17,11 @@ import { AUDIO_KIND, AUDIO_VOLUME, type AudioKind } from '../config/audioManifes
  *  - Browsers block audio until a user gesture, so the AudioContext is created
  *    lazily and resumed on the first pointer/key event. Music requested before
  *    that is queued and started on unlock.
- *  - Buffers are fetched + decoded on first use and cached.
+ *  - Buffers are fetched + decoded on first use and cached. preload() warms that
+ *    cache ahead of time: it prefetches every clip's compressed bytes at boot
+ *    (no AudioContext needed) and, once the context unlocks on the first gesture,
+ *    decodes them into ready AudioBuffers in the background — so the first play
+ *    of any sound is instant instead of stalling on a fetch + decode.
  */
 
 // Recursive: top-level clips plus per-folder sets (e.g. assets/audio/heroes/*.mp3
@@ -65,6 +69,12 @@ export class AudioBus {
   private bus: Record<MixBus, GainNode> | null = null;
   private buffers = new Map<string, AudioBuffer>();
   private decoding = new Map<string, Promise<AudioBuffer | null>>();
+  /** Compressed bytes prefetched ahead of decode (freed once decoded). */
+  private bytes = new Map<string, Promise<ArrayBuffer | null>>();
+  /** preload() requested — decode the cache as soon as the context exists. */
+  private preloadRequested = false;
+  /** A background decode pass is already running (warmDecode runs once). */
+  private warming = false;
   private currentMusicKey: string | null = null;
   private currentMusic: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
   private pendingMusic: string | null = null;
@@ -101,7 +111,7 @@ export class AudioBus {
 
   /** Create the context (if needed) and resume it — must run inside a gesture. */
   private unlock(): void {
-    this.ensureContext();
+    this.ensureContext(); // also kicks off warmDecode() when preload() was requested
     this.resumeContext();
   }
 
@@ -145,6 +155,9 @@ export class AudioBus {
     };
     this.bus = { music: mk('music'), sfx: mk('sfx'), ui: mk('ui') };
     this.kickSilent();
+    // Context just became available — start the background decode pass at the
+    // earliest moment, whoever created it (gesture unlock or menu playMusic).
+    if (this.preloadRequested) this.warmDecode();
   }
 
   /**
@@ -165,27 +178,97 @@ export class AudioBus {
     }
   }
 
+  /**
+   * Fetch (and cache) a clip's compressed bytes. Needs no AudioContext, so it
+   * can run at boot before the first gesture to hide network latency — the only
+   * thing left at play time is the cheap decode. The ArrayBuffer is dropped once
+   * decoded (see load) to reclaim memory.
+   */
+  private fetchBytes(key: string): Promise<ArrayBuffer | null> {
+    const cached = this.bytes.get(key);
+    if (cached) return cached;
+    const url = AUDIO_FILE[key];
+    if (!url) return Promise.resolve(null);
+    const p = fetch(url)
+      .then((r) => r.arrayBuffer())
+      .catch((err) => {
+        console.warn(`[AudioBus] failed to fetch "${key}"`, err);
+        this.bytes.delete(key); // allow a later retry
+        return null;
+      });
+    this.bytes.set(key, p);
+    return p;
+  }
+
   private load(key: string): Promise<AudioBuffer | null> {
     const cached = this.buffers.get(key);
     if (cached) return Promise.resolve(cached);
     const inFlight = this.decoding.get(key);
     if (inFlight) return inFlight;
-    const url = AUDIO_FILE[key];
-    if (!url || !this.ctx) return Promise.resolve(null);
+    if (!this.ctx || !AUDIO_FILE[key]) return Promise.resolve(null);
     const ctx = this.ctx;
-    const p = fetch(url)
-      .then((r) => r.arrayBuffer())
-      .then((b) => ctx.decodeAudioData(b))
+    const p = this.fetchBytes(key)
+      .then((bytes) => (bytes ? ctx.decodeAudioData(bytes) : null))
       .then((buf) => {
-        this.buffers.set(key, buf);
+        if (buf) this.buffers.set(key, buf);
+        this.bytes.delete(key); // compressed bytes no longer needed
         return buf;
       })
       .catch((err) => {
-        console.warn(`[AudioBus] failed to load "${key}"`, err);
+        console.warn(`[AudioBus] failed to decode "${key}"`, err);
+        this.decoding.delete(key); // allow a later retry
         return null;
       });
     this.decoding.set(key, p);
     return p;
+  }
+
+  /**
+   * Warm the sound cache so the first play of any clip is instant instead of
+   * stalling on a fetch + decode. Call once at boot. It prefetches every clip's
+   * compressed bytes immediately (no AudioContext needed) and, as soon as the
+   * context unlocks on the first user gesture, decodes them into ready buffers in
+   * the background. Idempotent and fire-and-forget.
+   */
+  preload(): void {
+    this.preloadRequested = true;
+    for (const key of this.orderedKeys()) void this.fetchBytes(key);
+    if (this.ctx) this.warmDecode(); // a gesture already created the context
+  }
+
+  /**
+   * Background pass: decode every known clip into the buffer cache, hottest
+   * first, with a small concurrency cap so it neither saturates the network nor
+   * spikes the main thread. Runs once. Safe on a suspended context (decode does
+   * not need the context running).
+   */
+  private warmDecode(): void {
+    if (this.warming || !this.ctx) return;
+    this.warming = true;
+    const keys = this.orderedKeys();
+    let i = 0;
+    const CONCURRENCY = 4;
+    const worker = async (): Promise<void> => {
+      while (i < keys.length) {
+        const key = keys[i++]!;
+        if (!this.buffers.has(key)) await this.load(key);
+      }
+    };
+    for (let n = 0; n < CONCURRENCY; n++) void worker();
+  }
+
+  /**
+   * Prefetch / decode priority: gameplay + UI clips first (a mid-action lag is
+   * the most jarring), then music loops, then everything else (voices, one-offs).
+   */
+  private orderedKeys(): string[] {
+    const rank = (k: string): number => {
+      const kind = AUDIO_KIND[k];
+      if (kind === 'sfx' || kind === 'ui') return 0;
+      if (kind === 'music') return 1;
+      return 2;
+    };
+    return Object.keys(AUDIO_FILE).sort((a, b) => rank(a) - rank(b));
   }
 
   /** Fire-and-forget one-shot, routed to its manifest bus. No-op if file absent. */

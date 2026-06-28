@@ -418,6 +418,20 @@ export class BattleSim {
   }
 
   /**
+   * Debug/admin: end the running battle as an immediate victory — clears the
+   * field and fires {@link SimCallbacks.onVictory} exactly like a real clear, so
+   * the victory dialogue + banner chain plays. No-op unless currently running.
+   */
+  forceVictory(): void {
+    if (this.status !== 'running') return;
+    this.enemies.length = 0;
+    this.projectiles.length = 0;
+    this.spawnQueue.length = 0;
+    this.status = 'victory';
+    this.cb.onVictory?.();
+  }
+
+  /**
    * Replace the firing towers (called when the platform changes). Cooldown
    * progress is preserved per slot so re-placing a card never resets the rest
    * of the grid's timers.

@@ -25,6 +25,13 @@ export interface DialogueLine {
   readonly text: string;
   /** Side the speaker stands on; defaults to its last side / home side. */
   readonly side?: Side;
+  /**
+   * Optional one-shot sound key played when THIS line shows (registered in
+   * config/audioManifest.ts; file under assets/audio/**). Attaches a bark to the
+   * phrase itself rather than the character, so successive lines can carry
+   * different sounds. Overrides the speaker's default `voiceKey` for this line.
+   */
+  readonly sound?: string;
 }
 
 export interface DialogueScript {
@@ -150,37 +157,53 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     { speaker: 'boss_rr', side: 'right', text: 'Откат не прошёл… сам откатываюсь. В свой билд, живо!' },
     { speaker: 'klevak', side: 'right', text: 'Район живой! Я… эм… почти не виноват, да? Главное — починили!' },
     { speaker: 'mech', side: 'left', text: 'Чини свой вайб, Клевак. Нам дальше — Сеньор сам себя не найдёт.' },
+    // The recurring backseat-passenger gag begins: just a creeping feeling.
+    { speaker: 'coder', side: 'left', text: 'Слушай… не оборачивайся. Тебе не кажется, что за нами кто-то следит?' },
+    { speaker: 'mech', side: 'left', text: 'Дорога сзади пустая. Это нервишки после босса. Газуй.' },
   ]),
   victory_lvl_2: script('victory_lvl_2', [
     { speaker: 'boss_duck', side: 'right', text: 'Кря… ладно. Сегодня баланс сошёлся. Уплываю обратно в свой билд!' },
     { speaker: 'finance', side: 'right', text: 'Гроссбухи целы, казна сходится до кредита! Спасибо, что не дали всё списать в утиль.' },
     { speaker: 'mech', side: 'left', text: 'Береги бюджет. Мы покатили дальше.' },
+    // The gag escalates: now something is physically missing from the van.
+    { speaker: 'coder', side: 'left', text: 'Стоп. А где печеньки? В бардачке лежала целая пачка!' },
+    { speaker: 'mech', side: 'left', text: 'Я не трогал. Сами же не съелись… Ладно, потом разберёмся. Едем.' },
   ]),
   victory_lvl_3: script('victory_lvl_3', [
     { speaker: 'boss_olivia', side: 'right', text: 'Ладно-ладно… снимаю корону. Ухожу в свой тред. Пока!' },
     { speaker: 'strateg', side: 'right', text: 'Чат притих, локали на месте. Спасибо, что не зафлудили!' },
     { speaker: 'mech', side: 'left', text: 'Обращайся. Дальше по маршруту.' },
+    // The reveal: the heroes turn around and there he is. He never speaks; from
+    // now on he just silently watches at the end of every level (and the finale).
+    { speaker: 'coder', side: 'left', text: 'Опять этот холодок по спине. Мех, тормозни — я обернусь.' },
+    { speaker: 'mech', side: 'left', text: 'Да сзади никого нет, отвеч—…' },
+    { speaker: 'coder', side: 'left', text: 'ОН. ВСЁ ЭТО ВРЕМЯ. С НАМИ. НА ЗАДНЕМ СИДЕНЬЕ.' },
+    { speaker: 'spy', side: 'right', text: '[молчит и смотрит]' },
   ]),
   victory_lvl_4: script('victory_lvl_4', [
     { speaker: 'boss_fijin', side: 'right', text: '[КРИТ. ОШИБКА] Соединение… потеряно… Откат в свой билд…' },
     { speaker: 'voevoda', side: 'right', text: 'Пинг ровный, синхрон есть! Регион снова держит строй.' },
     { speaker: 'mech', side: 'left', text: 'Нас не жди — мы своим ходом.' },
+    { speaker: 'spy', side: 'right', text: '[молчит и смотрит]' },
   ]),
   victory_lvl_5: script('victory_lvl_5', [
     { speaker: 'boss_tacticool', side: 'right', text: 'Лагает… читы отвалились… Всё, рейдж-квит! Ливаю в свой билд.' },
     { speaker: 'khatenkov', side: 'right', text: 'Чисто! Хитбоксы на месте, полигон наш.' },
     { speaker: 'mech', side: 'left', text: 'Ну и грохоту. Поехали, пока в ушах звенит.' },
+    { speaker: 'spy', side: 'right', text: '[молчит и смотрит]' },
   ]),
   victory_lvl_6: script('victory_lvl_6', [
     { speaker: 'boss_hotel', side: 'right', text: 'Жалоба в книгу… съезжаю. Освобождаю номер — обратно в свой билд.' },
     { speaker: 'vadim', side: 'right', text: 'Питание стабильно, гости выселены. Номер за нами — заезжай как герой.' },
     { speaker: 'mech', side: 'left', text: 'В другой раз. Нам ещё ехать.' },
+    { speaker: 'spy', side: 'right', text: '[молчит и смотрит]' },
   ]),
   // The Last Senior, beaten, gets his red sneakers back — and remembers who he is.
   victory_lvl_7: script('victory_lvl_7', [
     { speaker: 'senior', side: 'right', text: 'Всё, всё… сдаюсь. Давно так руки не разминал…' },
     { speaker: 'mech', side: 'left', text: 'Держи. Матриарх просила вернуть. (надевает на Сеньора красные кроссовки)' },
     { speaker: 'senior', text: '…Мои кроссовки. Чёрт. Пальцы сами просятся к клавиатуре. Ладно — поехали переписывать этот мир. По-человечески.' },
+    { speaker: 'spy', side: 'right', text: '[молчит и смотрит]' },
   ]),
 
   // --- Finale (short epilogue over the world map) --------------------------
@@ -190,6 +213,8 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     { speaker: 'senior', side: 'right', text: 'Строчка за строчкой. Без облака, без вайба. По-человечески.' },
     { speaker: 'coder', side: 'left', text: 'А Клевак пусть носит нам кофе. В качестве ревью.' },
     { speaker: 'mech', side: 'left', text: 'Заводи Буханку. Работы — на целый мир.' },
+    // The silent passenger gets the last word — by saying nothing, as always.
+    { speaker: 'spy', side: 'right', text: '[молчит и смотрит]' },
   ]),
 };
 

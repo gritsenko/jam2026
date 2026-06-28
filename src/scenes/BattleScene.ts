@@ -7,6 +7,7 @@ import { tween, Easings, type TweenHandle } from '../core/tween';
 import { cardShortName, elementLabel, gradeLabel, t } from '../core/i18n';
 import { gameSpeedScale } from '../core/gameSpeed';
 import { getEnemySpeed } from '../core/settings';
+import { isTouchDragBoostEnabled } from '../core/touchControls';
 import { createBattleState } from '../config/battleState';
 import {
   HAND_RESPAWN_SEC,
@@ -111,6 +112,10 @@ const ROAD_SPAN = 0.76;
 const PLATFORM_FRAC = 0.5;
 /** Pointer travel (screen px) before a card press becomes a drag rather than a tap. */
 const DRAG_THRESHOLD_SQ = 12 * 12;
+/** Touch one-finger control (§2): how much faster the card travels vertically than
+ *  the finger (Block-Blast style), so the top platform row is reachable without
+ *  sliding the thumb all the way up. Mouse / trackpad / pen stay 1:1. */
+const TOUCH_VERTICAL_GAIN = 1.7;
 
 /** Muzzle flash (per-tower FX sprite): seconds held at full alpha, then fade duration. */
 const MUZZLE_HOLD = 0.1;
@@ -242,6 +247,9 @@ export class BattleScene extends Scene {
   private rerollBtn!: Button;
   private gearBtn!: GearButton;
   private muteBtn!: MuteButton;
+  /** Admin-only dialogue-debug buttons (force-win + replay boss taunt); null when not admin. */
+  private debugWinBtn: Button | null = null;
+  private debugBossBtn: Button | null = null;
   private settings: SettingsPanel | null = null;
   /** Onboarding modal, alive only while pending lessons are shown (defers wave start). */
   private tutorial: TutorialModal | null = null;
@@ -324,18 +332,41 @@ export class BattleScene extends Scene {
 
   // Drag state.
   private dragging: BattleCard | null = null;
-  private dragOffset: PointData = { x: 0, y: 0 };
-  /** Latest pointer position in drag-layer space, so the lift tween can keep the
-   *  card glued to a stationary finger while the grab offset animates. */
-  private dragPointerLocal: PointData = { x: 0, y: 0 };
-  /** Quick pickup interpolation: shrinks the card + slides it so the center of its
-   *  bottom third settles under the pointer. Stopped/replaced on each new lift. */
+  /** Latest pointer position in drag-layer space (updated on every move). */
+  private dragPointer: PointData = { x: 0, y: 0 };
+  /** Pointer position (drag-layer space) captured when the drag began — the origin
+   *  about which the touch vertical gain is measured (§2). */
+  private dragAnchor: PointData = { x: 0, y: 0 };
+  /** Vertical offset (drag-layer px, ≤0) lifting the card above the finger so the
+   *  pointer rests at the center of the card's bottom third, not over its art (§3). */
+  private dragLiftY = 0;
+  /** Vertical travel multiplier: >1 on touch (the card outruns the thumb so the far
+   *  rows are reachable without sliding the finger all the way), 1 on mouse/pen (§2). */
+  private dragVerticalGain = 1;
+  /** True while the pickup lift tween owns card.position (so onDragMove won't fight it). */
+  private dragLifting = false;
+  /** Quick pickup interpolation: shrinks the card + slides it to its held anchor.
+   *  Stopped/replaced on each new lift. */
   private dragLiftTween?: TweenHandle;
   /**
    * When the dragged card is a tower lifted *off the platform* (field-to-field
    * merge, v2 §1.5), the slot index it came from; null for a normal hand-card drag.
    */
   private fieldDragFrom: number | null = null;
+  /**
+   * Drag-release backstop on the DOM window. A lifted card is re-parented into
+   * {@link dragLayer}, which invalidates its recorded press path, so Pixi's
+   * `pointerupoutside` no longer reaches it; and when the finger releases over a
+   * non-interactive gap (between the grid and the hand) Pixi's hit-test finds no
+   * target to bubble a `pointerup` to at all — so neither the card's own handler nor
+   * a stage-level listener fires. Listening on the window (the same source Pixi uses
+   * for up events) ends the drag regardless of where the finger lands or how the card
+   * was re-parented. Guarded by {@link dragging}; the card / slot handlers still end
+   * the drag first in the common cases, leaving this a no-op.
+   */
+  private readonly onWindowUp = (): void => {
+    if (this.dragging) this.endDrag();
+  };
   /** Card pressed but not yet dragged — promoted to a drag once the pointer moves
    *  past a threshold, or treated as a tap (show info plaque) if released first. */
   private pressCard: BattleCard | null = null;
@@ -410,6 +441,12 @@ export class BattleScene extends Scene {
     arena.eventMode = 'static';
     arena.on('pointertap', () => { if (!this.dragging) this.clearInspect(); });
     this.field.addChild(arena);
+    // Finalize drags from the DOM window (see onWindowUp): a lifted card's own
+    // pointerupoutside no longer reaches it, and a release over a non-interactive gap
+    // never bubbles a Pixi pointerup at all — the window is the reliable release source.
+    // addEventListener de-dupes the same handler, so re-entry can't double-register.
+    window.addEventListener('pointerup', this.onWindowUp);
+    window.addEventListener('pointercancel', this.onWindowUp);
     // Boss mood-dim (docs/done/level-bosses.md): a dark sheet over ONLY the level
     // map texture — inserted right above the arena art and below the road / grid /
     // enemies / fx, so when a boss is alive the ground darkens while the towers,
@@ -718,7 +755,60 @@ export class BattleScene extends Scene {
       this.moveCost,
       this.infoPanel,
     );
+    this.buildDebugButtons();
     this.refreshRerollButton();
+  }
+
+  /**
+   * Dialogue-debug helpers (Admin only): a "WIN" button that ends the battle as an
+   * instant victory (so the victory dialogue + spy beats play without grinding the
+   * waves) and a "BOSS" button that replays the boss-taunt dialogue on demand.
+   * Skipped entirely when Admin is off. See docs/working/current-state.md.
+   */
+  private buildDebugButtons(): void {
+    if (!progress.isAdmin()) return;
+    this.debugWinBtn = new Button({
+      label: 'ПОБЕДА',
+      width: 168,
+      height: 52,
+      preset: 'label',
+      labelColor: hex(COLORS.energyOk),
+      onClick: () => this.debugForceVictory(),
+    });
+    this.debugBossBtn = new Button({
+      label: 'БОСС',
+      width: 168,
+      height: 52,
+      preset: 'label',
+      labelColor: hex(COLORS.energyDanger),
+      onClick: () => this.debugReplayBossTaunt(),
+    });
+    this.hudLayer.addChild(this.debugWinBtn, this.debugBossBtn);
+  }
+
+  /** Admin: force an immediate win so the victory dialogue chain plays. */
+  private debugForceVictory(): void {
+    if (this.banner || this.dialogue) return;
+    this.services.audio.playSfx('sfx_click');
+    this.sim.forceVictory();
+  }
+
+  /** Admin: replay this level's boss-taunt dialogue (preview only — never marked seen). */
+  private debugReplayBossTaunt(): void {
+    if (this.banner || this.dialogue) return;
+    const id = bossTauntId(this.levelId);
+    const script = id ? getDialogue(id) : undefined;
+    if (!script) return;
+    this.services.audio.playSfx('sfx_click');
+    this.dialogue = new DialogueOverlay(
+      script,
+      this.services.assets,
+      this.services.audio,
+      () => this.closeDialogue(),
+      { dimAlpha: 0.5 },
+    );
+    this.addChild(this.dialogue); // top-most, above the drag layer
+    this.dialogue.layout(this.services.getLayout());
   }
 
   private buildHand(): void {
@@ -782,8 +872,8 @@ export class BattleScene extends Scene {
     card.cursor = 'grab';
     card.on('pointerdown', (e: FederatedPointerEvent) => this.onCardDown(card, e));
     card.on('globalpointermove', (e: FederatedPointerEvent) => this.onCardMove(e));
-    card.on('pointerup', (e: FederatedPointerEvent) => this.onCardUp(e));
-    card.on('pointerupoutside', (e: FederatedPointerEvent) => this.onCardUp(e));
+    card.on('pointerup', () => this.onCardUp());
+    card.on('pointerupoutside', () => this.onCardUp());
   }
 
   private onCardDown(card: BattleCard, e: FederatedPointerEvent): void {
@@ -809,9 +899,9 @@ export class BattleScene extends Scene {
     this.onDragMove(e);
   }
 
-  private onCardUp(e: FederatedPointerEvent): void {
+  private onCardUp(): void {
     if (this.dragging) {
-      this.endDrag(e);
+      this.endDrag();
       this.pressCard = null;
       return;
     }
@@ -848,8 +938,8 @@ export class BattleScene extends Scene {
       slot.cursor = 'pointer';
       slot.on('pointerdown', (e: FederatedPointerEvent) => this.onSlotDown(slot, e));
       slot.on('globalpointermove', (e: FederatedPointerEvent) => this.onSlotMove(e));
-      slot.on('pointerup', (e: FederatedPointerEvent) => this.onSlotUp(slot, e));
-      slot.on('pointerupoutside', (e: FederatedPointerEvent) => this.onSlotUp(slot, e));
+      slot.on('pointerup', () => this.onSlotUp(slot));
+      slot.on('pointerupoutside', () => this.onSlotUp(slot));
     }
   }
 
@@ -876,9 +966,9 @@ export class BattleScene extends Scene {
     this.onDragMove(e);
   }
 
-  private onSlotUp(slot: SlotView, e: FederatedPointerEvent): void {
+  private onSlotUp(slot: SlotView): void {
     if (this.dragging) {
-      this.endDrag(e);
+      this.endDrag();
       this.pressSlot = null;
       return;
     }
@@ -1038,29 +1128,51 @@ export class BattleScene extends Scene {
   }
 
   /**
+   * Card center (drag-layer coords) for a pointer sample. Horizontal tracks the
+   * finger 1:1; vertical is offset above it by {@link dragLiftY} (§3) and scaled
+   * about the grab anchor by {@link dragVerticalGain} (§2). Both are set per input
+   * device in {@link liftCard} — non-zero on touch, identity on mouse/trackpad/pen —
+   * so on touch a short thumb push carries the card to the far rows without the
+   * finger ever covering the drop target, and on mouse the card stays under the cursor.
+   */
+  private cardPosForPointer(p: PointData): PointData {
+    return {
+      x: p.x,
+      y: this.dragAnchor.y + this.dragLiftY + (p.y - this.dragAnchor.y) * this.dragVerticalGain,
+    };
+  }
+
+  /**
    * Move a just-grabbed card onto the drag layer and play the pickup lift: a quick
    * interpolation that shrinks it to ≈one cell ({@link pickupScale}) and slides it
-   * so its **center** settles under the pointer — slot snapping is resolved from the
-   * pointer position ({@link onDragMove} → `slotAtGlobal`), so centering the card on
-   * the finger keeps the held card aligned with the slot it will drop on. The tween
-   * drives `card.position` itself (from the last pointer sample) so the card tracks
-   * even a stationary finger; {@link onDragMove} takes over the instant it moves.
+   * from the grab spot to its **held anchor** — center *above* the finger so the
+   * thumb rests on the card's bottom third (§3), with the touch vertical gain (§2)
+   * measured from here on. Snapping is resolved from the card's visual center
+   * ({@link onDragMove}), so the lifted / gained card stays aligned with the slot it
+   * will drop on. The tween reads {@link dragPointer} so the card tracks even a
+   * stationary finger; {@link onDragMove} takes over once the lift completes.
    */
   private liftCard(card: BattleCard, grabGlobal: PointData, e: FederatedPointerEvent): void {
-    const local = this.dragLayer.toLocal(grabGlobal);
+    const grab = this.dragLayer.toLocal(grabGlobal);
     this.dragLayer.addChild(card);
-    card.position.copyFrom(local);
+    card.position.copyFrom(grab);
 
     const toScale = this.pickupScale(card);
-    const pointerLocal = this.dragLayer.toLocal(e.global);
-    this.dragPointerLocal = { x: pointerLocal.x, y: pointerLocal.y };
-    // Start at the scaled grab point (the spot the player pressed), animate to a
-    // zero offset so the card center lands exactly under the pointer.
-    const startOff = { x: (local.x - pointerLocal.x) * toScale, y: (local.y - pointerLocal.y) * toScale };
-    const targetOff = { x: 0, y: 0 };
-    this.dragOffset = { x: startOff.x, y: startOff.y };
+    const anchor = this.dragLayer.toLocal(e.global);
+    this.dragAnchor = { x: anchor.x, y: anchor.y };
+    this.dragPointer = { x: anchor.x, y: anchor.y };
+    // Touch only: lift the card a third of its (scaled) height above the finger so
+    // the finger rests at the center of the card's bottom third — not over the art
+    // (§3) — and race it vertically so the far rows are reachable (Block-Blast §2).
+    // On mouse / trackpad / pen the card stays 1:1 under the cursor (no finger to dodge).
+    // The vertical race is a player toggle (Settings → "fast drag"); the lift stays on
+    // either way so the finger never covers the card even with the race disabled.
+    const touch = e.pointerType === 'touch';
+    this.dragLiftY = touch ? -(card.cardH / 3) * toScale : 0;
+    this.dragVerticalGain = touch && isTouchDragBoostEnabled() ? TOUCH_VERTICAL_GAIN : 1;
 
     const fromScale = card.scale.x;
+    this.dragLifting = true;
     this.dragLiftTween?.stop();
     this.dragLiftTween = this.track(
       tween({
@@ -1069,10 +1181,10 @@ export class BattleScene extends Scene {
         onUpdate: (t) => {
           if (card.destroyed) return;
           card.scale.set(fromScale + (toScale - fromScale) * t);
-          this.dragOffset.x = startOff.x + (targetOff.x - startOff.x) * t;
-          this.dragOffset.y = startOff.y + (targetOff.y - startOff.y) * t;
-          card.position.set(this.dragPointerLocal.x + this.dragOffset.x, this.dragPointerLocal.y + this.dragOffset.y);
+          const tgt = this.cardPosForPointer(this.dragPointer);
+          card.position.set(grab.x + (tgt.x - grab.x) * t, grab.y + (tgt.y - grab.y) * t);
         },
+        onComplete: () => { this.dragLifting = false; },
       }),
     );
     card.alpha = 0.97;
@@ -1176,22 +1288,29 @@ export class BattleScene extends Scene {
     const card = this.dragging;
     if (!card) return;
     const p = this.dragLayer.toLocal(e.global);
-    // Keep the latest pointer for the lift tween (which drives position while the
-    // grab offset is still animating to the bottom-third anchor).
-    this.dragPointerLocal = { x: p.x, y: p.y };
-    card.position.set(p.x + this.dragOffset.x, p.y + this.dragOffset.y);
+    this.dragPointer = { x: p.x, y: p.y };
+    const tgt = this.cardPosForPointer(p);
+    // While the pickup lift owns the position (sliding the card up to its held
+    // anchor) don't fight it — let it slide. Either way, resolve snapping from the
+    // *settled* target the card is heading to, not its mid-lift position, so the
+    // preview matches the eventual drop (the same point endDrag commits against).
+    if (!this.dragLifting) card.position.set(tgt.x, tgt.y);
+    // Snap from the card's visual center, not the finger, so the finger never has to
+    // cover the drop target (§1). With the lift / gain (§2, §3) that center sits well
+    // above the finger — exactly where the player is aiming.
+    const center = this.dragLayer.toGlobal(tgt);
 
     // Modernization cards have their own (platform-wide) drag feedback.
     if (card.def.category === 'modernization') {
-      this.onModDragMove(card, e);
+      this.onModDragMove(card, center);
       return;
     }
 
     const fieldDrag = this.fieldDragFrom !== null;
     const fieldBurn = fieldDrag && progress.isBurnFieldEnabled();
     const overReactor =
-      this.reactor.visible && this.reactor.containsGlobal(e.global) && (!fieldDrag || fieldBurn);
-    const hit = overReactor ? null : this.grid.slotAtGlobal(e.global);
+      this.reactor.visible && this.reactor.containsGlobal(center) && (!fieldDrag || fieldBurn);
+    const hit = overReactor ? null : this.grid.slotAtGlobal(center);
     // A field-drag can never target its own origin slot.
     const slot = hit && hit.index !== this.fieldDragFrom ? hit : null;
     // A field-drag has no empty-slot drop (no relocation) — only merges.
@@ -1268,7 +1387,7 @@ export class BattleScene extends Scene {
     // while not over the Reactor or a grid slot. Highlight the target card.
     let fuse: { target: BattleCard; hybridId: string } | null = null;
     if (this.mechanics.has('fusion') && !fieldDrag && !overReactor && !targetSlot) {
-      const other = this.handCardAtGlobal(e.global, card)?.card;
+      const other = this.handCardAtGlobal(center, card)?.card;
       if (other) {
         const hid = fusionResult(card.def.id, other.def.id);
         if (hid) fuse = { target: other, hybridId: hid };
@@ -1378,13 +1497,24 @@ export class BattleScene extends Scene {
     );
   }
 
-  private endDrag(e: FederatedPointerEvent): void {
+  private endDrag(): void {
     const card = this.dragging;
     if (!card) return;
 
+    // Settle the card at its final held position (the pickup lift may still be
+    // running) and snap from its visual center, not the finger (§1). Use the last
+    // pointer sample (kept current by onDragMove) — the release is delivered by the
+    // DOM window / card / slot and doesn't carry a fresh Pixi position.
+    const p = this.dragPointer;
+    this.dragLifting = false;
+    this.dragLiftTween?.stop();
+    const dropTarget = this.cardPosForPointer(p);
+    card.position.set(dropTarget.x, dropTarget.y);
+    const center = this.dragLayer.toGlobal(dropTarget);
+
     // Modernization cards resolve against the platform holo, not the slots / Reactor.
     if (card.def.category === 'modernization') {
-      this.endModDrag(card, e);
+      this.endModDrag(card, center);
       return;
     }
 
@@ -1408,12 +1538,12 @@ export class BattleScene extends Scene {
     this.moveCost.hide();
     this.hint.alpha = 0.7;
 
-    const slot = this.grid.slotAtGlobal(e.global);
+    const slot = this.grid.slotAtGlobal(center);
 
     // Field drag: burn on Reactor (2× gold) or merge onto a matching tower.
     if (fromIndex !== null) {
       const fieldBurn = progress.isBurnFieldEnabled();
-      if (fieldBurn && this.reactor.visible && this.reactor.containsGlobal(e.global)) {
+      if (fieldBurn && this.reactor.visible && this.reactor.containsGlobal(center)) {
         this.hideReactor();
         const cost = fieldBurnCost(this.burnsThisBattle);
         if (this.state.gold >= cost) this.burnTowerField(fromIndex, card);
@@ -1432,7 +1562,7 @@ export class BattleScene extends Scene {
 
     // Hand card: burn on the Reactor (grants Overdrive) — only if the player can
     // afford the escalating burn price (§3.Г); otherwise it glides back home.
-    if (this.reactor.visible && this.reactor.containsGlobal(e.global)) {
+    if (this.reactor.visible && this.reactor.containsGlobal(center)) {
       this.hideReactor();
       if (this.state.gold >= this.burnCost()) this.burnCard(card);
       else this.returnCardHome(card);
@@ -1452,7 +1582,7 @@ export class BattleScene extends Scene {
 
     // ...or fuse onto a different hand card that has a recipe (v2 §6.5).
     if (!slot && this.mechanics.has('fusion')) {
-      const other = this.handCardAtGlobal(e.global, card)?.card;
+      const other = this.handCardAtGlobal(center, card)?.card;
       if (other) {
         const hid = fusionResult(card.def.id, other.def.id);
         if (hid && this.canAffordFusion(card, other)) {
@@ -1687,10 +1817,10 @@ export class BattleScene extends Scene {
   }
 
   /** Drag feedback for a modernization card: affordability tint, Focus picker, cost. */
-  private onModDragMove(card: BattleCard, e: FederatedPointerEvent): void {
+  private onModDragMove(card: BattleCard, centerGlobal: PointData): void {
     const def = card.def;
     this.modOverlay.setAffordable(this.canAffordCard(def));
-    const el = def.mod === 'focus' ? this.modOverlay.elementAtGlobal(e.global) : null;
+    const el = def.mod === 'focus' ? this.modOverlay.elementAtGlobal(centerGlobal) : null;
     if (def.mod === 'focus') this.modOverlay.highlightElement(el);
     this.moveCost.show(this.modCostParts(def, el));
     this.moveCost.position.set(this.moveCostPos.x, this.moveCostPos.y);
@@ -1702,13 +1832,13 @@ export class BattleScene extends Scene {
    * release lands over it (and is affordable) — Focus additionally needs an element
    * disc under the pointer (§5). Anything else glides the card back home.
    */
-  private endModDrag(card: BattleCard, e: FederatedPointerEvent): void {
+  private endModDrag(card: BattleCard, centerGlobal: PointData): void {
     this.dragging = null;
     card.cursor = 'grab';
     this.dragLiftTween?.stop(); // stop the pickup lift before return/apply takes over
     // Hit-test while the overlay is still live, then tear it down.
-    const el = card.def.mod === 'focus' ? this.modOverlay.elementAtGlobal(e.global) : null;
-    const overPlatform = this.grid.containsGlobal(e.global) || this.modOverlay.containsGlobal(e.global);
+    const el = card.def.mod === 'focus' ? this.modOverlay.elementAtGlobal(centerGlobal) : null;
+    const overPlatform = this.grid.containsGlobal(centerGlobal) || this.modOverlay.containsGlobal(centerGlobal);
     this.modOverlay.hide();
     this.moveCost.hide();
     this.hint.alpha = 0.7;
@@ -3529,6 +3659,12 @@ export class BattleScene extends Scene {
     const ctrlCX = safe.x + pad + 75; // centered under the MAP button
     this.gearBtn.position.set(ctrlCX - (ctrlD + ctrlGap) / 2, ctrlY);
     this.muteBtn.position.set(ctrlCX + (ctrlD + ctrlGap) / 2, ctrlY);
+    // Admin dialogue-debug buttons: stacked just below the gear/mute row, left column.
+    if (this.debugWinBtn && this.debugBossBtn) {
+      const dbgY = ctrlY + 32 + 12 + 26; // below the 64px control row + gap
+      this.debugWinBtn.position.set(ctrlCX, dbgY);
+      this.debugBossBtn.position.set(ctrlCX, dbgY + 60);
+    }
     this.settings?.layout(info);
     this.tutorial?.layout(info);
     this.dialogue?.layout(info);
@@ -3715,6 +3851,8 @@ export class BattleScene extends Scene {
   }
 
   override onExit(): void {
+    window.removeEventListener('pointerup', this.onWindowUp);
+    window.removeEventListener('pointercancel', this.onWindowUp);
     for (const t of this.tweens) t.stop();
     this.tweens.length = 0;
     this.closeSettings();

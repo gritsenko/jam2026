@@ -115,6 +115,7 @@ const en: Dict = {
   'settings.language': 'LANGUAGE',
   'settings.gameSpeed': 'GAME SPEED',
   'settings.enemySpeed': 'ENEMY SPEED',
+  'settings.touchDragBoost': 'FAST DRAG (TOUCH)',
 
   // --- end-of-battle banner ---
   'banner.victory': 'VICTORY',
@@ -288,6 +289,7 @@ const ru: Dict = {
   'settings.language': 'ЯЗЫК',
   'settings.gameSpeed': 'СКОРОСТЬ ИГРЫ',
   'settings.enemySpeed': 'СКОРОСТЬ ВРАГОВ',
+  'settings.touchDragBoost': 'БЫСТРОЕ ПЕРЕТАСКИВАНИЕ (ТАЧ)',
 
   // --- end-of-battle banner ---
   'banner.victory': 'ПОБЕДА',

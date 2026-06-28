@@ -74,8 +74,8 @@ export class DialogueOverlay extends Container {
 
   private readonly slots: Record<Side, SlotOccupant | null> = { left: null, center: null, right: null };
   private readonly lastSide = new Map<string, Side>();
-  /** Speaker of the previous line, so a voice bark fires only on speaker change. */
-  private lastSpokenId: string | null = null;
+  /** Characters that have already barked this script — voice fires on first line only. */
+  private readonly spokenChars = new Set<string>();
 
   private index = -1;
   private fullText = '';
@@ -175,12 +175,12 @@ export class DialogueOverlay extends Container {
     }
     this.setActive(char.narrator ? null : char.id);
 
-    // Systemic voice bark: play the speaker's clip once when the baton passes to a
-    // new speaker (so several consecutive lines from one character bark just once).
-    if (char.voiceKey && line.speaker !== this.lastSpokenId) {
-      this.audio.playSfx(char.voiceKey);
-    }
-    this.lastSpokenId = line.speaker;
+    // Bark: a per-line `sound` plays for THIS phrase whenever present; otherwise the
+    // speaker's default `voiceKey` fires once — only on the FIRST line that character
+    // speaks in this script (later turns from the same speaker stay quiet).
+    const bark = line.sound ?? (this.spokenChars.has(char.id) ? undefined : char.voiceKey);
+    if (bark) this.audio.playSfx(bark);
+    this.spokenChars.add(char.id);
 
     this.fullText = lineText(this.script.id, this.index, line.text);
     this.revealed = 0;

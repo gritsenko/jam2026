@@ -4,14 +4,16 @@ import type { AudioBus } from '../core/AudioBus';
 import type { LayoutInfo } from '../core/ResponsiveLayout';
 import { Button } from './Button';
 import { Slider } from './Slider';
+import { Checkbox } from './Checkbox';
 import { LangSwitch } from './LangSwitch';
 import { SpeedStepper } from './SpeedStepper';
 import { drawPanel, makeText } from './helpers';
 import { t } from '../core/i18n';
+import { isTouchDragBoostEnabled, setTouchDragBoostEnabled } from '../core/touchControls';
 import * as Telemetry from '../telemetry/Telemetry';
 
 const CARD_W = 760;
-const CARD_H = 1010;
+const CARD_H = 1086;
 const PAD = 52;
 
 /**
@@ -103,6 +105,21 @@ export class SettingsPanel extends Container {
     speed.position.set(PAD, 408);
     this.card.addChild(speed);
 
+    // Touch drag-assist toggle, placed right under the speed control (per request):
+    // off makes a lifted card track the finger 1:1 vertically instead of racing ahead
+    // (Block-Blast §2). Touch-only — mouse/pen are always 1:1 — and the bottom-third
+    // lift (§3) stays on either way, so the finger never covers the card.
+    const dragBoost = new Checkbox(
+      t('settings.touchDragBoost'),
+      isTouchDragBoostEnabled(),
+      (on) => {
+        setTouchDragBoostEnabled(on);
+        Telemetry.track('touch_drag_boost_toggle', { on });
+      },
+    );
+    dragBoost.position.set((CARD_W - dragBoost.width) / 2, 540);
+    this.card.addChild(dragBoost);
+
     this.muteBtn = new Button({
       label: this.muteLabel(),
       width: sliderW,
@@ -114,7 +131,7 @@ export class SettingsPanel extends Container {
         Telemetry.track('mute_toggle', { muted: this.audio.isMuted });
       },
     });
-    this.muteBtn.position.set(CARD_W / 2, 582);
+    this.muteBtn.position.set(CARD_W / 2, 658);
     this.card.addChild(this.muteBtn);
 
     // Privacy: opt in/out of anonymous gameplay telemetry. Toggling emits one
@@ -131,13 +148,13 @@ export class SettingsPanel extends Container {
         this.privacyBtn.setLabel(this.privacyLabel());
       },
     });
-    this.privacyBtn.position.set(CARD_W / 2, 670);
+    this.privacyBtn.position.set(CARD_W / 2, 746);
     this.card.addChild(this.privacyBtn);
 
     // Language picker (mirrors the start-screen control). Switching persists +
     // reloads the page, so a change applies even mid-battle.
     const langSwitch = new LangSwitch(sliderW, true);
-    langSwitch.position.set(PAD, 754);
+    langSwitch.position.set(PAD, 830);
     this.card.addChild(langSwitch);
 
     const closeBtn = new Button({

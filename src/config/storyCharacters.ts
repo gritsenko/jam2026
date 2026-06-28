@@ -31,9 +31,11 @@ export interface StoryCharacter {
   /** Element accent that tints the name plate + portrait rim glow. */
   readonly accent?: ElementId;
   /**
-   * Voice-bark audio key played once when this character opens in a dialogue
-   * (the first line of a speaker turn). File lives at assets/audio/heroes/<key>.mp3
-   * (key = basename); registered in config/audioManifest.ts. Omit for silent ones.
+   * Voice-bark audio key played once — on the FIRST line this character speaks in a
+   * script (later turns from the same speaker stay quiet). A line's own `sound`
+   * (config/dialogue.ts) overrides this for that phrase. File lives at
+   * assets/audio/heroes/<key>.mp3 (key = basename); registered in
+   * config/audioManifest.ts. Omit for silent ones.
    */
   readonly voiceKey?: string;
   /**
@@ -61,6 +63,12 @@ export const STORY_CHARACTERS: Record<string, StoryCharacter> = {
   // Defeat-screen Easter egg: a deadpan quote-author who consoles you on a loss
   // with a (cleaned) absurd aphorism (config/quotes.ts). Stands center, alone.
   jason: { id: 'jason', name: 'Джейсон Максютин', assetKey: 'char_jason', homeSide: 'center', accent: 'Physical' },
+  // The silent backseat passenger — a recurring wordless gag. He never speaks,
+  // only "[молчит и смотрит]". The heroes sense him being followed (victory_lvl_1),
+  // notice the cookies gone (victory_lvl_2), then turn around and spot him riding
+  // along (victory_lvl_3); after that he closes out every level + the finale,
+  // silently watching. Name stays hidden ("???") to keep the mystery.
+  spy: { id: 'spy', name: '???', assetKey: 'char_spy', homeSide: 'right', accent: 'Physical' },
 
   // --- per-level division heads / briefers -----------------------------------
   // Run the mission brief and (mostly) thank the heroes on a clear. Portraits cut

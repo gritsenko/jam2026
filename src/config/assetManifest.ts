@@ -1094,6 +1094,16 @@ export const ASSETS: AssetSpec[] = [
     prompt: 'cut-out portrait: a calm bald bearded man in a sharp dark grey three-piece suit with a maroon tie, hands in pockets, deadpan confident look (cut from docs/visual_refs/visual_sources/JasonMaksyutin.png)',
     placeholder: { shape: 'rect', tint: COLORS.metalDark, label: 'JASON' },
   },
+  {
+    // The silent backseat passenger — a recurring wordless gag. Always "[молчит и
+    // смотрит]". Revealed after the lvl_3 victory; rides along to every level's
+    // end and the finale. See config/dialogue.ts + storyCharacters.ts (`spy`).
+    key: 'char_spy',
+    category: 'prop',
+    size: 512,
+    prompt: 'full-body cut-out character: a long-haired young man with an orange scarf and a black tee, holding a small dieselpunk handheld console showing a world map, a tote bag strap across his chest, blank unsettling stare (cut from docs/visual_refs/visual_sources/spy.png)',
+    placeholder: { shape: 'rect', tint: COLORS.metalDark, label: 'SPY' },
+  },
 ];
 
 export const ASSET_BY_KEY: Record<string, AssetSpec> = Object.fromEntries(

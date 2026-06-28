@@ -921,6 +921,13 @@
       "category": "prop",
       "size": 512,
       "prompt": "cut-out portrait: a calm bald bearded man in a sharp dark grey three-piece suit with a maroon tie, hands in pockets, deadpan confident look (cut from docs/visual_refs/visual_sources/JasonMaksyutin.png)"
+    },
+    {
+      "key": "char_spy",
+      "file": "assets/sprites/char_spy.png",
+      "category": "prop",
+      "size": 512,
+      "prompt": "full-body cut-out character: a long-haired young man with an orange scarf and a black tee, holding a small dieselpunk handheld console showing a world map, a tote bag strap across his chest, blank unsettling stare (cut from docs/visual_refs/visual_sources/spy.png)"
     }
   ]
 }
