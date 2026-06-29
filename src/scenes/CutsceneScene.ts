@@ -468,13 +468,14 @@ export class CutsceneScene extends Scene {
 
     this.endCard = card;
     this.overlayLayer.addChild(card);
-    this.layoutEndCard();
-    card.alpha = 0;
-    this.track(tween({ duration: 0.5, onUpdate: (e) => { if (!card.destroyed) card.alpha = e; } }));
-    // Keep references to position children on resize.
+    // Keep references to position children — set BEFORE the first layoutEndCard(),
+    // which positions glow/title/btn through these refs (and reuses them on resize).
     (card as Container & { _glow?: Graphics; _title?: Container; _btn?: Container })._glow = glow;
     (card as Container & { _title?: Container })._title = title;
     (card as Container & { _btn?: Container })._btn = btn;
+    this.layoutEndCard();
+    card.alpha = 0;
+    this.track(tween({ duration: 0.5, onUpdate: (e) => { if (!card.destroyed) card.alpha = e; } }));
   }
 
   private layoutEndCard(): void {
