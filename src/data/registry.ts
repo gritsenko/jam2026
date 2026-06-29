@@ -92,7 +92,7 @@ import v3CombatRules from './game_configs/campaign_v3/combatRules.json';
 import v3BattleRules from './game_configs/campaign_v3/battleRules.json';
 import v3BattleSeed from './game_configs/campaign_v3/battleSeed.json';
 
-export const DEFAULT_GAME_CONFIG = 'default';
+export const DEFAULT_GAME_CONFIG = 'campaign_v3';
 
 export const GAME_CONFIGS: Record<string, GameConfig> = {
   default: toGameConfig({
