@@ -33,8 +33,14 @@
   игроков: **7 уровней**, доска пред-засеяна с урезанным ростером на ур. 1–3, сложность
   ур. 4–7 между `default` и `campaign_x2`, по одной новой механике на уровень.
   Общие card/rule-файлы `campaign_x2`/`campaign_v3` повторяют `default` (отличаются
-  только levels/levelCombat/progression/enemies/battleSeed). Валидация —
-  [validate.ts](../../src/data/validate.ts).
+  только levels/levelCombat/progression/enemies/battleSeed). Ещё есть **`campaign_lite`**
+  — «проходимая» лёгкая версия (цель винрейта 80–90%): много **слабых** врагов
+  (`hpScale` 0.55–0.9) + щедрая экономика (`bountyScale` 2.0–2.6, `WAVE_CLEAR_BONUS` 50,
+  старт 450 золота, `energyCapacity` 12, `CORE_MAX` 35), чтобы игрок свободно
+  ставил/мерджил/фьюзил и попробовал все механики. Прогрессия = лесенка `default`
+  (совпадает с глобальными туториалами). Оттюнено ботом (`sim/bot/run.ts`, политика
+  `smart` ≥96% на всех 7 уровнях). Дефолт остаётся `campaign_v3`; lite — опционально
+  (`?game_config=campaign_lite`). Валидация — [validate.ts](../../src/data/validate.ts).
 - **Направление входа — пер-левел.** Враги заходят с **разной стороны** в зависимости
   от уровня: шаблоны путей `ENEMY_PATHS` (`bottom`/`top`/`left`/`right`) в
   [combatRules.ts](../../src/config/combatRules.ts), выбор — `LevelCombat.pathId`.

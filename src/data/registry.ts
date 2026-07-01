@@ -92,6 +92,18 @@ import v3CombatRules from './game_configs/campaign_v3/combatRules.json';
 import v3BattleRules from './game_configs/campaign_v3/battleRules.json';
 import v3BattleSeed from './game_configs/campaign_v3/battleSeed.json';
 
+import liteCards from './game_configs/campaign_lite/cards.json';
+import liteEnemies from './game_configs/campaign_lite/enemies.json';
+import liteLevels from './game_configs/campaign_lite/levels.json';
+import liteLevelCombat from './game_configs/campaign_lite/levelCombat.json';
+import liteWaves from './game_configs/campaign_lite/waves.json';
+import liteReactions from './game_configs/campaign_lite/reactions.json';
+import liteRecipes from './game_configs/campaign_lite/recipes.json';
+import liteProgression from './game_configs/campaign_lite/progression.json';
+import liteCombatRules from './game_configs/campaign_lite/combatRules.json';
+import liteBattleRules from './game_configs/campaign_lite/battleRules.json';
+import liteBattleSeed from './game_configs/campaign_lite/battleSeed.json';
+
 export const DEFAULT_GAME_CONFIG = 'campaign_v3';
 
 export const GAME_CONFIGS: Record<string, GameConfig> = {
@@ -195,6 +207,24 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     combatRules: v3CombatRules,
     battleRules: v3BattleRules,
     battleSeed: v3BattleSeed,
+  }),
+  /**
+   * Lite/easy variant for a completable run (80–90% target win-rate): many but weak
+   * enemies + generous economy so players freely place/merge/fuse and try every
+   * mechanic. Progression = default 7-level ladder (matches the global tutorials).
+   */
+  campaign_lite: toGameConfig({
+    cards: liteCards,
+    enemies: liteEnemies,
+    levels: liteLevels,
+    levelCombat: liteLevelCombat,
+    waves: liteWaves,
+    reactions: liteReactions,
+    recipes: liteRecipes,
+    progression: liteProgression,
+    combatRules: liteCombatRules,
+    battleRules: liteBattleRules,
+    battleSeed: liteBattleSeed,
   }),
 };
 

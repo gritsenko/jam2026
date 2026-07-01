@@ -11,6 +11,7 @@ const LABELS: Record<string, string> = {
   campaign_tight: 'campaign_tight',
   campaign_x2: 'campaign_x2 (×2)',
   campaign_v3: 'campaign_v3 (onboarding)',
+  campaign_lite: 'campaign_lite (easy)',
 };
 
 /**

@@ -1,0 +1,8 @@
+{
+  "frost_pulse|plasma_shutter": "steam_cannon",
+  "frost_pulse|storm_coil": "cryo_discharge",
+  "plasma_shutter|storm_coil": "ion_volley",
+  "plasma_shutter|railgun": "thermo_spear",
+  "frost_pulse|railgun": "icebreaker",
+  "railgun|storm_coil": "gauss_coil"
+}
